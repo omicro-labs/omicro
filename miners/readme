@@ -1,0 +1,6 @@
+Mining Howto
+
+. a miner is node that supports the Omicro network
+. a miner validates and verifies transactions submitted from clients
+. a miner node must meet minimum hardware requirement to join
+. a miner node first needs to be enrolled by appraisers
