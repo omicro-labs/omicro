@@ -1,1 +1,7 @@
-Exploring Reliable UDP messaging protocol
+Reliable UDP messaging protocol
+
+https://github.com/skywind3000/kcp 
+
+
+KCP uses 10-20% more bandwidth than TCP but reduces latency by 30-40% for short messaging. It also reduces
+maximum latency by three fold. KCP has only two files:  ikcp.h and ikcp.c source files.
