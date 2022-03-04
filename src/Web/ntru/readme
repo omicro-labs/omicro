@@ -3,3 +3,8 @@ This is cloned from C implementation from:
 
 https://github.com/tbuktu/libntru
 
+Command:
+
+git clone https://github.com/tbuktu/libntru.git
+
+
