@@ -73,19 +73,8 @@ SRCBUILD=../../../src/build
 
 # The linker options.
 MY_LIBS   = \
-			$(SRCBUILD)/omicroclient.o \
-			$(SRCBUILD)/omicrokey.o \
-            $(BOOST_LIB_PATH)/libboost_system-mt.a $(BOOST_LIB_PATH)/libboost_filesystem-mt.a \
-            $(BOOST_LIB_PATH)/libboost_thread-mt.a $(BOOST_LIB_PATH)/libboost_date_time-mt.a \
-			$(KCP)/essential/essential.a $(KCP)/server_lib/asio_kcp_server.a \
-			$(KCP)/client_lib/kcp_client_lib.a \
-			$(KCP)/essential/essential.a \
+			$(SRCBUILD)/omicrokey.o 
 
-
-# The pre-processor options used by the cpp (man cpp for more).
-#CPPFLAGS  = -Wall -I essential -I ddlib -O2
-
-#CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -g3 -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
 CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -I $(KCP) -I $(SRCINC) -g -ggdb
 
 # The options used in linking as well as in any direct use of ld.
