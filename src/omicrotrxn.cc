@@ -5,7 +5,7 @@
 
 OmicroTrxn::OmicroTrxn()
 {
-	data_[TRXN_TOTAL_SZ+1] = '\0';
+	data_[TRXN_TOTAL_SZ] = '\0';
 }
 
 OmicroTrxn::OmicroTrxn( const char *str )
@@ -16,7 +16,7 @@ OmicroTrxn::OmicroTrxn( const char *str )
 	} else {
 		std::cout << "E00001 OmicroTrxn::OmicroTrxn(s) s=[" << str << "] is too short" << std::endl;
 	}
-	data_[TRXN_TOTAL_SZ+1] = '\0';
+	data_[TRXN_TOTAL_SZ] = '\0';
 }
 
 OmicroTrxn::~OmicroTrxn()
@@ -40,7 +40,7 @@ bool OmicroTrxn::setHeader( const char *s)
 	int start = TRXN_HEADER_START;
 	int sz = TRXN_HEADER_SZ;
 	if ( len != sz ) {
-		std::cout << "E10000 OmicroTrxn::setHeader s=[" << s << "] wrong size" << std::endl; 
+		std::cout << "E10000 OmicroTrxn::setHeader s=[" << s << "] wrong size " << len << std::endl; 
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -63,7 +63,7 @@ bool OmicroTrxn::setBeacon( const char *s)
 	int sz = TRXN_BEACON_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10001 OmicroTrxn::setBeacon s=[" << s << "] wrong size" << std::endl; 
+		std::cout << "E10001 OmicroTrxn::setBeacon s=[" << s << "] wrong size " << len << std::endl; 
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -87,7 +87,7 @@ bool OmicroTrxn::setSender( const char *s)
 	int sz = TRXN_SENDER_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10002 OmicroTrxn::setSender s=[" << s << "] wrong size" << std::endl; 
+		std::cout << "E10002 OmicroTrxn::setSender s=[" << s << "] wrong size " << len << std::endl; 
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -110,7 +110,7 @@ bool OmicroTrxn::setReceiver( const char *s)
 	int sz = TRXN_RECEIVER_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10003 OmicroTrxn::setReceiver s=[" << s << "] wrong size" << std::endl; 
+		std::cout << "E10003 OmicroTrxn::setReceiver s=[" << s << "] wrong size " << len << std::endl; 
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -141,7 +141,7 @@ bool OmicroTrxn::setAmount( const char *s)
 	int sz = TRXN_AMOUNT_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10003 OmicroTrxn::setAmout s=[" << s << "] wrong size" << std::endl; 
+		std::cout << "E10004 OmicroTrxn::setAmout s=[" << s << "] wrong size " << len << std::endl; 
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -164,7 +164,7 @@ bool OmicroTrxn::setTimeStamp( const char *s)
 	int sz = TRXN_TIMESTAMP_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10004 OmicroTrxn::setTimeStamp s=[" << s << "] wrong size" << std::endl; 
+		std::cout << "E10005 OmicroTrxn::setTimeStamp s=[" << s << "] wrong size " << len << std::endl; 
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -188,7 +188,7 @@ bool OmicroTrxn::setTrxnType( const char *s)
 	int sz = TRXN_TRXNTYPE_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10005 OmicroTrxn::setTrxnType s=[" << s << "] wrong size" << std::endl; 
+		std::cout << "E10006 OmicroTrxn::setTrxnType s=[" << s << "] wrong size " << len << std::endl; 
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -211,7 +211,7 @@ bool OmicroTrxn::setAssetType( const char *s)
 	int sz = TRXN_ASSETTYPE_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10006 OmicroTrxn::setAssetType s=[" << s << "] wrong size" << std::endl; 
+		std::cout << "E10007 OmicroTrxn::setAssetType s=[" << s << "] wrong size" << len << std::endl; 
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -235,15 +235,67 @@ bool OmicroTrxn::setSignature( const char *s)
 	int sz = TRXN_SIGNATURE_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10007 OmicroTrxn::setSignature s=[" << s << "] wrong size" << std::endl; 
+		std::cout << "E10008 OmicroTrxn::setSignature s=[" << s << "] wrong size " << len << std::endl; 
 		return false;
 	}
 	memcpy( data_+start, s, sz );
 	return true;
 }
 
-// caller frees the pointer
-char *OmicroTrxn::getString()
+const char *OmicroTrxn::getString()
 {
-	return strdup(data_);
+	return (char*)data_;
 }
+const char *OmicroTrxn::str()
+{
+	return (char*)data_;
+}
+
+char * OmicroTrxn::getTrxnID()
+{
+	// sender + timestamp
+	char *p = (char*)malloc( TRXN_SENDER_SZ + TRXN_TIMESTAMP_SZ + 1);
+	memcpy( p, data_ + TRXN_SENDER_START, TRXN_SENDER_SZ );
+	memcpy( p + TRXN_SENDER_SZ, data_ + TRXN_TIMESTAMP_START, TRXN_TIMESTAMP_SZ );
+	p[TRXN_SENDER_SZ + TRXN_TIMESTAMP_SZ] = '\0';
+	return p;
+}
+
+int OmicroTrxn::length()
+{
+	return TRXN_TOTAL_SZ;
+}
+
+int OmicroTrxn::size()
+{
+	return TRXN_TOTAL_SZ;
+}
+
+void OmicroTrxn::print()
+{
+	printf("OmicroTrxn::print data=[%s]\n", data_ );
+	fflush(stdout);
+}
+
+// for testing only
+void  OmicroTrxn::makeDummyTrxn()
+{
+	setHeader("123456");
+	setBeacon("12345678");
+
+	setSender("0xAduehHhfjOkfjetOjrUrjQjfSfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaDDExkYm");
+
+	setReceiver("0xBdHehIhwjGkJjSjBj8i0jVjPafEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjYkGjejrBrirJijXjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjeqrArirjrmfhwEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaBwEykZv");
+
+	setAmount("123456789.999999");
+
+	setTimeStamp("123456789012.999");
+
+	setTrxnType("AB");
+
+	setAssetType("XY");
+
+	setSignature("SGBdbehZhIjfkVjegrqBiGjr3AqfEyehxnckfhe038ejdskaleeeyxelkdUpwsgg");
+}
+
+

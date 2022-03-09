@@ -33,7 +33,7 @@
 #define TRXN_DATA_SZ   (TRXN_DATA_SZ1 + TRXN_DATA_SZ2)
 
 #define TRXN_BODY_SZ  (TRXN_HEADER_SZ+TRXN_DATA_SZ)
-#define TRXN_TOTAL_SZ (TRXN_DATA_SZ+TRXN_SIGNATURE_SZ)
+#define TRXN_TOTAL_SZ (TRXN_BODY_SZ+TRXN_SIGNATURE_SZ)
 
 class OmicroTrxn
 {
@@ -70,7 +70,13 @@ class OmicroTrxn
 	char *getSignature();
 	bool setSignature( const char *s );
 
-	char *getString();
+	const char *getString();
+	const char *str();
+	char *getTrxnID();
+	int   length();
+	int   size();
+	void  makeDummyTrxn();
+	void  print();
 
 
   protected:

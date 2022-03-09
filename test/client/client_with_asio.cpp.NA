@@ -118,6 +118,7 @@ client_with_asio::client_with_asio(
     const std::string& server_ip, const int server_port, const size_t test_str_size) :
 
     stopped_(false),
+	connect_errors_(0), 
     test_str_size_(test_str_size),
     client_timer_(io_service),
     client_timer_send_msg_(io_service)
@@ -126,9 +127,16 @@ client_with_asio::client_with_asio(
 
     hook_client_timer();
 
-    kcp_client_.connect_async(udp_port_bind, server_ip, server_port);
+	int rc = 0;
+	int maxTry = 10;
+	for ( int i = 0; i < maxTry; ++i ) {
+    	rc = kcp_client_.connect_async(udp_port_bind, server_ip, server_port);
+		std::cout << "kcp_client_.connect_async rc=" << rc << std::endl;
+		break;
+	}
 
-    hook_timer_send_msg();
+    send_test_msg();
+    //hook_timer_send_msg();
 }
 
 void client_with_asio::stop_all()
@@ -138,6 +146,7 @@ void client_with_asio::stop_all()
 
 void client_with_asio::send_test_msg(void)
 {
+	std::cout << "a92833 send_test_msg ..." << std::endl;
     kcp_client_.send_msg(make_test_str(test_str_size_));
 }
 
@@ -220,17 +229,30 @@ void client_with_asio::print_recv_log(const std::string& msg)
 
 void client_with_asio::hook_client_timer(void)
 {
-    if (stopped_)
+    if (stopped_){
         return;
+	}
 
-    client_timer_.expires_from_now(boost::posix_time::milliseconds(5)); // 1 millisecond will be better
+	if ( connect_errors_ > 10 ) {
+		std::cout << "KCP_CONNECT_ERROR > 10, no more timers" << std::endl;
+        return;
+	}
+
+    client_timer_.expires_from_now(boost::posix_time::milliseconds(1)); // 1 millisecond will be better
+	//std::cout << "a8820 client_timer_.async_wait handle_client_time ... connect_errors_=" << connect_errors_ << std::endl;
     client_timer_.async_wait(std::bind(&client_with_asio::handle_client_time, this));
 }
 
 void client_with_asio::handle_client_time(void)
 {
     hook_client_timer();
-    kcp_client_.update();
+
+    int rc = kcp_client_.update();
+	//std::cout << "a2220 in handle_client_time kcp_client_.update()=" << rc << std::endl;
+	if ( rc == KCP_CONNECT_ERROR ) {
+		++ connect_errors_;
+		std::cout << "KCP_CONNECT_ERROR connect_errors_=" << connect_errors_ << std::endl;
+	}
 }
 
 void client_with_asio::hook_timer_send_msg(void)
@@ -255,6 +277,7 @@ void client_with_asio::client_event_callback_func(kcp_conv_t conv, eEventType ev
 
 void client_with_asio::handle_client_event_callback(kcp_conv_t conv, eEventType event_type, const std::string& msg)
 {
+	std::cout << "a8888 client_with_asio::handle_client_event_callbac() called" << std::endl;
     switch (event_type)
     {
         case eConnect:
@@ -266,12 +289,14 @@ void client_with_asio::handle_client_event_callback(kcp_conv_t conv, eEventType 
             break;
         case eRcvMsg:
             std::cout << "recv eRcvMsg with conv:" << conv << "  msg_count: " << msg.size() << std::endl;
+            std::cout << "recv eRcvMsg msg: " << msg << std::endl;
             break;
         case eDisconnect:
             std::cout << "disconnect with conv:" << conv << " msg: " << msg << std::endl;
             stopped_ = true; // you can add boost::asio::io_service::work to prevent program quit
             break;
         default:
+			std::cout << "a9273 handle_client_event_callback() callee event_type default" << std::endl;
             ; // do nothing
     }
 }

@@ -16,6 +16,7 @@ class client_with_asio : private boost::noncopyable
 
   private:
     bool stopped_;
+	int connect_errors_;
 
     void print_recv_log(const std::string& msg);
     void handle_client_time(void);
