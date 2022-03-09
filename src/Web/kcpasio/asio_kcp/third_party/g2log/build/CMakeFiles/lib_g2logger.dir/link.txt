@@ -1,0 +1,2 @@
+/usr/bin/ar qc liblib_g2logger.a  CMakeFiles/lib_g2logger.dir/src/active.cpp.o CMakeFiles/lib_g2logger.dir/src/crashhandler_unix.cpp.o CMakeFiles/lib_g2logger.dir/src/g2log.cpp.o CMakeFiles/lib_g2logger.dir/src/g2logworker.cpp.o CMakeFiles/lib_g2logger.dir/src/g2time.cpp.o
+/usr/bin/ranlib liblib_g2logger.a
