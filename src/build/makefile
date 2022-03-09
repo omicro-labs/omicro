@@ -63,22 +63,19 @@ LC_OS_NAME = $(shell echo $(OS_NAME) | tr '[A-Z]' '[a-z]')
 # The pre-processor and compiler options.
 MY_CFLAGS =
 
-##yue
+##omicro
 BOOST_LIB_PATH=/usr/local/lib
 
 BOOST_INC_PATH=/usr/local/include
-
 KCP=../Web/kcpasio/asio_kcp
 
 # The linker options.
-
 MUDUOD=$(KCP)/third_party/muduo/build/lib
 MY_LIBS = $(KCP)/server_lib/asio_kcp_server.a $(KCP)/essential/essential.a \
 		  $(KCP)/client_lib/kcp_client_lib.a \
           $(BOOST_LIB_PATH)/libboost_system-mt.a $(BOOST_LIB_PATH)/libboost_filesystem-mt.a \
 		  $(BOOST_LIB_PATH)/libboost_thread-mt.a $(KCP)/third_party/g2log/build/liblib_g2logger.a \
 		  $(MUDUOD)/libmuduo_base_cpp11.a 
-
 
 #ASIO_KCP_DEFINE = -D AK_ENABLE_UDP_PACKET_LOG
 #BOOST_DEFINE = -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING

@@ -8,10 +8,12 @@
 #include "g2log.h"
 #include "server_lib/asio_kcp_log.hpp"
 #include "server.hpp"
+/**
 #include <muduo/base/Logging.h>
 #include <muduo/base/LogFile.h>
 #include <muduo/base/ThreadPool.h>
 #include <muduo/base/TimeZone.h>
+**/
 
 
 int main(int argc, char* argv[])
@@ -30,7 +32,7 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        system("mkdir asio_kcp_log");
+        //system("mkdir asio_kcp_log");
         std::string path_to_log_file("./asio_kcp_log/");
         g2LogWorker logger(argv[0], path_to_log_file);
         g2::initializeLogging(&logger);

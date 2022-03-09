@@ -3,9 +3,7 @@
 #include <signal.h>
 #include <cstdlib>
 #include <iostream>
-
 #include "essential/utility/strutil.h"
-
 
 server::server(const std::string& address, const std::string& port)
     : io_service_(),
@@ -54,6 +52,8 @@ void server::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_type, std
     if (event_type == kcp_svr::eRcvMsg)
     {
         // auto send back msg for testing.
+		std::shared_ptr<std::string> m1 = std::make_shared<std::string>("Server echo back:");
+        kcp_server_.send_msg(conv, m1);
         kcp_server_.send_msg(conv, msg);
     }
 }
@@ -62,6 +62,7 @@ void server::hook_test_timer(void)
 {
     if (stopped_)
         return;
+
     test_timer_.expires_from_now(boost::posix_time::milliseconds(10000));
     test_timer_.async_wait(std::bind(&server::handle_test_timer, this));
 }
