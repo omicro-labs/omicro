@@ -112,16 +112,22 @@ uint64_t g_count_send_kcp_size = 0;
 using namespace boost::asio::ip;
 using namespace asio_kcp;
 
-client_with_asio::client_with_asio(boost::asio::io_service& io_service, int udp_port_bind,
-        const std::string& server_ip, const int server_port, const size_t test_str_size) :
+// ctor
+client_with_asio::client_with_asio(
+	boost::asio::io_service& io_service, int udp_port_bind,
+    const std::string& server_ip, const int server_port, const size_t test_str_size) :
+
     stopped_(false),
     test_str_size_(test_str_size),
     client_timer_(io_service),
     client_timer_send_msg_(io_service)
 {
     kcp_client_.set_event_callback(client_event_callback_func, (void*)this);
+
     hook_client_timer();
+
     kcp_client_.connect_async(udp_port_bind, server_ip, server_port);
+
     hook_timer_send_msg();
 }
 
@@ -216,6 +222,7 @@ void client_with_asio::hook_client_timer(void)
 {
     if (stopped_)
         return;
+
     client_timer_.expires_from_now(boost::posix_time::milliseconds(5)); // 1 millisecond will be better
     client_timer_.async_wait(std::bind(&client_with_asio::handle_client_time, this));
 }
@@ -230,6 +237,7 @@ void client_with_asio::hook_timer_send_msg(void)
 {
     if (stopped_)
         return;
+
     client_timer_send_msg_.expires_from_now(boost::posix_time::milliseconds(SEND_TEST_MSG_INTERVAL));
     client_timer_send_msg_.async_wait(std::bind(&client_with_asio::handle_timer_send_msg, this));
 }

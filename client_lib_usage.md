@@ -60,7 +60,7 @@ please using kcp_client_wrap.<br>
 kcp_client_wrap is a facade of kcp_client.<br>
 This facade is easy to use. <br>
 You do not need use it in an event-driven framework such as boost.asio, libevent, cocos2d, or implement by our own.<br>
-Please using kcp_client directly if you coding in an event-driven framework. That's more effective.<br>
+Please using kcp_client directly if you coding in an event-driven framework. That is more effective.<br>
 kcp_client_wrap will create a work thread that control the udp packet sending and recving.<br>
 <br>
 
@@ -71,7 +71,7 @@ kcp_client_wrap will create a work thread that control the udp packet sending an
   while (true)
   {
      do your things && if some msg need send to server
-                           c.send_msg
+     c.send_msg
      events = c.grab_events
      handle_events(events)  // your func
      millisecond_sleep(1) if you want.

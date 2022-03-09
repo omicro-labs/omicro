@@ -63,13 +63,19 @@ LC_OS_NAME = $(shell echo $(OS_NAME) | tr '[A-Z]' '[a-z]')
 # The pre-processor and compiler options.
 MY_CFLAGS =
 
+#omicro
+BOOST_LIB_PATH=/usr/local/lib
+
 # The linker options.
-MY_LIBS   = $(BOOST_LIB_PATH)/libboost_system-mt.a $(BOOST_LIB_PATH)/libboost_filesystem-mt.a $(BOOST_LIB_PATH)/libboost_thread-mt.a $(BOOST_LIB_PATH)/libboost_date_time-mt.a ../essential/essential.a ../server_lib/asio_kcp_server.a ../client_lib/kcp_client_lib.a
+MY_LIBS   = $(BOOST_LIB_PATH)/libboost_system-mt.a $(BOOST_LIB_PATH)/libboost_filesystem-mt.a $(BOOST_LIB_PATH)/libboost_thread-mt.a $(BOOST_LIB_PATH)/libboost_date_time-mt.a ../essential/essential.a ../server_lib/asio_kcp_server.a ../client_lib/kcp_client_lib.a ../essential/essential.a
 
 
 # The pre-processor options used by the cpp (man cpp for more).
 #CPPFLAGS  = -Wall -I essential -I ddlib -O2
-CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -g3 -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
+
+#omicro
+#CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -g3 -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
+CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -O3 
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)

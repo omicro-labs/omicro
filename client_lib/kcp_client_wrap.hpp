@@ -66,8 +66,7 @@ public:
     // we use system giving local port from system if udp_port_bind == 0
     // return 0 if connect succeed.
     // return < 0 (KCP_ERR_XXX) when some error happen.
-    int connect(int udp_port_bind, const std::string& server_ip, const int server_port);
-
+    int connect(int udp_port_bind, const std::string& server_ip, const int server_port, int maxTry=10 );
 
 
     // Async connect
@@ -100,7 +99,7 @@ private:
     static void client_event_callback_func(kcp_conv_t conv, eEventType event_type, const std::string& msg, void* var);
     void handle_client_event_callback(kcp_conv_t conv, eEventType event_type, const std::string& msg);
 
-    int do_asio_kcp_connect_loop(void);
+    int do_asio_kcp_connect_loop(int maxTry);
 
     static void* workthread_loop(void* _this);
     void do_workthread_loop(void);
@@ -110,7 +109,6 @@ private:
     int connect_result_; // 0: connect succeed,  1: need waiting connect end,   <0: connect fail, and it's error code.
     client_event_callback_t* pevent_func_;
     void* event_func_var_;
-
 
     pthread_t workthread_;
     volatile bool workthread_want_stop_;

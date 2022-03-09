@@ -63,12 +63,20 @@ LC_OS_NAME = $(shell echo $(OS_NAME) | tr '[A-Z]' '[a-z]')
 # The pre-processor and compiler options.
 MY_CFLAGS =
 
+#omicro
+BOOST_INC_PATH=/usr/local/include
+
 # The linker options.
 MY_LIBS   =
 
-ASIO_KCP_DEFINE = -D AK_ENABLE_UDP_PACKET_LOG
-BOOST_DEFINE = -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
-MUDUO_DEFINE = -D MUDUO_STD_STRING -D __GXX_EXPERIMENTAL_CXX0X__
+##omicro
+#ASIO_KCP_DEFINE = -D AK_ENABLE_UDP_PACKET_LOG
+#BOOST_DEFINE = -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
+#MUDUO_DEFINE = -D MUDUO_STD_STRING -D __GXX_EXPERIMENTAL_CXX0X__
+
+ASIO_KCP_DEFINE = 
+BOOST_DEFINE = 
+MUDUO_DEFINE = -D MUDUO_STD_STRING 
 
 #WORNING_FLAGS = -Wall -Wextra -Wconversion -Wno-unused-parameter -Wno-sign-conversion -Wold-style-cast -Woverloaded-virtual -Wpointer-arith -Wshadow -Wwrite-strings
 WORNING_FLAGS = -Wall

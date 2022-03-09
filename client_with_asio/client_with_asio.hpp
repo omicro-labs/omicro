@@ -5,19 +5,16 @@
 #include <boost/noncopyable.hpp>
 #include "../client_lib/kcp_client.hpp"
 
-class client_with_asio
-  : private boost::noncopyable
+class client_with_asio : private boost::noncopyable
 {
-public:
+  public:
     client_with_asio(boost::asio::io_service& io_service, int udp_port_bind,
             const std::string& server_ip, const int server_port, const size_t test_str_size);
 
     /// Stop all connections.
     void stop_all();
 
-private:
-
-private:
+  private:
     bool stopped_;
 
     void print_recv_log(const std::string& msg);

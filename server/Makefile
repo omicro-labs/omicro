@@ -63,20 +63,34 @@ LC_OS_NAME = $(shell echo $(OS_NAME) | tr '[A-Z]' '[a-z]')
 # The pre-processor and compiler options.
 MY_CFLAGS =
 
+BOOST_LIB_PATH=/usr/local/lib
+BOOST_INC_PATH=/usr/local/include
+
 # The linker options.
-MY_LIBS   = ../server_lib/asio_kcp_server.a ../essential/essential.a $(BOOST_LIB_PATH)/libboost_system-mt.a $(BOOST_LIB_PATH)/libboost_filesystem-mt.a $(BOOST_LIB_PATH)/libboost_thread-mt.a ../third_party/g2log/build/liblib_g2logger.a ../third_party/muduo/build/release/lib/libmuduo_base_cpp11.a
+
+MUDUOD=../third_party/muduo/build/lib
+MY_LIBS = ../server_lib/asio_kcp_server.a ../essential/essential.a $(BOOST_LIB_PATH)/libboost_system-mt.a \
+     $(BOOST_LIB_PATH)/libboost_filesystem-mt.a $(BOOST_LIB_PATH)/libboost_thread-mt.a \
+	 ../third_party/g2log/build/liblib_g2logger.a $(MUDUOD)/libmuduo_base_cpp11.a 
 
 
-ASIO_KCP_DEFINE = -D AK_ENABLE_UDP_PACKET_LOG
-BOOST_DEFINE = -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
-MUDUO_DEFINE = -D MUDUO_STD_STRING -D __GXX_EXPERIMENTAL_CXX0X__
+#ASIO_KCP_DEFINE = -D AK_ENABLE_UDP_PACKET_LOG
+#BOOST_DEFINE = -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
+
+ASIO_KCP_DEFINE = 
+BOOST_DEFINE = 
+
+#MUDUO_DEFINE = -D MUDUO_STD_STRING -D __GXX_EXPERIMENTAL_CXX0X__
+MUDUO_DEFINE = -D MUDUO_STD_STRING 
 
 #WORNING_FLAGS = -Wall -Wextra -Wconversion -Wno-unused-parameter -Wno-sign-conversion -Wold-style-cast -Woverloaded-virtual -Wpointer-arith -Wshadow -Wwrite-strings
 WORNING_FLAGS = -Wall
 
 
 # The pre-processor options used by the cpp (man cpp for more).
-CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) -I ../third_party/muduo -I ../server_lib -I ../third_party/g2log/src -g3 $(BOOST_DEFINE) $(MUDUO_DEFINE) $(ASIO_KCP_DEFINE)
+CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) -I ../third_party/muduo -I ../server_lib \
+    -I ../third_party/g2log/src -g3 $(BOOST_DEFINE) \
+	$(MUDUO_DEFINE) $(ASIO_KCP_DEFINE)
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)

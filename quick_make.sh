@@ -1,9 +1,7 @@
 OLD_PWD="$( pwd )"
 
-BOOST_LIB_PATH=/usr/local/lib
-export BOOST_LIB_PATH
-BOOST_INC_PATH=/usr/local/include
-export BOOST_INC_PATH
+export BOOST_INC_PATH=/usr/local/include/boost
+export BOOST_LIB_PATH=/usr/local/lib
 
 
 echo "" && echo "" && echo "[-------------------------------]" && echo "   essential" && echo "[-------------------------------]" && \

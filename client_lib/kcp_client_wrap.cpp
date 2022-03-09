@@ -37,7 +37,7 @@ void kcp_client_wrap::client_event_callback_func(kcp_conv_t conv, eEventType eve
 
 void kcp_client_wrap::handle_client_event_callback(kcp_conv_t conv, eEventType event_type, const std::string& msg)
 {
-    std::cout << "kcp_client_wrap::handle_client_event_callback event_type: " << event_type << std::endl;
+    //std::cout << "kcp_client_wrap::handle_client_event_callback event_type: " << event_type << std::endl;
     switch (event_type)
     {
         case eConnect:
@@ -61,29 +61,46 @@ void kcp_client_wrap::handle_client_event_callback(kcp_conv_t conv, eEventType e
     }
 }
 
-int kcp_client_wrap::connect(int udp_port_bind, const std::string& server_ip, const int server_port)
+int kcp_client_wrap::connect(int udp_port_bind, const std::string& server_ip, int server_port, int maxTry)
 {
+    std::cout << "a1110 kcp_client_wrap::connect ... " << std::endl;
     int ret_connect_async = kcp_client_.connect_async(udp_port_bind, server_ip, server_port);
+    std::cout << "a1112 kcp_client_wrap::connect done " << ret_connect_async << std::endl;
     if (ret_connect_async < 0)
         return ret_connect_async;
 
-    int ret = do_asio_kcp_connect_loop();
+    int ret = do_asio_kcp_connect_loop( maxTry );
+    std::cout << "a1113 do_asio_kcp_connect_loop ret=" << ret << std::endl;
     if (ret == 0) // connect succeed
     {
+    	std::cout << "a1124 start_workthread() ... " << std::endl;
         start_workthread();
+    	std::cout << "a1124 start_workthread() done" << std::endl;
     }
-    std::cout << "kcp_client_wrap::connect end!" << std::endl;
+
+    std::cout << "a1125 kcp_client_wrap::connect end! ret=" << ret << std::endl;
     return ret;
 }
 
-int kcp_client_wrap::do_asio_kcp_connect_loop(void)
+int kcp_client_wrap::do_asio_kcp_connect_loop(int maxTry)
 {
+	int rc;
+	int t = 0;
     while (true)
     {
         if (connect_result_ != 1)
             return connect_result_;
-        kcp_client_.update();
-        millisecond_sleep(KCP_UPDATE_INTERVAL);
+
+        rc = kcp_client_.update();
+		if ( rc == KCP_CONNECT_ERROR ) {
+			++t;
+		}
+
+		if ( t > maxTry ) {
+			return KCP_CONNECT_ERROR;
+		}
+
+        millisecond_sleep(KCP_UPDATE_INTERVAL); // 1 millisec
     }
 }
 
@@ -128,7 +145,7 @@ void* kcp_client_wrap::workthread_loop(void* _this)
 
 void kcp_client_wrap::do_workthread_loop(void)
 {
-    std::cout << "workthread_loop thread start!" << std::endl;
+    //std::cout << "workthread_loop thread start!" << std::endl;
     workthread_start_ = true;
     kcp_last_update_clock_ = iclock64() - KCP_UPDATE_INTERVAL;
 
@@ -149,7 +166,7 @@ void kcp_client_wrap::do_workthread_loop(void)
 
     workthread_start_ = false;
     workthread_stopped_ = true;
-    std::cout << "workthread_loop thread end!" << std::endl;
+    //std::cout << "workthread_loop thread end!" << std::endl;
     pthread_exit(NULL);
     return;
 }

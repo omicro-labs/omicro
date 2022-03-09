@@ -32,7 +32,8 @@ connection::~connection(void)
 
 void connection::clean(void)
 {
-    std::cout << "clean connection conv:" << conv_ << std::endl;
+	// omicro
+    // std::cout << "clean connection conv:" << conv_ << std::endl;
     std::string disconnect_msg = asio_kcp::making_disconnect_packet(conv_);
     send_udp_package(disconnect_msg.c_str(), disconnect_msg.size());
     ikcp_release(p_kcp_);

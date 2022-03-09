@@ -17,8 +17,17 @@ typedef struct IKCPCB ikcpcb;
 typedef uint32_t kcp_conv_t;
 
 #define MAX_MSG_SIZE 1024 * 10
-#define KCP_UPDATE_INTERVAL 5 // milliseconds
+
+//#define KCP_UPDATE_INTERVAL 5 // milliseconds
+#define KCP_UPDATE_INTERVAL 1 // milliseconds
+#define  KCP_CONNECT_ERROR -1919
+
+// omicro
+/**
 #define KCP_RESEND_CONNECT_MSG_INTERVAL 500 // milliseconds
+#define KCP_CONNECT_TIMEOUT_TIME 5000 // milliseconds
+**/
+#define KCP_RESEND_CONNECT_MSG_INTERVAL 50 // milliseconds
 #define KCP_CONNECT_TIMEOUT_TIME 5000 // milliseconds
 
 #define KCP_ERR_ALREADY_CONNECTED       -2001
@@ -44,6 +53,9 @@ enum eEventType
     eCountOfEventType
 };
 typedef void(client_event_callback_t)(kcp_conv_t /*conv*/, eEventType /*event_type*/, const std::string& /*msg*/, void* /*var*/);
+
+// omicro
+const char *clientEventTypeStr( eEventType e);
 
 
 /*
@@ -87,19 +99,21 @@ typedef void(client_event_callback_t)(kcp_conv_t /*conv*/, eEventType /*event_ty
 */
 class kcp_client
 {
-public:
+  public:
     kcp_client(void);
     ~kcp_client(void);
 
     // event_callback_func will be called in the thread which you call update()
     void set_event_callback(const client_event_callback_t& event_callback_func, void* var);
 
+    int connect_sync(int udp_port_bind, const std::string& server_ip, const int server_port);
+
     // we use system giving local port from system if udp_port_bind == 0
     // return KCP_ERR_XXX if some error happen.
     // kcp_client will call event_callback_func when connect succeed or failed.
     int connect_async(int udp_port_bind, const std::string& server_ip, const int server_port);
 
-    void update();
+    int update();
 
     // user level send msg.
     // this func is multithread safe.
@@ -109,20 +123,22 @@ public:
     // this func is multithread safe.
     void stop();
 
-private:
+  private:
     kcp_client(const kcp_client&);
 
     void init_kcp(kcp_conv_t conv);
     void clean(void);
 
-private:
+  private:
     // return 0 if connect succeed.
     // return < 0 (KCP_ERR_XXX) when some error happen.
-    int init_udp_connect(void);
+    int init_udp_connect_async(void);
+
+    int init_udp_connect_sync(void);
 
     bool connect_timeout(uint64_t cur_clock) const;
     bool need_send_connect_packet(uint64_t cur_clock) const;
-    void do_asio_kcp_connect(uint64_t cur_clock);
+    int do_asio_kcp_connect(uint64_t cur_clock);
 
 
     static int udp_output(const char *buf, int len, ikcpcb *kcp, void *user);
@@ -133,7 +149,7 @@ private:
     void do_recv_udp_packet_in_loop(void);
     void do_send_msg_in_queue(void);
     void handle_udp_packet(const std::string& udp_packet);
-    void try_recv_connect_back_packet(void);
+    int try_recv_connect_back_packet(void);
 
     std::string recv_udp_package_from_kcp(void);
 

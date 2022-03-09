@@ -4,6 +4,9 @@
 *.o
 *.obj
 
+## zipped files
+*.zip
+
 # Precompiled Headers
 *.gch
 *.pch
@@ -34,12 +37,12 @@
 .svn
 ./**/.svn
 
-asio_kcp_client_utest/asio_kcp_client_utest
-asio_kcp_utest/asio_kcp_utest
-client_with_asio/client_with_asio
-third_party/gtest-1.7.0
-third_party/gmock-1.7.0
-third_party/g2log
+#asio_kcp_client_utest/asio_kcp_client_utest
+#asio_kcp_utest/asio_kcp_utest
+#client_with_asio/client_with_asio
+#third_party/gtest-1.7.0
+#third_party/gmock-1.7.0
+#third_party/g2log
 third_party/build
-third_party/muduo
+#third_party/muduo
 server/server
