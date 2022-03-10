@@ -70,6 +70,10 @@ SRCINC=../../../src
 KCP=../../../src/Web/kcpasio/asio_kcp
 SRCBUILD=../../../src/build
 
+PTHREADLIB=/lib64/libpthread.a
+RTLIB=/lib64/librt.a
+DLLIB=/lib64/libdl.a
+CLIB=/lib64/libc.a
 
 # The linker options.
 MY_LIBS   = \
@@ -79,7 +83,7 @@ MY_LIBS   = \
             $(BOOST_LIB_PATH)/libboost_thread-mt.a $(BOOST_LIB_PATH)/libboost_date_time-mt.a \
 			$(KCP)/essential/essential.a $(KCP)/server_lib/asio_kcp_server.a \
 			$(KCP)/client_lib/kcp_client_lib.a \
-			$(KCP)/essential/essential.a \
+			$(KCP)/essential/essential.a 
 
 
 # The pre-processor options used by the cpp (man cpp for more).

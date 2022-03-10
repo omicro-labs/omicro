@@ -16,11 +16,13 @@ int main(int argc, char* argv[])
 	OmicroTrxn t1;
 	OmicroClient client( argv[1], atoi(argv[2]), 5 );
 	t1.makeDummyTrxn();
+	t1.setInitTrxn();
 	std::string reply = client.sendMessage( t1.str(), 100 );
 	std::cout << reply << std::endl;
 
 	OmicroTrxn t2;
 	t2.makeDummyTrxn();
+	//t2.setInitTrxn();
 	reply = client.sendMessage( t2.str(), 100 );
 	std::cout << reply << std::endl;
 }

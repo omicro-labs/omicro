@@ -77,10 +77,14 @@ class OmicroTrxn
 	int   size();
 	void  makeDummyTrxn();
 	void  print();
+	bool  setInitTrxn();
+	bool  isInitTrxn();
+	bool  isValidClientTrxn();
 
 
   protected:
-	char data_[TRXN_TOTAL_SZ+1];
+	char *data_;
+	bool readOnly_;
   	/*** Inside data_:
 	header_[TRXN_HEADER_SZ];
 	beacon_[TRXN_BEACON_SZ];

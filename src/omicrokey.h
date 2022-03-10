@@ -1,7 +1,7 @@
 #ifndef _omicro_key_h_
 #define _omicro_key_h_
 
-#include <string>
+#include "omicrodef.h"
 
 class OmicroKey
 {
@@ -9,9 +9,9 @@ class OmicroKey
   	OmicroKey();
   	~OmicroKey();
 
-	int createKeyPair( const std::string &salt, std::string &secretKey, std::string &publicKey );
-	std::string encrypt( const std::string &msg ); 
-	std::string decrypt( const std::string &msg ); 
+	int createKeyPair( const sstr &salt, sstr &secretKey, sstr &publicKey );
+	sstr encrypt( const sstr &msg ); 
+	sstr decrypt( const sstr &msg ); 
 
 };
 

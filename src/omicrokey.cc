@@ -9,17 +9,17 @@ OmicroKey::~OmicroKey()
 }
 
 
-int OmicroKey::createKeyPair( const std::string &salt, std::string &secretKey, std::string &publicKey )
+int OmicroKey::createKeyPair( const sstr &salt, sstr &secretKey, sstr &publicKey )
 {
 	return 0;
 }
 
-std::string OmicroKey::encrypt( const std::string &msg )
+sstr OmicroKey::encrypt( const sstr &msg )
 {
 	return "";
 }
 
-std::string OmicroKey::decrypt( const std::string &msg )
+sstr OmicroKey::decrypt( const sstr &msg )
 {
 	return "";
 }

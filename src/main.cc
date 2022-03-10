@@ -8,13 +8,6 @@
 #include "g2log.h"
 #include "server_lib/asio_kcp_log.hpp"
 #include "server.hpp"
-/**
-#include <muduo/base/Logging.h>
-#include <muduo/base/LogFile.h>
-#include <muduo/base/ThreadPool.h>
-#include <muduo/base/TimeZone.h>
-**/
-
 
 int main(int argc, char* argv[])
 {
@@ -33,14 +26,14 @@ int main(int argc, char* argv[])
         }
 
         //system("mkdir asio_kcp_log");
-        std::string path_to_log_file("./asio_kcp_log/");
+        sstr path_to_log_file("../log/");
         g2LogWorker logger(argv[0], path_to_log_file);
         g2::initializeLogging(&logger);
         AK_LOG(INFO) << "AK_LOG Server Start";
 
         LOG_INFO << "LOG_INFO server start";
 
-        server serv(argv[1], argv[2]);
+        OmicroServer serv(argv[1], argv[2]);
 
         serv.run();
     }

@@ -18,7 +18,7 @@ OmicroClient::~OmicroClient()
 	}
 }
 
-std::string OmicroClient::sendMessage( const std::string &msg, int waitMilliSec )
+sstr OmicroClient::sendMessage( const sstr &msg, int waitMilliSec )
 {
 	if ( ! connectOK_ ) {
 		return "";
@@ -31,7 +31,7 @@ std::string OmicroClient::sendMessage( const std::string &msg, int waitMilliSec 
 	return reply_;
 }
 
-void omicro_client_event_callback(kcp_conv_t conv, asio_kcp::eEventType event_type, const std::string& msg, void* var)
+void omicro_client_event_callback(kcp_conv_t conv, asio_kcp::eEventType event_type, const sstr& msg, void* var)
 {
 	OmicroClient *obj = (OmicroClient*)var;
 
