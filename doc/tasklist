@@ -1,0 +1,24 @@
+
+0. PKI key management
+1. node must have PKI keys. If not, create them and save to conf dir. mode.
+2. node synchronization:
+   connect to some seed nodes
+   if new node:
+      go through the enrollment process
+
+   synch with other nodes (blockfile and mempool data)
+
+   subtasks:  1) enrollment  2) nodesync
+
+3. dynamic circuit creation
+4. state machine for trxns: create, destroy
+5. flush blocks to blockchain
+6. periodic certifications (as in enrollment)
+7. recording voting activities
+8. claim credits periodically
+9. OVM EVM contract suuport
+   1) secure contracts, OVM
+   2) Solidity
+10. secure contract templates
+11. IPV6 support
+

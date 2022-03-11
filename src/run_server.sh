@@ -1,1 +1,8 @@
-build/omicroserver 127.0.0.1 12340
+mkdir -p ../test/server/bin
+mkdir -p ../test/server/conf
+mkdir -p ../test/server/log
+/bin/cp -f build/omicroserver ../test/server/bin
+cd ../test/server/bin
+
+./omicroserver 127.0.0.1 12340
+

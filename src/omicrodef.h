@@ -3,5 +3,6 @@
 
 #include <string>
 using sstr = std::string;
+using Byte = unsigned char;
 
 #endif

@@ -1,10 +1,11 @@
-#include "server.hpp"
 #include <boost/bind.hpp>
 #include <signal.h>
 #include <cstdlib>
 #include <iostream>
+#include <pthread.h>
 #include "essential/utility/strutil.h"
 #include "omicrotrxn.h"
+#include "server.hpp"
 
 OmicroServer::OmicroServer(const sstr& address, const sstr& port)
     : io_service_(),
@@ -69,7 +70,7 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 
 		bool isInitTrxn = t.isInitTrxn();
 		if ( isInitTrxn ) {
-			std::shared_ptr<sstr> m = std::make_shared<sstr>("Your initiated a new trxn. Working on it ...");
+			std::shared_ptr<sstr> m = std::make_shared<sstr>("You startd a new trxn. Working on it ...");
         	kcp_server_.send_msg(conv, m);
 			initTrxn( conv, t );
 		} else {
@@ -83,6 +84,10 @@ bool OmicroServer::initTrxn( kcp_conv_t conv, OmicroTrxn &txn )
 	// find zone leaders and ask them to collect votes from members
 	// nodeList_ is std::vector<string>
 	sstr beacon = txn.getBeacon();
+	sstr trxnid = txn.getTrxnID();
+	std::cout << "a80123 OmicroServer::initTrxn() threadid=" << pthread_self() << std::endl;
+	std::cout << "a80124 beacon=" << beacon << std::endl;
+	std::cout << "a80124 trxnid=" << trxnid << std::endl;
 	
 	return true;
 }
