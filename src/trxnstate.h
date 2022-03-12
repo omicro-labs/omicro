@@ -43,7 +43,7 @@ struct OmState
 {
 	Byte  type;
 	Byte  state;
-	//Byte  transit;
+
 	bool operator==( const OmState &st ) {
 		if ( type == st.type && state == st.state ) {
 			return true;
@@ -57,6 +57,8 @@ struct OmState
 		return false;
 	}
 };
+using OmStateMap = std::unordered_map<sstr, OmState>;
+using OmStateItr = std::unordered_map<sstr, OmState>::iterator;
 
 class TrxnState
 {
@@ -64,19 +66,19 @@ class TrxnState
   	TrxnState();
   	~TrxnState();
 
-	bool goState( Byte level, const sstr &trxnid, Byte type, Byte transit );
+	bool goState( Byte level, const sstr &trxnid, Byte type, Byte xit );
 	bool getState( const sstr &trxnid, Byte &type, Byte &state );
 	void setState( const sstr &trxnid, Byte type, Byte state );
 	void deleteState( const sstr &trxnid );
 	void terminateState( const sstr &trxnid, Byte type );
 
   protected:
-    std::unordered_map<sstr, OmState> stateMap_;
+	OmStateMap stateMap_;
 	// key: trxnid  value: state info
 
-	bool goStateL2( const sstr &trxnid, Byte type, Byte transit);
-	bool goStateL3( const sstr &trxnid, Byte type, Byte transit);
-	void insertOrUpdateState( const sstr &trxnid, const OmState &st );
+	bool goStateL2( const sstr &trxnid, Byte type, Byte transit, Byte curState, OmStateItr itr);
+	bool goStateL3( const sstr &trxnid, Byte type, Byte transit, Byte curState, OmStateItr itr);
+	void insertOrUpdateState( const sstr &trxnid, const OmState &st, OmStateItr itr );
   	
 };
 

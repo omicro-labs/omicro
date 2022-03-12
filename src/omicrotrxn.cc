@@ -86,6 +86,26 @@ bool OmicroTrxn::isInitTrxn()
 	}
 }
 
+bool  OmicroTrxn::setXit( Byte xit)
+{
+	if ( NULL == data_ ) {
+		std::cout << "E10110 OmicroTrxn::setXit data_ is NULL" << std::endl; 
+		return false;
+	}
+
+	data_[TRXN_HEADER_START+1] = xit;
+	return true;
+}
+
+Byte OmicroTrxn::getXit()
+{
+	if ( NULL == data_ ) {
+		std::cout << "E10112 OmicroTrxn::getXit data_ is NULL" << std::endl; 
+		return 0;
+	}
+	return data_[TRXN_HEADER_START+1];
+}
+
 char* OmicroTrxn::getBeacon()
 {
 	if ( NULL == data_ ) return NULL;

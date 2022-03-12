@@ -1,6 +1,8 @@
 #ifndef _omicro_trxn_h_
 #define _omicro_trxn_h_
 
+#include "omicrodef.h"
+
 #define TRXN_HEADER_START  0
 #define TRXN_HEADER_SZ     6
 
@@ -78,6 +80,8 @@ class OmicroTrxn
 	void  makeDummyTrxn();
 	void  print();
 	bool  setInitTrxn();
+	bool  setXit( Byte xit);
+	Byte  getXit();
 	bool  isInitTrxn();
 	bool  isValidClientTrxn();
 
