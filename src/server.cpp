@@ -51,7 +51,7 @@ void OmicroServer::handle_stop()
 
 void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_type, std::shared_ptr<sstr> msg)
 {
-    std::cout << "event_callback:" << conv << " type:" << kcp_svr::eventTypeStr(event_type) << "msg: " << *msg << std::endl;
+    std::cout << "event_callback:" << conv << " type:" << kcp_svr::eventTypeStr(event_type) << " msg: " << *msg << std::endl;
     if (event_type == kcp_svr::eRcvMsg)
     {
         // auto send back msg for testing.
@@ -88,6 +88,10 @@ bool OmicroServer::initTrxn( kcp_conv_t conv, OmicroTrxn &txn )
 	std::cout << "a80123 OmicroServer::initTrxn() threadid=" << pthread_self() << std::endl;
 	std::cout << "a80124 beacon=" << beacon << std::endl;
 	std::cout << "a80124 trxnid=" << trxnid << std::endl;
+
+	// for each zone leader
+	//   send leader msg: trxn, with tranit XIT_i
+	// self node maybe one of the zone leaders
 	
 	return true;
 }

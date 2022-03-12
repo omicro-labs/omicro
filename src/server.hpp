@@ -7,6 +7,7 @@
 #include "server_lib/server.hpp"
 #include "nodelist.h"
 #include "omicrodef.h"
+#include "trxnstate.h"
 
 class OmicroTrxn;
 
@@ -48,6 +49,7 @@ class OmicroServer : private boost::noncopyable
 		sstr address_;
 		sstr port_;
 		NodeList nodeList_;
+		TrxnState  trxnState_;
 };
 
 #endif // _SERVER_HPP

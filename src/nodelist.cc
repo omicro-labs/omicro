@@ -47,6 +47,9 @@ void NodeList::readFile()
 		}
 		nodelist_.push_back( line );
 	}
+
+	fclose( fp );
+	print();
 }
 
 bool
@@ -72,4 +75,23 @@ NodeList::getData( const sstr &rec,
 
 	return true;
 }
+
+Byte NodeList::getLayer()
+{
+	int N = nodelist_.size();
+	if ( N < 25 ) {
+		return 2;
+	} else {
+		return 3;
+	}
+}
+
+void NodeList::print()
+{
+	for ( unsigned int i = 0; i < nodelist_.size(); ++i ) {
+		printf("%s\n", nodelist_[i].c_str() );
+		fflush(stdout);
+	}
+}
+
 

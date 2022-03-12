@@ -11,6 +11,8 @@ class NodeList
   	~NodeList();
 
 	bool getData( const sstr &rec, sstr &pubkey, sstr &ip, sstr &port);
+	Byte getLayer();
+	void print();
 
 
   protected:
