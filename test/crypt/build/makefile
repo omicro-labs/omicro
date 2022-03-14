@@ -69,13 +69,16 @@ BOOST_LIB_PATH=/usr/local/lib
 SRCINC=../../../src
 KCP=../../../src/Web/kcpasio/asio_kcp
 SRCBUILD=../../../src/build
+NTRU=../../../src/Web/ntru/libntru
+
 
 
 # The linker options.
 MY_LIBS   = \
-			$(SRCBUILD)/omicrokey.o 
+			$(SRCBUILD)/omicrokey.o \
+			$(NTRU)/libntru.a 
 
-CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -I $(KCP) -I $(SRCINC) -g -ggdb
+CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -I $(KCP) -I $(NTRU) -I $(SRCINC) -g -ggdb
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)
