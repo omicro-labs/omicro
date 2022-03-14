@@ -7,4 +7,8 @@ Command:
 
 git clone https://github.com/tbuktu/libntru.git
 
+cd libntru
+make
+make static-lib
+
 

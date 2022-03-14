@@ -21,6 +21,13 @@ class OmicroKey
 	sstr sign( int level, const sstr &msg, const sstr &secretKey );
 	bool verify( int level, const sstr &signedmsg, const sstr &publicKey );
 
+  protected:
+  	void pubKeyToString( const NtruEncPubKey &pkey, sstr &str );
+  	void stringToPubKey( const sstr &str,  NtruEncPubKey &pkey );
+
+  	void privKeyToString( const NtruEncPrivKey &skey, sstr &str );
+  	void stringToPrivKey( const sstr &str, NtruEncPrivKey &skey );
+
 };
 
 #endif
