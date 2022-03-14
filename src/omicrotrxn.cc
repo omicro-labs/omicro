@@ -135,6 +135,22 @@ bool OmicroTrxn::setBeacon( const char *s)
 	return true;
 }
 
+bool OmicroTrxn::setBeacon()
+{
+	if ( NULL == data_ ) {
+		std::cout << "E10111 OmicroTrxn::setBeacon data_ is NULL" << std::endl; 
+		return false;
+	}
+
+	int start = TRXN_BEACON_START;
+	int sz = TRXN_BEACON_SZ;
+	char s[TRXN_BEACON_SZ+1];
+	sprintf(s, "%*d", TRXN_BEACON_SZ, int(time(NULL)%TRXN_BEACON_SZ) );
+
+	memcpy( data_+start, s, sz );
+	return true;
+}
+
 
 char* OmicroTrxn::getSender()
 {
@@ -393,7 +409,8 @@ void OmicroTrxn::print()
 void  OmicroTrxn::makeDummyTrxn()
 {
 	setHeader("123456");
-	setBeacon("12345678");
+	// setBeacon("12345678");
+	setBeacon();
 
 	setSender("0xAduehHhfjOkfjetOjrUrjQjfSfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaDDExkYm");
 

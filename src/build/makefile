@@ -68,11 +68,13 @@ BOOST_LIB_PATH=/usr/local/lib
 
 BOOST_INC_PATH=/usr/local/include
 KCP=../Web/kcpasio/asio_kcp
+HASH=../Web/hash
 
 # The linker options.
 MUDUOD=$(KCP)/third_party/muduo/build/lib
 MY_LIBS = $(KCP)/server_lib/asio_kcp_server.a $(KCP)/essential/essential.a \
 		  $(KCP)/client_lib/kcp_client_lib.a \
+		  $(HASH)/xxHash/libxxhash.a \
           $(BOOST_LIB_PATH)/libboost_system-mt.a $(BOOST_LIB_PATH)/libboost_filesystem-mt.a \
 		  $(BOOST_LIB_PATH)/libboost_thread-mt.a $(KCP)/third_party/g2log/build/liblib_g2logger.a \
 		  $(MUDUOD)/libmuduo_base_cpp11.a 
@@ -93,7 +95,9 @@ WORNING_FLAGS = -Wall
 
 # The pre-processor options used by the cpp (man cpp for more).
 CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) -I $(KCP)/third_party/muduo \
-            -I $(KCP) -I $(KCP)/third_party/g2log/src -g3 \
+            -I $(KCP) \
+            -I $(HASH) \
+			-I $(KCP)/third_party/g2log/src -g3 \
 			$(BOOST_DEFINE) $(MUDUO_DEFINE) $(ASIO_KCP_DEFINE)
 
 # The options used in linking as well as in any direct use of ld.

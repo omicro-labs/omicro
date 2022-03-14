@@ -49,6 +49,7 @@ class OmicroTrxn
 
 	char *getBeacon();
 	bool setBeacon( const char *s);
+	bool setBeacon();
 
 	char *getSender();
 	bool setSender( const char *s );

@@ -6,6 +6,7 @@
 #include "essential/utility/strutil.h"
 #include "omicrotrxn.h"
 #include "server.hpp"
+#include "dynamiccircuit.h"
 
 OmicroServer::OmicroServer(const sstr& address, const sstr& port)
     : io_service_(),
@@ -92,6 +93,10 @@ bool OmicroServer::initTrxn( kcp_conv_t conv, OmicroTrxn &txn )
 	// for each zone leader
 	//   send leader msg: trxn, with tranit XIT_i
 	// self node maybe one of the zone leaders
+	DynamicCircuit circ;
+	strvec vec;
+	circ.getZoneLeaders( nodeList_,  beacon, vec );
+
 	
 	return true;
 }

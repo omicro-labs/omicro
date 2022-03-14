@@ -45,7 +45,7 @@ void NodeList::readFile()
 		if (line[len-1] == '\n' ) {
 			line[len-1] = '\0'; 
 		}
-		nodelist_.push_back( line );
+		list_.push_back( line );
 	}
 
 	fclose( fp );
@@ -76,20 +76,27 @@ NodeList::getData( const sstr &rec,
 	return true;
 }
 
-Byte NodeList::getLayer()
+Byte NodeList::getLayer() const
 {
-	int N = nodelist_.size();
-	if ( N < 25 ) {
+	// todo
+	int L2max = 25;
+	int N = list_.size();
+	if ( N < L2max ) {
 		return 2;
 	} else {
 		return 3;
 	}
 }
 
+int NodeList::length() const
+{
+	return list_.size();
+}
+
 void NodeList::print()
 {
-	for ( unsigned int i = 0; i < nodelist_.size(); ++i ) {
-		printf("%s\n", nodelist_[i].c_str() );
+	for ( unsigned int i = 0; i < list_.size(); ++i ) {
+		printf("%s\n", list_[i].c_str() );
 		fflush(stdout);
 	}
 }

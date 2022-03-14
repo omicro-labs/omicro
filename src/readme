@@ -1,1 +1,4 @@
 Source code of Omicro
+To compile the code, go to the build directory and build.
+To test the program, please go to ../test/server or ../test/client.
+

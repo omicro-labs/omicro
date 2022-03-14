@@ -1,0 +1,5 @@
+run
+./install_xxhash_compile.sh
+
+This will clone xxHash repository and compile it.
+It also makes a test program.
