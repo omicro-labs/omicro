@@ -41,17 +41,16 @@
 
 struct OmState
 {
-	Byte  type;
 	Byte  state;
 
 	bool operator==( const OmState &st ) {
-		if ( type == st.type && state == st.state ) {
+		if ( state == st.state ) {
 			return true;
 		}
 		return false;
 	}
 	bool operator!=( const OmState &st ) {
-		if ( type != st.type || state != st.state ) {
+		if ( state != st.state ) {
 			return true;
 		}
 		return false;
@@ -66,18 +65,18 @@ class TrxnState
   	TrxnState();
   	~TrxnState();
 
-	bool goState( Byte level, const sstr &trxnid, Byte type, Byte xit );
-	bool getState( const sstr &trxnid, Byte &type, Byte &state );
-	void setState( const sstr &trxnid, Byte type, Byte state );
+	bool goState( Byte level, const sstr &trxnid, Byte xit );
+	bool getState( const sstr &trxnid, Byte &state );
+	void setState( const sstr &trxnid, Byte state );
 	void deleteState( const sstr &trxnid );
-	void terminateState( const sstr &trxnid, Byte type );
+	void terminateState( const sstr &trxnid );
 
   protected:
 	OmStateMap stateMap_;
 	// key: trxnid  value: state info
 
-	bool goStateL2( const sstr &trxnid, Byte type, Byte transit, Byte curState, OmStateItr itr);
-	bool goStateL3( const sstr &trxnid, Byte type, Byte transit, Byte curState, OmStateItr itr);
+	bool goStateL2( const sstr &trxnid, Byte transit, Byte curState, OmStateItr itr);
+	bool goStateL3( const sstr &trxnid, Byte transit, Byte curState, OmStateItr itr);
 	void insertOrUpdateState( const sstr &trxnid, const OmState &st, OmStateItr itr );
   	
 };

@@ -71,6 +71,12 @@ bool  OmicroTrxn::setInitTrxn()
 	return true;
 }
 
+bool  OmicroTrxn::setNotInitTrxn()
+{
+	data_[TRXN_HEADER_START] = 'N'; 
+	return true;
+}
+
 // TRXN_HEADER_START+0:  'C' initiated from client, 'L' from leader
 bool OmicroTrxn::isInitTrxn()
 {
@@ -336,6 +342,70 @@ bool OmicroTrxn::setAssetType( const char *s)
 	return true;
 }
 
+char *OmicroTrxn::getVote()
+{
+	if ( NULL == data_ ) return NULL;
+	int start = TRXN_VOTE_START;
+	int sz = TRXN_VOTE_SZ;
+	char *p = (char*)malloc(sz+1);
+	memcpy( p, data_+start, sz );
+	p[sz] = '\0';
+	return p;
+}
+
+int OmicroTrxn::getVoteInt()
+{
+	char *p = getVote();
+	if ( ! p ) return 0;
+	int num = atoi(p);
+	free(p);
+	return num;
+}
+
+bool OmicroTrxn::setVote( const char *s )
+{
+	if ( NULL == data_ ) {
+		std::cout << "E10217 OmicroTrxn::setVote data_ is NULL" << std::endl; 
+		return false;
+	}
+
+	int start = TRXN_VOTE_START;
+	int sz = TRXN_VOTE_SZ;
+	int len = strlen(s);
+	if ( len != sz ) {
+		std::cout << "E10207 OmicroTrxn::setVote s=[" << s << "] wrong size" << len << std::endl; 
+		return false;
+	}
+	memcpy( data_+start, s, sz );
+	return true;
+}
+
+bool OmicroTrxn::setVoteInt( int votes )
+{
+	char v[TRXN_VOTE_SZ+1];
+	sprintf(v, "%*d", TRXN_VOTE_SZ, votes );
+
+	int start = TRXN_VOTE_START;
+	int sz = TRXN_VOTE_SZ;
+	memcpy( data_+start, v, sz );
+	return true;
+}
+
+void OmicroTrxn::addVote(int vote)
+{
+	int v = getVoteInt();
+	v += vote;
+	setVoteInt( v );
+}
+
+void OmicroTrxn::minusVote(int vote)
+{
+	int v = getVoteInt();
+	v -= vote;
+	if ( v < 0 ) v = 0;
+	setVoteInt( v );
+}
+
 
 char* OmicroTrxn::getSignature()
 {
@@ -423,6 +493,7 @@ void  OmicroTrxn::makeDummyTrxn()
 	setTrxnType("AB");
 
 	setAssetType("XY");
+	setVoteInt(0);
 
 	setSignature("SGBdbehZhIjfkVjegrqBiGjr3AqfEyehxnckfhe038ejdskaleeeyxelkdUpwsgg");
 }

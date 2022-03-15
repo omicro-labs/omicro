@@ -11,6 +11,17 @@
 
 class OmicroTrxn;
 
+struct ThreadParam
+{
+	sstr srv;
+	int port;
+	sstr trxn;
+	sstr reply;
+};
+
+void *threadSendMsg(void *arg);
+
+
 class OmicroServer : private boost::noncopyable
 {
     public:
@@ -31,6 +42,9 @@ class OmicroServer : private boost::noncopyable
         void test_force_disconnect(void);
 		sstr getDataDir();
 		bool initTrxn( kcp_conv_t conv, OmicroTrxn &txn );
+		void readID();
+		void multicast( const strvec &hostVec, const sstr &trxnMsg, strvec &replyVec );
+
 
     private:
         /// The io_service used to perform asynchronous operations.
@@ -50,6 +64,8 @@ class OmicroServer : private boost::noncopyable
 		sstr port_;
 		NodeList nodeList_;
 		TrxnState  trxnState_;
+		sstr id_;
+		int  level_;
 };
 
 #endif // _SERVER_HPP

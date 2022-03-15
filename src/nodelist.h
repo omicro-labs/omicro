@@ -10,11 +10,13 @@ class NodeList
   	NodeList();
   	~NodeList();
 
-	bool getData( const sstr &rec, sstr &pubkey, sstr &ip, sstr &port);
-	Byte getLayer() const;
+	static bool getData( const sstr &rec, sstr &id, sstr &ip, sstr &port);
+	Byte getLevel() const;
 	void print();
 	std::vector<sstr> list_;
-	int  length() const;
+	unsigned int  length() const;
+	unsigned int  size() const;
+	const sstr & operator[](unsigned int i) const;
 
   protected:
   	void readFile();

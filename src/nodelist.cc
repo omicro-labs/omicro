@@ -54,13 +54,13 @@ void NodeList::readFile()
 
 bool
 NodeList::getData( const sstr &rec, 
-				   sstr &pubkey, sstr &ip, sstr &port )
+				   sstr &id, sstr &ip, sstr &port )
 {
 	// pubkey
 	const char *p = rec.c_str();
 	const char *q = strchr(p, '|');
 	if ( q == NULL ) return false;
-	pubkey = sstr(p, q-p);
+	id = sstr(p, q-p);
 
 	// ip
 	++q;
@@ -76,7 +76,7 @@ NodeList::getData( const sstr &rec,
 	return true;
 }
 
-Byte NodeList::getLayer() const
+Byte NodeList::getLevel() const
 {
 	// todo
 	int L2max = 25;
@@ -88,7 +88,12 @@ Byte NodeList::getLayer() const
 	}
 }
 
-int NodeList::length() const
+unsigned int NodeList::length() const
+{
+	return list_.size();
+}
+
+unsigned int NodeList::size() const
 {
 	return list_.size();
 }
@@ -101,4 +106,8 @@ void NodeList::print()
 	}
 }
 
+const sstr & NodeList::operator[](unsigned int i) const
+{
+	return list_[i];
+}
 

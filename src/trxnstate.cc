@@ -7,20 +7,19 @@ TrxnState::~TrxnState()
 {
 }
 
-bool TrxnState::getState( const sstr &trxnid, Byte &type, Byte &state )
+bool TrxnState::getState( const sstr &trxnid, Byte &state )
 {
 	OmStateItr itr;
 	itr = stateMap_.find( trxnid );
 	if ( itr == stateMap_.end() ) {
 		return false;
 	} else {
-		type = itr->second.type;
 		state = itr->second.state;
 		return true;
 	}
 }
 
-bool TrxnState::goState( Byte level, const sstr &trxnid, Byte type, Byte transit )
+bool TrxnState::goState( Byte level, const sstr &trxnid, Byte transit )
 {
 	Byte curState;
 	OmStateItr itr;
@@ -32,9 +31,9 @@ bool TrxnState::goState( Byte level, const sstr &trxnid, Byte type, Byte transit
 	}
 
 	if ( level == 2 ) {
-		return goStateL2( trxnid, type, transit, curState, itr );
+		return goStateL2( trxnid, transit, curState, itr );
 	} else if ( level == 3 ) {
-		return goStateL3( trxnid, type, transit, curState, itr );
+		return goStateL3( trxnid, transit, curState, itr );
 	} else {
 		return false;
 	}
@@ -42,11 +41,10 @@ bool TrxnState::goState( Byte level, const sstr &trxnid, Byte type, Byte transit
 }
 
 // prevXitc == ST_0 meaning trxnid does not exist in stateMap_
-bool TrxnState::goStateL2( const sstr &trxnid, Byte type, Byte transit, Byte curState, OmStateItr itr )
+bool TrxnState::goStateL2( const sstr &trxnid, Byte transit, Byte curState, OmStateItr itr )
 {
 	OmState st;
 	Byte nextState;
-	st.type = type;
 
 	if ( curState == ST_0 && transit == XIT_i ) {
 		nextState = ST_A;
@@ -69,11 +67,10 @@ bool TrxnState::goStateL2( const sstr &trxnid, Byte type, Byte transit, Byte cur
 	return true;
 }
 
-bool TrxnState::goStateL3( const sstr &trxnid, Byte type, Byte transit, Byte curState, OmStateItr itr )
+bool TrxnState::goStateL3( const sstr &trxnid, Byte transit, Byte curState, OmStateItr itr )
 {
 	OmState st;
 	Byte nextState;
-	st.type = type;
 
 	if ( curState == ST_0 && transit == XIT_i ) {
 		nextState = ST_A;
@@ -116,17 +113,17 @@ void TrxnState::insertOrUpdateState( const sstr &trxnid, const OmState &st, OmSt
 	}
 }
 
-void TrxnState::setState( const sstr &trxnid, Byte type, Byte state )
+void TrxnState::setState( const sstr &trxnid, Byte state )
 {
 	OmStateItr itr = stateMap_.find( trxnid );
-	OmState st { type, state };
+	OmState st { state };
 	insertOrUpdateState( trxnid, st, itr );
 }
 
-void TrxnState::terminateState( const sstr &trxnid, Byte type )
+void TrxnState::terminateState( const sstr &trxnid)
 {
 	OmStateItr itr = stateMap_.find( trxnid );
-	OmState st { type, ST_T };
+	OmState st { ST_T };
 	insertOrUpdateState( trxnid, st, itr );
 }
 

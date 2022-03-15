@@ -3,19 +3,22 @@
 
 #include "omicrodef.h"
 
-class nodeList;
+class NodeList;
 
 class DynamicCircuit
 {
   public:
-  	DynamicCircuit();
+  	DynamicCircuit( const NodeList &nodeList );
   	~DynamicCircuit();
-	void getZoneLeaders( const NodeList &nodeList, const sstr &beacon, strvec &vec );
-
-
+	void getZoneLeaders( const sstr &beacon, strvec &vec );
+	bool isLeader( const sstr &beacon, const sstr &srvid,  strvec &followers  );
+	void getOtherLeaders( const sstr &beacon, const sstr &id, strvec &vec );
 
   protected:
-	void getLeaders( int numZones, const NodeList &nodeList, const sstr &beacon, strvec &vec );
+  	int level_;
+  	const NodeList &nodeList_;
+  	int getNumZones();
+	void getLeaders( int numZones, const sstr &beacon, strvec &vec );
 };
 
 #endif

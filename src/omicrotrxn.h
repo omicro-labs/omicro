@@ -27,11 +27,14 @@
 #define TRXN_ASSETTYPE_START (TRXN_TRXNTYPE_START+TRXN_TRXNTYPE_SZ)
 #define TRXN_ASSETTYPE_SZ  2
 
-#define TRXN_SIGNATURE_START  (TRXN_ASSETTYPE_START+TRXN_ASSETTYPE_SZ)
+#define TRXN_VOTE_START (TRXN_TRXNTYPE_START+TRXN_TRXNTYPE_SZ)
+#define TRXN_VOTE_SZ  10
+
+#define TRXN_SIGNATURE_START  (TRXN_VOTE_START+TRXN_VOTE_SZ)
 #define TRXN_SIGNATURE_SZ  64
 
 #define TRXN_DATA_SZ1  (TRXN_BEACON_SZ+TRXN_SENDER_SZ+TRXN_RECEIVER_SZ+TRXN_AMOUNT_SZ)
-#define TRXN_DATA_SZ2  (TRXN_TIMESTAMP_SZ+TRXN_TRXNTYPE_SZ+TRXN_ASSETTYPE_SZ)
+#define TRXN_DATA_SZ2  (TRXN_TIMESTAMP_SZ+TRXN_TRXNTYPE_SZ+TRXN_ASSETTYPE_SZ+TRXN_VOTE_SZ)
 #define TRXN_DATA_SZ   (TRXN_DATA_SZ1 + TRXN_DATA_SZ2)
 
 #define TRXN_BODY_SZ  (TRXN_HEADER_SZ+TRXN_DATA_SZ)
@@ -70,6 +73,13 @@ class OmicroTrxn
 	char *getAssetType();
 	bool setAssetType( const char *s );
 
+	char *getVote();
+	int  getVoteInt();
+	bool setVote( const char *s );
+	bool setVoteInt( int votes );
+	void addVote(int vote);
+	void minusVote(int vote);
+
 	char *getSignature();
 	bool setSignature( const char *s );
 
@@ -81,6 +91,7 @@ class OmicroTrxn
 	void  makeDummyTrxn();
 	void  print();
 	bool  setInitTrxn();
+	bool  setNotInitTrxn();
 	bool  setXit( Byte xit);
 	Byte  getXit();
 	bool  isInitTrxn();
