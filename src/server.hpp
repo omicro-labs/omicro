@@ -27,6 +27,7 @@ class OmicroServer : private boost::noncopyable
     public:
         /// Construct the server to listen on the specified TCP address and port
         explicit OmicroServer(const sstr& address, const sstr &port);
+		~OmicroServer();
 
         /// Run the server's io_service loop.  Must set_callback first then call run. Do not change callback after run.
         void run();
@@ -43,7 +44,7 @@ class OmicroServer : private boost::noncopyable
 		sstr getDataDir();
 		bool initTrxn( kcp_conv_t conv, OmicroTrxn &txn );
 		void readID();
-		void multicast( const strvec &hostVec, const sstr &trxnMsg, strvec &replyVec );
+		void multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
 
 
     private:
@@ -56,7 +57,8 @@ class OmicroServer : private boost::noncopyable
         bool stopped_;
 
         /// The connection manager which owns all live connections.
-        kcp_svr::server kcp_server_;
+        //kcp_svr::server kcp_server_;
+        kcp_svr::server *kcp_server_;
 
         boost::asio::deadline_timer test_timer_;
 
@@ -66,6 +68,7 @@ class OmicroServer : private boost::noncopyable
 		TrxnState  trxnState_;
 		sstr id_;
 		int  level_;
+		std::unordered_map<sstr, ulong> clientConv_;
 };
 
 #endif // _SERVER_HPP

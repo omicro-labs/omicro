@@ -10,4 +10,12 @@ using Byte = unsigned char;
 using strvec = std::vector<std::string>;
 using strshptr = std::shared_ptr<std::string>;
 
+#ifndef ulong
+using ulong = unsigned long;
+#endif
+
+#ifndef uint
+using uint = unsigned int;
+#endif
+
 #endif

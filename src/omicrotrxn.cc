@@ -1,12 +1,16 @@
 #include <malloc.h>
+#include <sys/time.h>
 #include <string.h>
+#include <math.h>
 #include <iostream>
 #include "omicrotrxn.h"
+#include "omutil.h"
 
 OmicroTrxn::OmicroTrxn()
 {
 	data_ = (char*)malloc(TRXN_TOTAL_SZ+1);
-	data_[TRXN_TOTAL_SZ] = '\0';
+	//data_[TRXN_TOTAL_SZ] = '\0';
+	memset(data_, 0, TRXN_TOTAL_SZ+1);
 	readOnly_ = false;
 }
 
@@ -16,11 +20,12 @@ OmicroTrxn::OmicroTrxn( const char *str )
 	int len = strlen(str);
 	if ( len == TRXN_TOTAL_SZ ) {
 		data_ = (char*)str;
+		data_[TRXN_TOTAL_SZ] = '\0';
 	} else {
-		std::cout << "E00001 OmicroTrxn::OmicroTrxn(s) s=[" << str << "] is too short" << std::endl;
+		std::cout << "E00001 OmicroTrxn::OmicroTrxn(s) str=[" << str << "] is too short" << std::endl;
+		std::cout << "       str.len=" << len << "  TRXN_TOTAL_SZ=" << TRXN_TOTAL_SZ << std::endl;
 		data_ = NULL;
 	}
-	data_[TRXN_TOTAL_SZ] = '\0';
 }
 
 OmicroTrxn::~OmicroTrxn()
@@ -151,7 +156,8 @@ bool OmicroTrxn::setBeacon()
 	int start = TRXN_BEACON_START;
 	int sz = TRXN_BEACON_SZ;
 	char s[TRXN_BEACON_SZ+1];
-	sprintf(s, "%*d", TRXN_BEACON_SZ, int(time(NULL)%TRXN_BEACON_SZ) );
+	ulong pm = pow(10, TRXN_BEACON_SZ);
+	sprintf(s, "%*d", TRXN_BEACON_SZ, int(time(NULL)%pm) );
 
 	memcpy( data_+start, s, sz );
 	return true;
@@ -281,6 +287,33 @@ bool OmicroTrxn::setTimeStamp( const char *s)
 	}
 	memcpy( data_+start, s, sz );
 	return true;
+}
+
+bool OmicroTrxn::setNowTimeStamp()
+{
+	if ( NULL == data_ ) {
+		std::cout << "E10015 OmicroTrxn::setNowTimeStamp data_ is NULL" << std::endl; 
+		return false;
+	}
+
+	int start = TRXN_TIMESTAMP_START;
+	int sz = TRXN_TIMESTAMP_SZ;
+	char tb[sz+1];
+    struct timeval now;
+    gettimeofday( &now, NULL );
+    ulong tot = now.tv_sec*1000000 + now.tv_usec;
+    sprintf(tb, "%*ld", TRXN_TIMESTAMP_SZ, tot );
+	memcpy( data_+start, tb, sz );
+	return true;
+}
+
+ulong OmicroTrxn::getTimeStampUS()
+{
+	char *p= getTimeStamp();
+	if ( !p ) return 0;
+	ulong us = atol(p);
+	free(p);
+	return us; // microseconds since epoch
 }
 
 
@@ -466,6 +499,15 @@ int OmicroTrxn::size()
 
 bool OmicroTrxn::isValidClientTrxn()
 {
+	ulong trxnTime = getTimeStampUS();
+	unsigned long nowt = getNowTimeUS();
+	if ( nowt - trxnTime > 60000000 ) {
+		// lag of 60 seconds
+		return false;
+	}
+
+	// signature verification
+
 	return true;
 }
 
@@ -488,14 +530,15 @@ void  OmicroTrxn::makeDummyTrxn()
 
 	setAmount("123456789.999999");
 
-	setTimeStamp("123456789012.999");
+	setNowTimeStamp();
 
 	setTrxnType("AB");
 
 	setAssetType("XY");
 	setVoteInt(0);
 
-	setSignature("SGBdbehZhIjfkVjegrqBiGjr3AqfEyehxnckfhe038ejdskaleeeyxelkdUpwsgg");
+	setSignature("SIGdbehZhIjfkVjegrqBiGjr3AqfEyehxnckfhe038ejdskaleeeyxelkdUpwsig");
+	std::cout << "a02238 makeDummyTrxn datalen=" << strlen(data_) << std::endl;
 }
 
 

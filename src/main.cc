@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
-#include "g2logworker.h"
-#include "g2log.h"
+//#include "g2logworker.h"
+//#include "g2log.h"
 #include "server_lib/asio_kcp_log.hpp"
 #include "server.hpp"
 
@@ -26,9 +26,9 @@ int main(int argc, char* argv[])
         }
 
         //system("mkdir asio_kcp_log");
-        sstr path_to_log_file("../log/");
-        g2LogWorker logger(argv[0], path_to_log_file);
-        g2::initializeLogging(&logger);
+        //sstr path_to_log_file("../log/");
+        //g2LogWorker logger(argv[0], path_to_log_file);
+        //g2::initializeLogging(&logger);
         AK_LOG(INFO) << "AK_LOG Server Start";
 
         LOG_INFO << "LOG_INFO server start";

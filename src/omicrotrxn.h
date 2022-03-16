@@ -27,7 +27,7 @@
 #define TRXN_ASSETTYPE_START (TRXN_TRXNTYPE_START+TRXN_TRXNTYPE_SZ)
 #define TRXN_ASSETTYPE_SZ  2
 
-#define TRXN_VOTE_START (TRXN_TRXNTYPE_START+TRXN_TRXNTYPE_SZ)
+#define TRXN_VOTE_START (TRXN_ASSETTYPE_START+TRXN_ASSETTYPE_SZ)
 #define TRXN_VOTE_SZ  10
 
 #define TRXN_SIGNATURE_START  (TRXN_VOTE_START+TRXN_VOTE_SZ)
@@ -65,7 +65,9 @@ class OmicroTrxn
 	bool setAmount( const char *s );
 
 	char *getTimeStamp();
+	ulong getTimeStampUS();
 	bool setTimeStamp( const char *s );
+	bool setNowTimeStamp();
 
 	char *getTrxnType();
 	bool setTrxnType( const char *s );
@@ -101,17 +103,6 @@ class OmicroTrxn
   protected:
 	char *data_;
 	bool readOnly_;
-  	/*** Inside data_:
-	header_[TRXN_HEADER_SZ];
-	beacon_[TRXN_BEACON_SZ];
-	sender_[TRXN_SENDER_SZ];
-	receiver_[TRXN_RECEIVER_SZ];
-	amount_[TRXN_AMOUNT_SZ];   // "123456789.123456"
-	timestamp_[TRXN_TIMESTAMP_SZ];  // "123456789012.124"
-	trxnType_[TRXN_TRXNTYPE_SZ];
-	assetType_[TRXN_ASSETTYPE_SZ];
-	signature_[TRXN_SIGNATURE_SZ];
-	***/
 };
 
 #endif

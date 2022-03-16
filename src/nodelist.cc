@@ -20,7 +20,7 @@ NodeList::~NodeList()
 // pubkey4|ip2|port3
 void NodeList::readFile()
 {
-	const char *fpath = "../conf/nostlist.conf";
+	const char *fpath = "../conf/nodelist.conf";
 	FILE *fp = fopen(fpath, "r");
 	if ( fp == NULL ) {
 		std::cout << "E10020 error open nodelist file " << fpath << std::endl;

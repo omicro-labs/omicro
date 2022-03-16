@@ -8,12 +8,14 @@ OmicroClient::OmicroClient( const char *srv, int port, int retry )
     if ( rc < 0 ) {
 		return;
     }
+	std::cout << "a70231 OmicroClient connectOK_ srv=" << srv << " port=" << port << std::endl;
 	connectOK_ = true;
 }
 
 OmicroClient::~OmicroClient()
 {
 	if ( connectOK_ ) {
+		std::cout << "a72231 dtor of OmicroClient client_.stop()" << std::endl;
 		client_.stop();
 	}
 }
@@ -21,6 +23,7 @@ OmicroClient::~OmicroClient()
 sstr OmicroClient::sendMessage( const sstr &msg, int waitMilliSec )
 {
 	if ( ! connectOK_ ) {
+		std::cout << "a52031 sendMessage return empty because connect is not OK" << std::endl;
 		return "";
 	}
 
@@ -35,7 +38,7 @@ void omicro_client_event_callback(kcp_conv_t conv, asio_kcp::eEventType event_ty
 {
 	OmicroClient *obj = (OmicroClient*)var;
 
-    std::cout << "event_type: " << event_type << " msg: " << msg << std::endl;
+    // std::cout << "event_type: " << event_type << " msg: " << msg << std::endl;
     std::cout << "event_type str: " << asio_kcp::clientEventTypeStr(event_type) << std::endl;
     std::cout << "msg: " << msg << std::endl;
 	if ( event_type == asio_kcp::eRcvMsg ) {

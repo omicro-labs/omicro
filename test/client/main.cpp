@@ -20,10 +20,12 @@ int main(int argc, char* argv[])
 	std::string reply = client.sendMessage( t1.str(), 100 );
 	std::cout << reply << std::endl;
 
+	/**
 	OmicroTrxn t2;
 	t2.makeDummyTrxn();
 	//t2.setInitTrxn();
 	reply = client.sendMessage( t2.str(), 100 );
 	std::cout << reply << std::endl;
+	**/
 }
 

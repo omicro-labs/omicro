@@ -79,6 +79,7 @@ CLIB=/lib64/libc.a
 MY_LIBS   = \
 			$(SRCBUILD)/omicroclient.o \
 			$(SRCBUILD)/omicrotrxn.o \
+			$(SRCBUILD)/omutil.o \
             $(BOOST_LIB_PATH)/libboost_system-mt.a $(BOOST_LIB_PATH)/libboost_filesystem-mt.a \
             $(BOOST_LIB_PATH)/libboost_thread-mt.a $(BOOST_LIB_PATH)/libboost_date_time-mt.a \
 			$(KCP)/essential/essential.a $(KCP)/server_lib/asio_kcp_server.a \
