@@ -117,7 +117,7 @@ SRCDIRS   = ../
 
 # The executable file name.
 # If not specified, current directory name or `a.out' will be used.
-PROGRAM   = omicroserver
+PROGRAM   = omserver
 
 ## Implicit Section: change the following only when necessary.
 ##==========================================================================
@@ -245,6 +245,8 @@ ifeq ($(SRC_CXX),)              # C program
 else                            # C++ program
 	$(LINK.cxx) $(OBJS) $(MY_LIBS) -o $@
 	@echo Type ./$@ to execute the program.
+	mkdir -p ../../test/server/bin
+	/bin/cp -f $@ ../../test/server/bin/
 endif
 
 ifndef NODEP

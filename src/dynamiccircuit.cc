@@ -1,10 +1,11 @@
 
 #include <math.h>
 #include <iostream>
-#include "omicrodef.h"
 #include "nodelist.h"
 #include "dynamiccircuit.h"
 #include "xxHash/xxhash.h"
+#include "omutil.h"
+EXTERN_LOGGING
 
 
 DynamicCircuit::DynamicCircuit(  const NodeList &nodeList )
@@ -44,10 +45,10 @@ void DynamicCircuit::getLeaders( int numZones, const sstr &beacon, strvec &vec )
 	int seed = atoi( beacon.c_str() );
 	int zone;
 	uint len = nodeList_.size();
-	uint d = len/numZones;
+	uint dd = len/numZones;
 	for ( unsigned int i=0; i < len; ++i ) {
 		hash = XXH64( nodeList_[i].c_str(), nodeList_[i].size(), seed ) % len ;
-		zone = hash / d;
+		zone = hash / dd;
 		if ( leader[zone].size() < 1 ) {
 			leader[zone] = nodeList_[i];
 		}
@@ -55,7 +56,8 @@ void DynamicCircuit::getLeaders( int numZones, const sstr &beacon, strvec &vec )
 	vec = leader;
 
 	for ( int z = 0; z < numZones; ++z ) {
-		std::cout << "a83380 zone=" << z << " leader=" << leader[z] << std::endl;
+		const sstr &sr = leader[z];
+		d("a83380 zone=%d leader=%s", z, s(sr));
 	}
 
 }

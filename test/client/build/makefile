@@ -106,7 +106,7 @@ SRCDIRS   = ../
 
 # The executable file name.
 # If not specified, current directory name or `a.out' will be used.
-PROGRAM   = omicroclient
+PROGRAM   = omclient
 
 ## Implicit Section: change the following only when necessary.
 ##==========================================================================

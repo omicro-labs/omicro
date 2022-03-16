@@ -9,6 +9,7 @@
 #include "dynamiccircuit.h"
 #include "omutil.h"
 #include "omicroclient.h"
+EXTERN_LOGGING
 
 OmicroServer::OmicroServer(const sstr& address, const sstr& port)
     : io_service_(),
@@ -19,7 +20,7 @@ OmicroServer::OmicroServer(const sstr& address, const sstr& port)
 	address_(address), port_(port)
 {
 	readID();
-	std::cout << "a023381 start address_=[" << address_ << "] port_=[" << port_ << "]" << std::endl;
+	i("a023381 start address_=[%s] port_=[%s]", address_.c_str(), port_.c_str() );
 	kcp_server_ = new kcp_svr::server(io_service_, address_, port_);
 
     // Register to handle the signals that indicate when the server should exit.
@@ -66,7 +67,8 @@ void OmicroServer::handle_stop()
 
 void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_type, std::shared_ptr<sstr> msg)
 {
-    std::cout << "event_callback: conv=" << conv << " type:" << kcp_svr::eventTypeStr(event_type) << " msg: " << *msg << std::endl;
+    // std::cout << "event_callback: conv=" << conv << " type:" << kcp_svr::eventTypeStr(event_type) << " msg: " << *msg << std::endl;
+	d("event_callback: conv=%ld type=%s msg=%s", conv, kcp_svr::eventTypeStr(event_type), s(*msg, 20));
     if (event_type == kcp_svr::eRcvMsg)
     {
         // auto send back msg for testing.
@@ -128,13 +130,13 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 							}
 
 						} else {
-							std::cout << "a3305 toCgood is false" << std::endl;
+							d("a3305 toCgood is false");
 						}
 					} else {
-						std::cout << "a3306 to state A is false" << std::endl;
+						d("a3306 to state A is false");
 					}
 				}  else {
-					std::cout << "a3308 i am not leader, ignore XIT_i" << std::endl;
+					d("a3308 i am not leader, ignore XIT_i");
 				}
 				// else i am not leader, igore 'i' xit
 			} else if ( xit == XIT_j ) {
@@ -173,7 +175,7 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 				// qwer
 				auto itr = clientConv_.find(trxnId);
 				if ( itr == clientConv_.end() ) {
-					std::cout << "E10045 got XIT_m but cannot find clientConv_ for trxnId=" << trxnId << std::endl;
+					i("E10045 got XIT_m but cannot find clientConv_ for trxnId=%s",s(trxnId, 10) );
 					return;
 				}
 
@@ -203,10 +205,10 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 
 							// i do commit too to state F
 							// block_.add( t );
-							std::cout <<"a9999 leader commit a TRXN " << trxnId << std::endl;
+							d("a9999 leader commit a TRXN %s ", s(trxnId));
 							trxnState_.goState( level_, trxnId, XIT_n );
 							// reply back to client
-							std::cout <<"a99992 conv=" << conv << "  clientconv=" << clientConv_[trxnId] << std::endl;
+							d("a99992 conv=%ld clientconv=%ld\n", conv,  clientConv_[trxnId] );
 							strshptr m = std::make_shared<sstr>(sstr("GOOD_TRXN|") + id_);
         					kcp_server_->send_msg(clientConv_[trxnId], m);
 						}
@@ -216,8 +218,7 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 				}
 			} else if ( xit == XIT_n ) {
 				// follower gets a trxn commit message
-				std::cout <<"a9999 follower commit a TRXN " << trxnId << std::endl;
-				
+				d("a9999 follower commit a TRXN %s", s(trxnId));
 			}
 		}
     }
@@ -238,9 +239,7 @@ bool OmicroServer::initTrxn( kcp_conv_t conv, OmicroTrxn &txn )
 	// nodeList_ is std::vector<string>
 	sstr beacon = txn.getBeacon();
 	sstr trxnid = txn.getTrxnID();
-	std::cout << "a80123 OmicroServer::initTrxn() threadid=" << pthread_self() << std::endl;
-	std::cout << "a80124 beacon=[" << beacon << "]" << std::endl;
-	std::cout << "a80124 trxnid=" << trxnid << std::endl;
+	d("a80123 initTrxn() threadid=%ld beacon=[%s] trxnid=%s", pthread_self(), s(beacon), s(trxnid, 10));
 
 	// for each zone leader
 	//   send leader msg: trxn, with tranit XIT_i
@@ -257,7 +256,7 @@ bool OmicroServer::initTrxn( kcp_conv_t conv, OmicroTrxn &txn )
 
 	uint numReply = replyVec.size();
 	uint onefp1 = onefplus1(hostVec.size());
-	std::cout << "a4550 numReply=" << numReply << " onefp1=" << onefp1 << std::endl;
+	d("a4550 numReply=%d onefp1=%d", numReply, onefp1);
 	if ( numReply >= onefp1 ) {
 		return true;
 	} else {
@@ -273,7 +272,7 @@ void OmicroServer::multicast( const strvec &hostVec, const sstr &trxnMsg, bool e
 		return;
 	}
 
-	std::cout << "a31303 multicast msgs to nodes " << len << std::endl;
+	d("a31303 multicast msgs to nodes %d ...", len );
 
 	pthread_t thrd[len];
 	ThreadParam thrdParam[len];
@@ -294,7 +293,8 @@ void OmicroServer::multicast( const strvec &hostVec, const sstr &trxnMsg, bool e
 		}
 	}
 
-	std::cout << "a31304 multicast msgs done" << std::endl;
+	d("a31303 multicast msgs to nodes %d done", len );
+
 }
 
 void OmicroServer::hook_test_timer(void)

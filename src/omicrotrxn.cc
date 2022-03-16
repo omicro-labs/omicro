@@ -5,6 +5,7 @@
 #include <iostream>
 #include "omicrotrxn.h"
 #include "omutil.h"
+EXTERN_LOGGING
 
 OmicroTrxn::OmicroTrxn()
 {
@@ -513,8 +514,7 @@ bool OmicroTrxn::isValidClientTrxn()
 
 void OmicroTrxn::print()
 {
-	printf("OmicroTrxn::print data=[%s]\n", data_ );
-	fflush(stdout);
+	i("OmicroTrxn::print data=[%s]\n", data_ );
 }
 
 // for testing only
@@ -538,7 +538,7 @@ void  OmicroTrxn::makeDummyTrxn()
 	setVoteInt(0);
 
 	setSignature("SIGdbehZhIjfkVjegrqBiGjr3AqfEyehxnckfhe038ejdskaleeeyxelkdUpwsig");
-	std::cout << "a02238 makeDummyTrxn datalen=" << strlen(data_) << std::endl;
+	d("a02238 makeDummyTrxn datalen=%d", strlen(data_) );
 }
 
 

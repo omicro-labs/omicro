@@ -11,6 +11,8 @@
 #include "omicroclient.h"
 #include "omicrotrxn.h"
 
+INIT_LOGGING
+
 int main(int argc, char* argv[])
 {
 	OmicroTrxn t1;

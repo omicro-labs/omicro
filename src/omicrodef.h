@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <mutex>
 
 using sstr = std::string;
 using Byte = unsigned char;
@@ -18,4 +19,11 @@ using ulong = unsigned long;
 using uint = unsigned int;
 #endif
 
+#define INIT_LOGGING FILE *g_loggingfp = stdout; \
+                     bool g_debug = false; \
+					 std::mutex  g_log_mutex;
+
+#define EXTERN_LOGGING extern FILE *g_loggingfp; \
+                       extern bool g_debug; \
+					   extern std::mutex g_log_mutex;
 #endif
