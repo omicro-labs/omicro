@@ -73,15 +73,16 @@ bool DynamicCircuit::getOtherLeaders( const sstr &beacon, const sstr &id, strvec
 	int zone;
 
 	uint len = nodeList_.size();
-	uint d = len/numZones;
+	uint dd = len/numZones;
 
 	bool idIsLeader = false;
 	for ( unsigned int i=0; i < len; ++i ) {
-		hash = XXH64( nodeList_[i].c_str(), nodeList_[i].size(), seed ) % len;
-		zone = hash / d;
+		const sstr &rec = nodeList_[i];
+		hash = XXH64( s(rec), rec.size(), seed ) % len;
+		zone = hash / dd;
 		if ( leader[zone].size() < 1 ) {
-			if ( id != nodeList_[i] ) {
-				leader[zone] = nodeList_[i];
+			if ( id != rec ) {
+				leader[zone] = rec;
 			} else {
 				idIsLeader = true;
 			}
@@ -104,38 +105,45 @@ bool DynamicCircuit::isLeader( const sstr &beacon, const sstr &srvid, bool getFo
 	int seed = atoi( beacon.c_str() );
 
 	uint len = nodeList_.size();
-	uint d = len/numZones;
+	uint dd = len/numZones;
 
 	XXH64_hash_t hash;
-	hash = XXH64( srvid.c_str(), srvid.size(), seed );
+	hash = XXH64( srvid.c_str(), srvid.size(), seed ) % len;
 	int zoneid =  hash / numZones;
+	d("a22201 isLeader check srvid=[%s] zoneid=%d", s(srvid), zoneid );
 
 	int zone;
 	bool isLeader = false;
 	for ( unsigned int i=0; i < len; ++i ) {
-		hash = XXH64( nodeList_[i].c_str(), nodeList_[i].size(), seed ) % len;
-		zone = hash / d;
+		const sstr &rec = nodeList_[i];
+		hash = XXH64( s(rec), rec.size(), seed ) % len;
+		zone = hash / dd;
 		if ( zone != zoneid ) {
 			continue;
 		}
+		
+		d("a21245 i=%d zone==zoneid=%d rec=[%s]", i, zone, s(rec));
 
 		if ( isLeader == false ) {
-			if ( srvid != nodeList_[i] ) {
+			if ( srvid != rec ) {
 				// first element in the same zone
 				// not srvid, return false;
+				d("a11023 rec=[%s] is not srvid=[%s] return false", s(rec), s(srvid) );
 				return false;
 			} else {
 				isLeader = true;
+				d("a11024 rec=[%s] is equal to srvid=[%s] isLeader=true, continue", s(rec), s(srvid) );
 				continue; // skip leader
 			}
 		} 
 
 		// add followers to vec
 		if ( getFollowers ) {
-			followersVec.push_back( nodeList_[i] );
+			followersVec.push_back( rec );
 		}
 	}
 
+	d("a33301 return isLeader=%d followersVec=%d", isLeader, followersVec.size() );
 	return isLeader;
 }
 
@@ -154,7 +162,7 @@ bool DynamicCircuit::getOtherLeadersAndFollowers( const sstr &beacon, const sstr
 	uint len = nodeList_.size();
 	uint d = len/numZones;
 
-	hash = XXH64( srvid.c_str(), srvid.size(), seed );
+	hash = XXH64( srvid.c_str(), srvid.size(), seed ) % len;
 	int zoneid =  hash / numZones;
 
 	bool idIsLeader = false;

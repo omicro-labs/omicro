@@ -17,5 +17,6 @@ void d(const char * format, ...);
 void log(FILE *f, const char * format, va_list args);
 
 const char *s(const sstr &s, int len=0);
+void printvec( const strvec &vec );
 
 #endif

@@ -99,3 +99,9 @@ const char *s(const sstr &s, int sublen)
 	}
 }
 
+void printvec( const strvec &vec )
+{
+	for ( const auto &r : vec ) {
+		i("%s", s(r));
+	}
+}

@@ -67,8 +67,7 @@ void OmicroServer::handle_stop()
 
 void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_type, std::shared_ptr<sstr> msg)
 {
-    // std::cout << "event_callback: conv=" << conv << " type:" << kcp_svr::eventTypeStr(event_type) << " msg: " << *msg << std::endl;
-	d("event_callback: conv=%ld type=%s msg=%s", conv, kcp_svr::eventTypeStr(event_type), s(*msg, 20));
+	d("a2108 event_callback: conv=%ld type=%s msg=[%s]", conv, kcp_svr::eventTypeStr(event_type), s(*msg.get(), 20));
     if (event_type == kcp_svr::eRcvMsg)
     {
         // auto send back msg for testing.
@@ -110,9 +109,15 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 					bool goodXit = trxnState_.goState( level_, trxnId, XIT_i );
 					if ( goodXit ) {
 						// send XIT_j to all followers in this leader zone
+						bool toBgood = trxnState_.goState( level_, trxnId, XIT_j );
+						d("a21200 iAmLeader toBgood=%d", toBgood );
+
 						t.setXit( XIT_j );
 						strvec replyVec;
+						d("a31112 %s multicast followers ..", s(id_));
+						printvec( followers );
 						multicast( followers, t.str(), true, replyVec );
+						d("a31112 %s multicast followers done", s(id_));
 
 						// got replies from followers, state to C
 						bool toCgood = trxnState_.goState( level_, trxnId, XIT_k );
@@ -124,7 +129,10 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 								t.setXit( XIT_l );
 								strvec otherLeaders;
 								circ.getOtherLeaders( beacon, id_, otherLeaders );
+								d("a31102 %s multicast otherLeaders ..", s(id_));
+								printvec(otherLeaders);
 								multicast( otherLeaders, t.str(), false, replyVec );
+								d("a31102 %s multicast otherLeaders done", s(id_));
 							} else {
 								// level_ == 3  todo
 							}
@@ -135,8 +143,8 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 					} else {
 						d("a3306 to state A is false");
 					}
-				}  else {
-					d("a3308 i am not leader, ignore XIT_i");
+				} else {
+					d("a3308 i [%s] am not leader, ignore XIT_i", s(id_));
 				}
 				// else i am not leader, igore 'i' xit
 			} else if ( xit == XIT_j ) {
@@ -164,7 +172,10 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 							t.setXit( XIT_m );
 							t.setVoteInt( totalVotes[trxnId] );
 							strvec nullvec;
+							d("a33221 %s multicast otherLeaders ...", s(id_));
+							printvec(otherLeaders);
 							multicast( otherLeaders, t.str(), false, nullvec );
+							d("a33221 %s multicast otherLeaders done", s(id_));
 						}
 						collectTrxn.erase(trxnId);
 						totalVotes.erase(trxnId);
@@ -201,7 +212,10 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 							t.setXit( XIT_n );
 							t.setVoteInt( avgVotes );
 							strvec nullvec;
+							d("a33281 %s multicast XIT_n followers ...", s(id_));
+							printvec(followers);
 							multicast( followers, t.str(), false, nullvec );
+							d("a33281 %s multicast XIT_n followers done", s(id_));
 
 							// i do commit too to state F
 							// block_.add( t );
@@ -210,6 +224,7 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 							// reply back to client
 							d("a99992 conv=%ld clientconv=%ld\n", conv,  clientConv_[trxnId] );
 							strshptr m = std::make_shared<sstr>(sstr("GOOD_TRXN|") + id_);
+							d("a4002 reply back food trxn...");
         					kcp_server_->send_msg(clientConv_[trxnId], m);
 						}
 						collectTrxn.erase(trxnId);
@@ -248,11 +263,18 @@ bool OmicroServer::initTrxn( kcp_conv_t conv, OmicroTrxn &txn )
 	strvec hostVec;
 	circ.getZoneLeaders( beacon, hostVec );
 
+	for ( auto &id: hostVec ) {
+		d("a20112 initTrxn send XIT_i to leader [%s]", s(id) );
+	}
+
 	txn.setNotInitTrxn();
 	txn.setXit( XIT_i );
 
 	strvec replyVec;
+	d("a3118 multicast to ZoneLeaders ...");
+	printvec( hostVec );
 	multicast( hostVec, txn.str(), true, replyVec );
+	d("a3118 multicast to ZoneLeaders done");
 
 	uint numReply = replyVec.size();
 	uint onefp1 = onefplus1(hostVec.size());
