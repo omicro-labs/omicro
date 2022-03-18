@@ -2,10 +2,16 @@
 #include <stdio.h>
 #include <string>
 #include <iostream>
-
 #include "nodelist.h"
-NodeList::NodeList()
+#include "omutil.h"
+
+NodeList::NodeList( const char *fpath )
 {
+	if ( NULL == fpath ) {
+		nodeFile_ = "../conf/nodelist.conf";
+	} else {
+		nodeFile_ = fpath;
+	}
 	readFile();
 }
 
@@ -20,7 +26,7 @@ NodeList::~NodeList()
 // pubkey4|ip2|port3
 void NodeList::readFile()
 {
-	const char *fpath = "../conf/nodelist.conf";
+	const char *fpath = s(nodeFile_);
 	FILE *fp = fopen(fpath, "r");
 	if ( fp == NULL ) {
 		std::cout << "E10020 error open nodelist file " << fpath << std::endl;
@@ -49,7 +55,7 @@ void NodeList::readFile()
 	}
 
 	fclose( fp );
-	print();
+	// print();
 }
 
 bool

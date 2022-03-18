@@ -7,7 +7,7 @@
 class NodeList
 {
   public:
-  	NodeList();
+  	NodeList( const char *fpath = NULL);
   	~NodeList();
 
 	static bool getData( const sstr &rec, sstr &id, sstr &ip, sstr &port);
@@ -20,6 +20,7 @@ class NodeList
 
   protected:
   	void readFile();
+	sstr nodeFile_;
 };
 
 #endif

@@ -67,7 +67,8 @@ void OmicroServer::handle_stop()
 
 void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_type, std::shared_ptr<sstr> msg)
 {
-	d("a2108 event_callback: conv=%ld type=%s msg=[%s]", conv, kcp_svr::eventTypeStr(event_type), s(*msg.get(), 20));
+	d("a2108 event_callback: conv=%ld type=%s msg=[%s]", conv, kcp_svr::eventTypeStr(event_type), (*msg).substr(0, 20).c_str());
+
     if (event_type == kcp_svr::eRcvMsg)
     {
         // auto send back msg for testing.
@@ -114,10 +115,10 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 
 						t.setXit( XIT_j );
 						strvec replyVec;
-						d("a31112 %s multicast followers ..", s(id_));
-						printvec( followers );
+						d("a31112 %s multicast followers for vote ..", s(id_));
+						pvec( followers );
 						multicast( followers, t.str(), true, replyVec );
-						d("a31112 %s multicast followers done", s(id_));
+						d("a31112 %s multicast followers for vote done", s(id_));
 
 						// got replies from followers, state to C
 						bool toCgood = trxnState_.goState( level_, trxnId, XIT_k );
@@ -129,10 +130,10 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 								t.setXit( XIT_l );
 								strvec otherLeaders;
 								circ.getOtherLeaders( beacon, id_, otherLeaders );
-								d("a31102 %s multicast otherLeaders ..", s(id_));
-								printvec(otherLeaders);
+								d("a31102 %s round-1 multicast otherLeaders ..", s(id_));
+								pvec(otherLeaders);
 								multicast( otherLeaders, t.str(), false, replyVec );
-								d("a31102 %s multicast otherLeaders done", s(id_));
+								d("a31102 %s round-1 multicast otherLeaders done", s(id_));
 							} else {
 								// level_ == 3  todo
 							}
@@ -149,9 +150,13 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 				// else i am not leader, igore 'i' xit
 			} else if ( xit == XIT_j ) {
 				// I am follower, give my vote to leader
-				strshptr m = std::make_shared<sstr>("GOOD_TRXN|"+id_);
+				strshptr m = std::make_shared<sstr>("GOOD_TRXN|XIT_j|"+id_);
         		kcp_server_->send_msg(conv, m);
 			} else if ( xit == XIT_l ) {
+				// qwer
+				strshptr m = std::make_shared<sstr>("GOOD_TRXN|XIT_l|"+id_);
+        		kcp_server_->send_msg(conv, m);
+
 			    // received one XIT_l, there may be more XIT_l in next 3 seconds
 				static std::unordered_map<sstr, std::vector<uint>> collectTrxn;
 				static std::unordered_map<sstr, ulong> totalVotes;
@@ -172,10 +177,10 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 							t.setXit( XIT_m );
 							t.setVoteInt( totalVotes[trxnId] );
 							strvec nullvec;
-							d("a33221 %s multicast otherLeaders ...", s(id_));
-							printvec(otherLeaders);
+							d("a33221 %s round-2 multicast otherLeaders ...", s(id_));
+							pvec(otherLeaders);
 							multicast( otherLeaders, t.str(), false, nullvec );
-							d("a33221 %s multicast otherLeaders done", s(id_));
+							d("a33221 %s round-2 multicast otherLeaders done", s(id_));
 						}
 						collectTrxn.erase(trxnId);
 						totalVotes.erase(trxnId);
@@ -184,9 +189,10 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 			} else if ( xit == XIT_m ) {
 			    // received one XIT_m, there may be more XIT_m in next 3 seconds
 				// qwer
+				d("a54103 %s got XIT_m", s(id_) );
 				auto itr = clientConv_.find(trxnId);
 				if ( itr == clientConv_.end() ) {
-					i("E10045 got XIT_m but cannot find clientConv_ for trxnId=%s",s(trxnId, 10) );
+					i("E10045 got XIT_m but cannot find clientConv_ for trxnId=%s",trxnId.substr(0,10).c_str() );
 					return;
 				}
 
@@ -195,8 +201,9 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 
 				strvec otherLeaders, followers;
 				DynamicCircuit circ( nodeList_);
-				bool iAmLeader = circ.getOtherLeadersAndFollowers( beacon, id_, otherLeaders, followers );
+				bool iAmLeader = circ.getOtherLeadersAndThisFollowers( beacon, id_, otherLeaders, followers );
 				if ( iAmLeader ) {
+					d("a52238 i am %s, a leader", s(id_) );
 					collectTrxn[trxnId].push_back(1);
 					totalVotes[trxnId] += t.getVoteInt();
 
@@ -204,6 +211,8 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 					ulong v2fp1 = twofplus1( avgVotes );
 
 					uint twofp1 = twofplus1( otherLeaders.size() + 1);
+					d("a33039 avgVotes=%d v2fp1=%d twofp1=%d", avgVotes, v2fp1, twofp1 );
+
 					if ( collectTrxn[trxnId].size() >= twofp1 && nodeList_.size() >= v2fp1 ) { 
 						// state to E
 						bool toEgood = trxnState_.goState( level_, trxnId, XIT_m );
@@ -213,7 +222,7 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 							t.setVoteInt( avgVotes );
 							strvec nullvec;
 							d("a33281 %s multicast XIT_n followers ...", s(id_));
-							printvec(followers);
+							pvec(followers);
 							multicast( followers, t.str(), false, nullvec );
 							d("a33281 %s multicast XIT_n followers done", s(id_));
 
@@ -230,6 +239,8 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 						collectTrxn.erase(trxnId);
 						totalVotes.erase(trxnId);
 					}
+				} else {
+					d("a52238 i am %s, NOT a leader, ignore", s(id_) );
 				}
 			} else if ( xit == XIT_n ) {
 				// follower gets a trxn commit message
@@ -242,8 +253,8 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 void *threadSendMsg(void *arg)
 {
 	ThreadParam *p = (ThreadParam*)arg;
-	OmicroClient cli( p->srv.c_str(), p->port, 10);
-	p->reply = cli.sendMessage( p->trxn.c_str(), 100);
+	OmicroClient cli( p->srv.c_str(), p->port);
+	p->reply = cli.sendMessage( p->trxn.c_str(), 300);
 	return NULL;
 }
 
@@ -254,7 +265,7 @@ bool OmicroServer::initTrxn( kcp_conv_t conv, OmicroTrxn &txn )
 	// nodeList_ is std::vector<string>
 	sstr beacon = txn.getBeacon();
 	sstr trxnid = txn.getTrxnID();
-	d("a80123 initTrxn() threadid=%ld beacon=[%s] trxnid=%s", pthread_self(), s(beacon), s(trxnid, 10));
+	d("a80123 initTrxn() threadid=%ld beacon=[%s] trxnid=%s", pthread_self(), s(beacon), trxnid.substr(0,10).c_str() );
 
 	// for each zone leader
 	//   send leader msg: trxn, with tranit XIT_i
@@ -272,7 +283,7 @@ bool OmicroServer::initTrxn( kcp_conv_t conv, OmicroTrxn &txn )
 
 	strvec replyVec;
 	d("a3118 multicast to ZoneLeaders ...");
-	printvec( hostVec );
+	pvec( hostVec );
 	multicast( hostVec, txn.str(), true, replyVec );
 	d("a3118 multicast to ZoneLeaders done");
 

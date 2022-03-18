@@ -1,5 +1,6 @@
 #include <sys/time.h>
 #include <time.h>
+#include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 #include <thread>
@@ -56,16 +57,20 @@ void setLogFile(const char *fpath, bool append)
 
 void log(FILE *f, const char * format, va_list args )
 {
-	char buf[32];
-	time_t t= time(NULL);
-	ctime_r(&t, buf);
-	int len = strlen(buf);
-	if ( buf[len-1] == '\n' ) {
-		buf[len-1] = '\0';
-	}
+    char tmstr[48];
+    struct tm result;
+    struct timeval now;
+    gettimeofday( &now, NULL );
+	time_t tsec = now.tv_sec;
+	int ms = now.tv_usec / 1000;
+    gmtime_r( &tsec, &result ); 
+    strftime( tmstr, sizeof(tmstr), "%Y-%m-%d %H:%M:%S", &result );
+	char msb[5];
+	sprintf(msb, ".%03d", ms);
+	strcat( tmstr, msb );
 
 	g_log_mutex.lock();
-	fprintf(f, "%s %d %ld: ", buf, getpid(), pthread_self() );
+	fprintf(f, "%s %d %ld: ", tmstr, getpid(), pthread_self()%10000 );
 	vfprintf(f, format, args);
 	fprintf(f, "\n");
 	fflush(f);
@@ -90,18 +95,23 @@ void d(const char * format, ...)
 	va_end(args);
 }
 
-const char *s(const sstr &s, int sublen)
+const char *s(const sstr &str)
 {
-	if ( sublen <= 0 ) {
-		return s.c_str();
-	} else {
-		return s.substr(0,sublen).c_str();
-	}
+	return str.c_str();
 }
 
-void printvec( const strvec &vec )
+void pvec( const strvec &vec )
 {
 	for ( const auto &r : vec ) {
 		i("%s", s(r));
 	}
 }
+
+void dpvec( const strvec &vec )
+{
+	for ( const auto &r : vec ) {
+		printf("%s\n", s(r));
+		fflush(stdout);
+	}
+}
+

@@ -13,7 +13,7 @@ class DynamicCircuit
 	void getZoneLeaders( const sstr &beacon, strvec &vec );
 	bool isLeader( const sstr &beacon, const sstr &srvid,  bool getFollowers, strvec &followers  );
 	bool getOtherLeaders( const sstr &beacon, const sstr &id, strvec &vec );
-	bool getOtherLeadersAndFollowers( const sstr &beacon, const sstr &id, strvec &leadvec, strvec &followers );
+	bool getOtherLeadersAndThisFollowers( const sstr &beacon, const sstr &id, strvec &leaders, strvec &followers );
 
   protected:
   	int level_;

@@ -16,7 +16,8 @@ void i(const char * format, ...);
 void d(const char * format, ...);
 void log(FILE *f, const char * format, va_list args);
 
-const char *s(const sstr &s, int len=0);
-void printvec( const strvec &vec );
+const char *s(const sstr &str);
+void pvec( const strvec &vec );
+void dpvec( const strvec &vec );
 
 #endif

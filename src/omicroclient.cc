@@ -1,21 +1,24 @@
 #include <iostream>
 #include "omicroclient.h"
+#include "omutil.h"
+EXTERN_LOGGING
 
 OmicroClient::OmicroClient( const char *srv, int port, int retry )
 {
 	connectOK_ = false;
     int rc = client_.connect(0, srv, port, retry );
     if ( rc < 0 ) {
+		d("a002381 OmicroClient ctor connect to srv=[%s] port=%d retry=%d failed. connectOK_ is false", srv, port, retry );
 		return;
     }
-	std::cout << "a70231 OmicroClient connectOK_ srv=" << srv << " port=" << port << std::endl;
+	d("a70231 OmicroClient connectOK_ srv=%s port=%d", srv, port);
 	connectOK_ = true;
 }
 
 OmicroClient::~OmicroClient()
 {
 	if ( connectOK_ ) {
-		std::cout << "a72231 dtor of OmicroClient client_.stop()" << std::endl;
+		d("a72231 dtor of OmicroClient client_.stop()");
 		client_.stop();
 	}
 }
@@ -23,7 +26,7 @@ OmicroClient::~OmicroClient()
 sstr OmicroClient::sendMessage( const sstr &msg, int waitMilliSec )
 {
 	if ( ! connectOK_ ) {
-		std::cout << "a52031 sendMessage return empty because connect is not OK" << std::endl;
+		d("a52031 sendMessage return empty because connect is not OK");
 		return "";
 	}
 
@@ -39,8 +42,8 @@ void omicro_client_event_callback(kcp_conv_t conv, asio_kcp::eEventType event_ty
 	OmicroClient *obj = (OmicroClient*)var;
 
     // std::cout << "event_type: " << event_type << " msg: " << msg << std::endl;
-    std::cout << "event_type str: " << asio_kcp::clientEventTypeStr(event_type) << std::endl;
-    std::cout << "msg: " << msg << std::endl;
+    d("event_type str: %s msg=[%s]", asio_kcp::clientEventTypeStr(event_type), msg.c_str() );
+    // std::cout << "msg: " << msg << std::endl;
 	if ( event_type == asio_kcp::eRcvMsg ) {
 		obj->reply_ = msg;
 	} 
