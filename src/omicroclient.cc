@@ -8,7 +8,7 @@ OmicroClient::OmicroClient( const char *srv, int port, int retry )
 	connectOK_ = false;
     int rc = client_.connect(0, srv, port, retry );
     if ( rc < 0 ) {
-		d("a002381 OmicroClient ctor connect to srv=[%s] port=%d retry=%d failed. connectOK_ is false", srv, port, retry );
+		d("a002381 OmicroClient ctor connect to srv=[%s] port=%d retry=%d failed. connectOK_ is false rc=%d", srv, port, retry, rc );
 		return;
     }
 	d("a70231 OmicroClient connectOK_ srv=%s port=%d", srv, port);

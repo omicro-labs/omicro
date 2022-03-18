@@ -14,7 +14,7 @@ void omicro_client_event_callback(kcp_conv_t conv, asio_kcp::eEventType event_ty
 class OmicroClient
 {
   public:
-  	OmicroClient( const char *host, int port, int retry=30);
+  	OmicroClient( const char *host, int port, int retry=100);
   	~OmicroClient();
 
 	sstr sendMessage( const sstr &msg, int waitMS );

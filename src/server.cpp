@@ -195,6 +195,7 @@ void OmicroServer::event_callback(kcp_conv_t conv, kcp_svr::eEventType event_typ
 					i("E10045 got XIT_m but cannot find clientConv_ for trxnId=%s",trxnId.substr(0,10).c_str() );
 					return;
 				}
+				d("a55193 XIT_m clientConv=%ld", itr->second );
 
 				static std::unordered_map<sstr, std::vector<uint>> collectTrxn;
 				static std::unordered_map<sstr, ulong> totalVotes;
@@ -297,6 +298,7 @@ bool OmicroServer::initTrxn( kcp_conv_t conv, OmicroTrxn &txn )
 	}
 }
 
+#if 0
 void OmicroServer::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec )
 {
 	sstr id, ip, port;
@@ -327,7 +329,40 @@ void OmicroServer::multicast( const strvec &hostVec, const sstr &trxnMsg, bool e
 	}
 
 	d("a31303 multicast msgs to nodes %d done", len );
+}
+#endif
 
+void OmicroServer::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec )
+{
+	sstr id, ip, port;
+	int len = hostVec.size();
+	if ( len < 1 ) {
+		return;
+	}
+
+	d("a31303 multicast msgs to nodes %d ...", len );
+
+	//pthread_t thrd[len];
+	ThreadParam thrdParam[len];
+	for ( int i=0; i < len; ++i ) {
+		NodeList::getData( hostVec[i], id, ip, port);
+		thrdParam[i].srv = ip;
+		thrdParam[i].port = atoi(port.c_str());
+		thrdParam[i].trxn = trxnMsg;
+		// pthread_create(&thrd[i], NULL, &threadSendMsg, (void *)&thrdParam[i]);
+		threadSendMsg((void *)&thrdParam[i]);
+	}
+
+	for ( int i=0; i < len; ++i ) {
+		// pthread_join( thrd[i], NULL );
+		if ( expectReply ) {
+			if ( thrdParam[i].reply.size() > 0 ) {
+				replyVec.push_back( thrdParam[i].reply );
+			}
+		}
+	}
+
+	d("a31303 multicast msgs to nodes %d done", len );
 }
 
 void OmicroServer::hook_test_timer(void)
