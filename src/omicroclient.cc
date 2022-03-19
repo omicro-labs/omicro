@@ -47,28 +47,49 @@ sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 		return "";
 	}
 
-	char hdr[OMHDR_SZ];
+	char hdr[OMHDR_SZ+1];
+	memset(hdr, 0, OMHDR_SZ+1);
 	OmMsgHdr mhdr(hdr, OMHDR_SZ);
 	mhdr.setLength(msg.size());
 	mhdr.setPlain();
 
-	boost::asio::write(*socket_, boost::asio::buffer(hdr, OMHDR_SZ) );
-	boost::asio::write(*socket_, boost::asio::buffer(msg.c_str(), msg.size()) );
+	int len1 = boost::asio::write(*socket_, boost::asio::buffer(hdr, OMHDR_SZ) );
+	std::cout << "a23373 client write hdr len1=" << len1 << std::endl;
+	int len2 = boost::asio::write(*socket_, boost::asio::buffer(msg.c_str(), msg.size()) );
+	std::cout << "a23373 client write data len2=" << len2 << std::endl;
 
 	if ( expectReply ) {
-    	size_t hdrlen = boost::asio::read(*socket_, boost::asio::buffer(hdr, OMHDR_SZ));
-		char hdr2[OMHDR_SZ];
+		char hdr2[OMHDR_SZ+1];
+		memset(hdr2, 0, OMHDR_SZ+1);
+
+    	size_t hdrlen = boost::asio::read(*socket_, boost::asio::buffer(hdr2,OMHDR_SZ) );
+
 		OmMsgHdr mhdr2(hdr2, OMHDR_SZ);
 		ulong sz = mhdr2.getLength();
+		std::cout << "a23373 client get hdr hdrlen=" << hdrlen << std::endl;
+		std::cout << "a23373 client get data sz=" << sz << std::endl;
 
-		char *reply = (char*)malloc(sz);
+		char *reply = (char*)malloc(sz+1);
+		memset(reply, 0, sz+1);
 
-    	size_t reply_length = boost::asio::read(*socket_, boost::asio::buffer(reply, sz));
-    	std::cout << "Reply is: " << hdrlen << " " << reply_length << " " << sz << " ";
-    	std::cout.write(reply, reply_length);
-    	std::cout << "\n";
+		try {
+    		size_t reply_length = boost::asio::read(*socket_, boost::asio::buffer(reply,sz) );
+    		std::cout << "client Reply is: " << hdrlen << " " << reply_length << " " << sz << " [";
+    		std::cout.write(reply, reply_length);
+    		std::cout << "]\n";
+		} catch (std::exception &e) {
+			std::cout << "a883737 client exception " << e.what() << std::endl;
+			free( reply );
+			return "";
+		} catch ( ... ) {
+			std::cout << "a883737 client exception " << std::endl;
+			free( reply );
+			return "";
+		}
 
+		sstr res(reply, sz);
 		free(reply);
+		return res;
 
 	}
     return "";

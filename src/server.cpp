@@ -25,7 +25,7 @@ omsession::omsession(sstr id, int level, const NodeList &nodeL, tcp::socket sock
     stop_ = false;
     id_ = id;
     level_ = level;
-    memset(data_, 0, max_length);
+    // memset(data_, 0, max_length);
 }
 
 void omsession::start()
@@ -33,35 +33,11 @@ void omsession::start()
     do_read();
 }
 
-/***
 void omsession::do_read()
 {
     auto self(shared_from_this());
 
-    socket_.async_read_some(boost::asio::buffer(data_, max_length),
-          [this, self](boost::system::error_code ec, std::size_t length)
-          {
-            // hanlder after reading data into data_
-            if (!ec)  // no error
-            {
-                d("a82828 read_some data_[%d]", length );
-				std::cout << "a93838 socket_.async_read_some " << length << std::endl;
-                sstr msg(data_, length);
-                callback( msg );
-				do_read();
-            } else {
-                d("a82838 read no data");
-				std::cout << "a93838 read no data" << std::endl;
-			}
-    });
-}
-**/
-
-void omsession::do_read()
-{
-    auto self(shared_from_this());
-
-    boost::asio::async_read( socket_, boost::asio::buffer(hdr_, OMHDR_SZ),
+    boost::asio::async_read( socket_, boost::asio::buffer(hdr_, OMHDR_SZ), 
           [this, self](bcode ec, std::size_t length)
           {
             // hanlder after reading data into data_
@@ -71,25 +47,26 @@ void omsession::do_read()
 				OmMsgHdr mhdr(hdr_, OMHDR_SZ);
 				ulong dlen = mhdr.getLength();
 				char *data = (char*)malloc( dlen );
-    		    std::cout << "a91838 dlen=" << dlen << std::endl;
+    		    std::cout << "a91838 srv doread dlen=" << dlen << std::endl;
 
-				boost::asio::async_read(socket_, boost::asio::buffer(data, dlen),
+				boost::asio::async_read(socket_, boost::asio::buffer(data,dlen), 
 				  [this, self, data](bcode ec2, std::size_t length2 )
 				  {
-                      d("a82828 read data[%d]", length2 );
-    				  std::cout << "a93838 socket_.async_read " << length2 << std::endl;
+                      d("a82828 srv do read read data[%d]", length2 );
+    				  std::cout << "a93838 srv doread socket_.async_read " << length2 << std::endl;
                       sstr msg(data, length2);
                       callback( msg );
     				  do_read();
 				  });
 				  free(data);
             } else {
-                d("a82838 read no data");
-				std::cout << "a93838 read no data" << std::endl;
+                d("a82838 srv do read read no data");
+				std::cout << "a93838 srv doread read no data" << std::endl;
 			}
     });
 }
 
+#if 0
 void omsession::do_write(std::size_t length)
 {
     auto self(shared_from_this());
@@ -103,6 +80,7 @@ void omsession::do_write(std::size_t length)
             }
     });
 }
+#endif
 
 void omsession::reply( const sstr &str )
 {
@@ -110,18 +88,28 @@ void omsession::reply( const sstr &str )
 	mhdr.setLength( str.size() );
 	mhdr.setPlain();
 
+	std::cout << "a55550 in omsession::reply str=[" << str << "]" << std::endl;
+	d("a55550 in omsession::reply str=[%s] len=%d", s(str), str.size() );
+
     auto self(shared_from_this());
     boost::asio::async_write(socket_, boost::asio::buffer(hdr_, OMHDR_SZ),
-          [this, self, &str](bcode ec, std::size_t)
+          [this, self, str](bcode ec, std::size_t len)
           {
+			std::cout << "a55550 111 in omsession::reply str=[" << str << "]" << std::endl;
+			d("a55550 111 in omsession::reply str=[%s] len=%d", s(str), str.size() );
+
             if (!ec)  // no error, OK
             {
+				std::cout << "a33300 srv reply hdr len=" << len << std::endl;
     			boost::asio::async_write(socket_, boost::asio::buffer(str.c_str(), str.size() ),
-				    [this, self, &str](bcode ec, std::size_t)
+				    [this, self, str](bcode ec, std::size_t len2)
 					{
-                		d("a82823 reply [%s]", s(str) );
+                		d("a82823 222 srv reply str=[%s] srlen=%d len2=%d", s(str), str.size(), len2 );
+						std::cout << "a28709 222 srv reply str=[" << str << "] strlen=" << str.size() << " len2=" << len2 << std::endl; 
 					});
-            }
+            } else {
+				std::cout << "a33309 111 error srv reply hdr len=" << len << std::endl;
+			}
     });
 }
 
@@ -131,13 +119,14 @@ void omsession::callback(const sstr &msg)
 
     {
         // auto send back msg for testing.
-		sstr m1 = sstr("Server echo back: hello from server " + id_);
+		sstr m1 = sstr("Server echo back: hello from server ") + id_;
+		d("a0223848 Server echo bac m1.size=%d", m1.size() );
 		reply( m1 );
 
 		OmicroTrxn t(msg.c_str());
 		bool validTrxn = t.isValidClientTrxn();
 		if ( ! validTrxn ) {
-			sstr m("BAD_INVALID_TRXN|" + id_);
+			sstr m(sstr("BAD_INVALID_TRXN|") + id_);
 			reply(m);
 			return;
 		}
@@ -149,9 +138,9 @@ void omsession::callback(const sstr &msg)
 			sstr m;
 			rc = initTrxn( t );
 			if ( rc ) {
-				m = sstr("GOOD_TRXN|" +id_);
+				m = sstr("GOOD_TRXN|") +id_;
 			} else {
-				m = sstr("BAD_TRXN|" +id_);
+				m = sstr("BAD_TRXN|") +id_;
 			}
 			reply( m);
 		} else {
@@ -286,7 +275,7 @@ void omsession::callback(const sstr &msg)
 							trxnState_.goState( level_, trxnId, XIT_n );
 							// reply back to client
 							// d("a99992 conv=%ld clientconv=%ld\n", conv,  clientConv_[trxnId] );
-							sstr m("GOOD_TRXN|" + id_);
+							sstr m( sstr("GOOD_TRXN|") + id_);
 							d("a4002 reply back food trxn...");
         					// kcp_server_->send_msg(clientConv_[trxnId], m);
 							// qwer

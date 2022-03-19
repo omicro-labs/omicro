@@ -42,9 +42,9 @@ class omsession : public std::enable_shared_from_this<omsession>
 	bool initTrxn( OmicroTrxn &txn );
   
     tcp::socket socket_;
-    enum { max_length = 3024 };
-    char hdr_[OMHDR_SZ];
-    char data_[max_length];
+    //enum { max_length = 3024 };
+    char hdr_[OMHDR_SZ+1];
+    // char data_[max_length];
 	bool stop_;
 	sstr id_;
 	int  level_;
