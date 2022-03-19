@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
-#include "server_lib/asio_kcp_log.hpp"
 #include "server.hpp"
 #include "omutil.h"
 

@@ -81,6 +81,7 @@ MY_LIBS   = \
 			$(SRCBUILD)/omicroclient.o \
 			$(SRCBUILD)/omicrotrxn.o \
 			$(SRCBUILD)/omutil.o \
+			$(SRCBUILD)/ommsghdr.o \
             $(BOOST_LIB_PATH)/libboost_system.a $(BOOST_LIB_PATH)/libboost_filesystem.a \
             $(BOOST_LIB_PATH)/libboost_thread.a $(BOOST_LIB_PATH)/libboost_date_time.a 
 

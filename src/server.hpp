@@ -8,8 +8,11 @@
 #include "omicrodef.h"
 #include "omutil.h"
 #include "trxnstate.h"
+#include "ommsghdr.h"
 
 using boost::asio::ip::tcp;
+using becode = boost::system::error_code;
+
 class OmicroTrxn;
 class OmicroClient;
 
@@ -19,6 +22,7 @@ struct ThreadParam
 	int port;
 	sstr trxn;
 	sstr reply;
+	bool expectReply;
 };
 
 void *threadSendMsg(void *arg);
@@ -39,6 +43,7 @@ class omsession : public std::enable_shared_from_this<omsession>
   
     tcp::socket socket_;
     enum { max_length = 3024 };
+    char hdr_[OMHDR_SZ];
     char data_[max_length];
 	bool stop_;
 	sstr id_;
@@ -67,7 +72,7 @@ class omserver
     void do_accept()
     {
       acceptor_.async_accept(
-          [this](boost::system::error_code ec, tcp::socket socket)
+          [this](bcode ec, tcp::socket socket)
           {
             if (!ec)
             {

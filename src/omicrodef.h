@@ -5,11 +5,14 @@
 #include <vector>
 #include <thread>
 #include <mutex>
+#include <boost/asio.hpp>
+
 
 using sstr = std::string;
 using Byte = unsigned char;
 using strvec = std::vector<std::string>;
 using strshptr = std::shared_ptr<std::string>;
+using bcode = boost::system::error_code;
 
 #ifndef ulong
 using ulong = unsigned long;
