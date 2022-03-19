@@ -4,12 +4,14 @@
 #include <boost/asio.hpp>
 #include <string>
 #include <boost/noncopyable.hpp>
-#include "server_lib/server.hpp"
 #include "nodelist.h"
 #include "omicrodef.h"
+#include "omutil.h"
 #include "trxnstate.h"
 
+using boost::asio::ip::tcp;
 class OmicroTrxn;
+class OmicroClient;
 
 struct ThreadParam
 {
@@ -21,54 +23,69 @@ struct ThreadParam
 
 void *threadSendMsg(void *arg);
 
-
-class OmicroServer : private boost::noncopyable
+class omsession : public std::enable_shared_from_this<omsession>
 {
-    public:
-        /// Construct the server to listen on the specified TCP address and port
-        explicit OmicroServer(const sstr& address, const sstr &port);
-		~OmicroServer();
+  public:
+    omsession(sstr id, int level, const NodeList &nodeL, tcp::socket socket) ;
+    void start();
+  
+  private:
+    void do_read();
+    void do_write(std::size_t length);
+	void reply( const sstr &str );
+	void multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec);
+	void callback(const sstr &msg);
+	bool initTrxn( OmicroTrxn &txn );
+  
+    tcp::socket socket_;
+    enum { max_length = 3024 };
+    char data_[max_length];
+	bool stop_;
+	sstr id_;
+	int  level_;
+	const NodeList &nodeList_;
+	TrxnState trxnState_;
+};
 
-        /// Run the server's io_service loop.  Must set_callback first then call run. Do not change callback after run.
-        void run();
+/// The signal_set is used to register for process termination notifications.
+// boost::asio::signal_set signals_;
 
-    private:
-        /// Handle a request to stop the server.
-        void handle_stop();
+class omserver
+{
+  public:
+    omserver(boost::asio::io_context& io_context, sstr srvip, sstr port)
+        :acceptor_(io_context, tcp::endpoint(boost::asio::ip::address::from_string(srvip.c_str()), atoi(port.c_str()) ))
+    {
+		address_ = srvip;
+		port_ = port;
+		readID();
+		level_ = nodeList_.getLevel();
+        do_accept();
+    }
 
-        void event_callback(kcp_conv_t conv, kcp_svr::eEventType event_type, std::shared_ptr<sstr> msg);
+  private:
+    void do_accept()
+    {
+      acceptor_.async_accept(
+          [this](boost::system::error_code ec, tcp::socket socket)
+          {
+            if (!ec)
+            {
+				std::shared_ptr<omsession> sess = std::make_shared<omsession>(id_, level_, nodeList_, std::move(socket));
+				sess->start();
+                //std::make_shared<omsession>(id_, level_, nodeList_, std::move(socket))->start();
+            }
+  
+            do_accept();
+          });
+    }
 
-        void hook_test_timer(void);
-        void handle_test_timer(void);
-        void test_force_disconnect(void);
-		sstr getDataDir();
-		bool initTrxn( kcp_conv_t conv, OmicroTrxn &txn );
-		void readID();
-		void multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
-
-
-    private:
-        /// The io_service used to perform asynchronous operations.
-        boost::asio::io_service io_service_;
-
-        /// The signal_set is used to register for process termination notifications.
-        boost::asio::signal_set signals_;
-
-        bool stopped_;
-
-        /// The connection manager which owns all live connections.
-        //kcp_svr::server kcp_server_;
-        kcp_svr::server *kcp_server_;
-
-        boost::asio::deadline_timer test_timer_;
-
-		sstr address_;
-		sstr port_;
-		NodeList nodeList_;
-		TrxnState  trxnState_;
-		sstr id_;
-		int  level_;
-		std::unordered_map<sstr, ulong> clientConv_;
+	void readID();
+    tcp::acceptor acceptor_;
+	int level_;
+	NodeList nodeList_;
+	sstr address_, port_;
+	sstr id_;
 };
 
 #endif // _SERVER_HPP

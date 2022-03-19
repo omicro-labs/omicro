@@ -3,15 +3,21 @@
 #include "omutil.h"
 EXTERN_LOGGING
 
-OmicroClient::OmicroClient( const char *srv, int port, int retry )
+OmicroClient::OmicroClient( const char *srv, int port )
 {
+	char ps[32];
+	sprintf(ps, "%d", port);
+
 	connectOK_ = false;
-    int rc = client_.connect(0, srv, port, retry );
-    if ( rc < 0 ) {
-		d("a002381 OmicroClient ctor connect to srv=[%s] port=%d retry=%d failed. connectOK_ is false rc=%d", srv, port, retry, rc );
-		return;
-    }
-	d("a70231 OmicroClient connectOK_ srv=%s port=%d", srv, port);
+
+    socket_ = new tcp::socket(io_context_);
+
+    // tcp::resolver resolver(io_context_);
+    //boost::asio::connect(*socket_, resolver.resolve(srv, ps ));
+	d("a4088 connect to [%s] [%d] ...", srv, port );
+    socket_->connect( tcp::endpoint( boost::asio::ip::address::from_string(srv), port ));
+
+	d("a70231 OmicroClient ctor connectOK_ srv=%s port=%d", srv, port);
 	connectOK_ = true;
 }
 
@@ -19,33 +25,30 @@ OmicroClient::~OmicroClient()
 {
 	if ( connectOK_ ) {
 		d("a72231 dtor of OmicroClient client_.stop()");
-		client_.stop();
+		socket_->close();
 	}
+	delete socket_;
 }
 
-sstr OmicroClient::sendMessage( const sstr &msg, int waitMilliSec )
+sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 {
 	if ( ! connectOK_ ) {
 		d("a52031 sendMessage return empty because connect is not OK");
 		return "";
 	}
 
-	client_.set_event_callback(omicro_client_event_callback, (void*)this);
+	boost::asio::write(*socket_, boost::asio::buffer(msg.c_str(), msg.size()) );
 
-	client_.send_msg( msg );
-	asio_kcp::millisecond_sleep(waitMilliSec);
-	return reply_;
+	if ( expectReply ) {
+		boost::system::error_code error;
+        boost::asio::streambuf receive_buffer;
+        boost::asio::read(*socket_, receive_buffer, boost::asio::transfer_all(), error);
+        if( error && error != boost::asio::error::eof ) {
+			return "ERROR_RECV";
+        }
+
+        const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
+		return data;
+	}
+    return "";
 }
-
-void omicro_client_event_callback(kcp_conv_t conv, asio_kcp::eEventType event_type, const sstr& msg, void* var)
-{
-	OmicroClient *obj = (OmicroClient*)var;
-
-    // std::cout << "event_type: " << event_type << " msg: " << msg << std::endl;
-    d("event_type str: %s msg=[%s]", asio_kcp::clientEventTypeStr(event_type), msg.c_str() );
-    // std::cout << "msg: " << msg << std::endl;
-	if ( event_type == asio_kcp::eRcvMsg ) {
-		obj->reply_ = msg;
-	} 
-}
-

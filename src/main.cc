@@ -32,19 +32,13 @@ int main(int argc, char* argv[])
 			}
 		}
 
-        //system("mkdir asio_kcp_log");
-        //sstr path_to_log_file("../log/");
-        //g2LogWorker logger(argv[0], path_to_log_file);
-        //g2::initializeLogging(&logger);
-        //AK_LOG(INFO) << "AK_LOG Server Start";
-        //LOG_INFO << "LOG_INFO server start";
 		sstr logf = sstr("../log/omserver_") + argv[1] + "_" +  argv[2];
 		setLogFile(s(logf), false);
 		i("***** omicroserver start %s %s *****\n", argv[1], argv[2]);
 
-        OmicroServer serv(argv[1], argv[2]);
-
-        serv.run();
+        boost::asio::io_context io_context;
+        omserver s(io_context, argv[1], argv[2]);
+        io_context.run();
     }
     catch (std::exception& e)
     {
@@ -53,3 +47,4 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+

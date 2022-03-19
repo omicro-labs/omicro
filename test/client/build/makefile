@@ -65,9 +65,10 @@ MY_CFLAGS =
 
 BOOST_INC_PATH=/usr/local/include
 BOOST_LIB_PATH=/usr/local/lib
+BOOST_LIB_PATH=/usr/local/boost_1.78.0/lib
+BOOST_INC_PATH=/usr/local/boost_1.78.0/include
 
 SRCINC=../../../src
-KCP=../../../src/Web/kcpasio/asio_kcp
 SRCBUILD=../../../src/build
 
 PTHREADLIB=/lib64/libpthread.a
@@ -80,18 +81,15 @@ MY_LIBS   = \
 			$(SRCBUILD)/omicroclient.o \
 			$(SRCBUILD)/omicrotrxn.o \
 			$(SRCBUILD)/omutil.o \
-            $(BOOST_LIB_PATH)/libboost_system-mt.a $(BOOST_LIB_PATH)/libboost_filesystem-mt.a \
-            $(BOOST_LIB_PATH)/libboost_thread-mt.a $(BOOST_LIB_PATH)/libboost_date_time-mt.a \
-			$(KCP)/essential/essential.a $(KCP)/server_lib/asio_kcp_server.a \
-			$(KCP)/client_lib/kcp_client_lib.a \
-			$(KCP)/essential/essential.a 
+            $(BOOST_LIB_PATH)/libboost_system.a $(BOOST_LIB_PATH)/libboost_filesystem.a \
+            $(BOOST_LIB_PATH)/libboost_thread.a $(BOOST_LIB_PATH)/libboost_date_time.a 
 
 
 # The pre-processor options used by the cpp (man cpp for more).
 #CPPFLAGS  = -Wall -I essential -I ddlib -O2
 
 #CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -g3 -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
-CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -I $(KCP) -I $(SRCINC) -g -ggdb
+CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -I $(SRCINC) -g -ggdb
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)

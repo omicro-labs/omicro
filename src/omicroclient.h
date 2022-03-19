@@ -2,28 +2,27 @@
 #define _omicro_client_h_
 
 #include <string>
-#include "essential/utility/strutil.h"
-#include "util/ikcp.h"
-#include "client_lib/kcp_client_util.h"
-#include "client_lib/kcp_client_wrap.hpp"
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <boost/asio.hpp>
 #include "omicrodef.h"
 
-
-void omicro_client_event_callback(kcp_conv_t conv, asio_kcp::eEventType event_type, const sstr& msg, void* var);
+using boost::asio::ip::tcp;
 
 class OmicroClient
 {
   public:
-  	OmicroClient( const char *host, int port, int retry=100);
+  	OmicroClient( const char *host, int port );
   	~OmicroClient();
 
-	sstr sendMessage( const sstr &msg, int waitMS );
+	sstr sendMessage( const sstr &msg, bool expectReply );
 	bool connectOK() const { return connectOK_; }
-    sstr reply_;
 
   protected:
-	asio_kcp::kcp_client_wrap client_;
 	bool connectOK_;
+	boost::asio::io_context io_context_;
+	tcp::socket *socket_;
 
 };
 
