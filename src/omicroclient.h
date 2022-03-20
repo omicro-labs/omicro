@@ -5,10 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <boost/asio.hpp>
 #include "omicrodef.h"
-
-using boost::asio::ip::tcp;
 
 class OmicroClient
 {
@@ -21,9 +18,7 @@ class OmicroClient
 
   protected:
 	bool connectOK_;
-	boost::asio::io_context io_context_;
-	tcp::socket *socket_;
-
+	int  socket_;
 };
 
 #endif

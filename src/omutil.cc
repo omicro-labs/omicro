@@ -115,3 +115,49 @@ void dpvec( const strvec &vec )
 	}
 }
 
+ssize_t safewrite( int fd, const char *buf, ulong len )
+{
+    size_t nleft;
+    ssize_t nwritten;
+    const char *ptr;
+
+    ptr = buf;
+    nleft = len;
+    while (nleft > 0) {
+        if ( (nwritten = ::write(fd, ptr, nleft)) <= 0) {
+            if (nwritten < 0 && errno == EINTR)
+                nwritten = 0;   /* and call write() again */
+            else
+                return (-1);    /* error */
+        }
+
+        nleft -= nwritten;
+        ptr += nwritten;
+    }
+    return (len);
+}
+
+ssize_t saferead( int fd, char *buf, ulong len )
+{
+     size_t  nleft;
+     ssize_t nread;
+     char   *ptr;
+
+     ptr = buf;
+     nleft = len;
+     while (nleft > 0) {
+         if ( (nread = ::read(fd, ptr, nleft)) < 0) {
+             if (errno == EINTR)
+                 nread = 0;      /* and call read() again */
+             else
+                 return (-1);
+         } else if (nread == 0)
+             break;              /* EOF */
+
+         nleft -= nread;
+         ptr += nread;
+     }
+     return (len - nleft);  /* return >= 0 */
+}
+
+

@@ -1,4 +1,12 @@
 #include <iostream>
+#include <cstring>
+#include <string>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "omicroclient.h"
 #include "omutil.h"
 #include "ommsghdr.h"
@@ -12,20 +20,44 @@ OmicroClient::OmicroClient( const char *srv, int port )
 
 	connectOK_ = false;
 
-    socket_ = new tcp::socket(io_context_);
+    auto &ipAddress = srv;
+    auto &portNum   = ps;
 
-    tcp::resolver resolver(io_context_);
+    addrinfo hints, *p;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family   = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags    = AI_PASSIVE;
+
+    int gAddRes = getaddrinfo(ipAddress, portNum, &hints, &p);
+    if (gAddRes != 0) {
+        std::cout << gai_strerror(gAddRes) << "\n";
+        return;
+    }
+
+    if (p == NULL) {
+        std::cout << "No addresses found\n";
+        return;
+    }
+
+    int sockFD = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    if (sockFD == -1) {
+        std::cout << "Error while creating socket\n";
+        std::cout << strerror(errno) << "\n";
+        std::cout << errno << "\n";
+        return;
+    }
+
 	d("a4088 connect to [%s] [%d] ...", srv, port );
-	try {
-    	boost::asio::connect(*socket_, resolver.resolve(srv, ps ));
-	} catch (std::exception& e) {
-		d("a70231 OmicroClient ctor connect error srv=%s port=%d err=[%s]", srv, port, e.what());
-		return;
-	} catch ( ... ) {
-		d("a70231 OmicroClient ctor connect unknown error srv=%s port=%d", srv, port );
-		return;
-	}
-    //socket_->connect( tcp::endpoint( boost::asio::ip::address::from_string(srv), port ));
+    int connectR = connect(sockFD, p->ai_addr, p->ai_addrlen);
+    if (connectR == -1) {
+        close(sockFD);
+        std::cout << "Error while connecting socket\n";
+        std::cout << errno << " " << strerror(errno) << "\n";
+        return;
+    }
+
+	socket_ = sockFD;
 
 	d("a70231 OmicroClient ctor connectOK_ srv=%s port=%d", srv, port);
 	connectOK_ = true;
@@ -35,9 +67,8 @@ OmicroClient::~OmicroClient()
 {
 	if ( connectOK_ ) {
 		d("a72231 dtor of OmicroClient client_.stop()");
-		socket_->close();
+		::close( socket_);
 	}
-	delete socket_;
 }
 
 sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
@@ -53,16 +84,16 @@ sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 	mhdr.setLength(msg.size());
 	mhdr.setPlain();
 
-	int len1 = boost::asio::write(*socket_, boost::asio::buffer(hdr, OMHDR_SZ) );
+	int len1 = safewrite(socket_, hdr, OMHDR_SZ );
 	std::cout << "a23373 client write hdr len1=" << len1 << std::endl;
-	int len2 = boost::asio::write(*socket_, boost::asio::buffer(msg.c_str(), msg.size()) );
+	int len2 = safewrite(socket_, msg.c_str(), msg.size() );
 	std::cout << "a23373 client write data len2=" << len2 << std::endl;
 
 	if ( expectReply ) {
 		char hdr2[OMHDR_SZ+1];
 		memset(hdr2, 0, OMHDR_SZ+1);
 
-    	size_t hdrlen = boost::asio::read(*socket_, boost::asio::buffer(hdr2,OMHDR_SZ) );
+    	size_t hdrlen = saferead(socket_, hdr2,OMHDR_SZ );
 
 		OmMsgHdr mhdr2(hdr2, OMHDR_SZ);
 		ulong sz = mhdr2.getLength();
@@ -72,25 +103,15 @@ sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 		char *reply = (char*)malloc(sz+1);
 		memset(reply, 0, sz+1);
 
-		try {
-    		size_t reply_length = boost::asio::read(*socket_, boost::asio::buffer(reply,sz) );
-    		std::cout << "client Reply is: " << hdrlen << " " << reply_length << " " << sz << " [";
-    		std::cout.write(reply, reply_length);
-    		std::cout << "]\n";
-		} catch (std::exception &e) {
-			std::cout << "a883737 client exception " << e.what() << std::endl;
-			free( reply );
-			return "";
-		} catch ( ... ) {
-			std::cout << "a883737 client exception " << std::endl;
-			free( reply );
-			return "";
-		}
+    	size_t reply_length = saferead(socket_, reply, sz );
+    	std::cout << "client Reply is: " << hdrlen << " " << reply_length << " " << sz << " [";
+    	std::cout.write(reply, reply_length);
+    	std::cout << "]\n";
 
 		sstr res(reply, sz);
 		free(reply);
 		return res;
-
 	}
+
     return "";
 }

@@ -20,4 +20,10 @@ const char *s(const sstr &str);
 void pvec( const strvec &vec );
 void dpvec( const strvec &vec );
 
+ssize_t saferead( int fd, char *buf, ulong len );
+ssize_t safewrite( int fd, const char *buf, ulong len );
+
+
+
+
 #endif
