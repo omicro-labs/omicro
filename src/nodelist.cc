@@ -1,7 +1,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <string>
-#include <iostream>
 #include "nodelist.h"
 #include "omutil.h"
 
@@ -29,7 +28,7 @@ void NodeList::readFile()
 	const char *fpath = s(nodeFile_);
 	FILE *fp = fopen(fpath, "r");
 	if ( fp == NULL ) {
-		std::cout << "E10020 error open nodelist file " << fpath << std::endl;
+		i("E10020 error open nodelist file [%s]", fpath);
 		return;
 	}
 

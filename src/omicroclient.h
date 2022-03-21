@@ -4,7 +4,6 @@
 #include <string>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
 #include "omicrodef.h"
 
 class OmicroClient

@@ -1,8 +1,6 @@
 #include <malloc.h>
 #include <sys/time.h>
 #include <string.h>
-#include <math.h>
-#include <iostream>
 #include "omicrotrxn.h"
 #include "omutil.h"
 EXTERN_LOGGING
@@ -23,8 +21,8 @@ OmicroTrxn::OmicroTrxn( const char *str )
 		data_ = (char*)str;
 		data_[TRXN_TOTAL_SZ] = '\0';
 	} else {
-		std::cout << "E00001 OmicroTrxn::OmicroTrxn(s) str=[" << str << "] is too short" << std::endl;
-		std::cout << "       str.len=" << len << "  TRXN_TOTAL_SZ=" << TRXN_TOTAL_SZ << std::endl;
+		i("E00001 OmicroTrxn::OmicroTrxn(s) str=[%s] is too short", s(str) );
+		i("       str.len=%d TRXN_TOTAL_SZ=%d", len, TRXN_TOTAL_SZ );
 		data_ = NULL;
 	}
 }
@@ -51,7 +49,7 @@ char* OmicroTrxn::getHeader()
 bool OmicroTrxn::setHeader( const char *s)
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10010 OmicroTrxn::setHeader data_ is NULL" << std::endl; 
+		i("E10010 OmicroTrxn::setHeader data_ is NULL");
 		return false;
 	}
 
@@ -59,7 +57,7 @@ bool OmicroTrxn::setHeader( const char *s)
 	int start = TRXN_HEADER_START;
 	int sz = TRXN_HEADER_SZ;
 	if ( len != sz ) {
-		std::cout << "E10000 OmicroTrxn::setHeader s=[" << s << "] wrong size " << len << std::endl; 
+		i("E10000 OmicroTrxn::setHeader s=[%s] wrong size=%d", s, len );
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -69,7 +67,7 @@ bool OmicroTrxn::setHeader( const char *s)
 bool  OmicroTrxn::setInitTrxn()
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10010 OmicroTrxn::setHeader data_ is NULL" << std::endl; 
+		i("E10010 OmicroTrxn::setHeader data_ is NULL");
 		return false;
 	}
 
@@ -87,7 +85,7 @@ bool  OmicroTrxn::setNotInitTrxn()
 bool OmicroTrxn::isInitTrxn()
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10110 OmicroTrxn::isInitTrxn data_ is NULL" << std::endl; 
+		i("E10110 OmicroTrxn::isInitTrxn data_ is NULL");
 		return false;
 	}
 
@@ -101,7 +99,7 @@ bool OmicroTrxn::isInitTrxn()
 bool  OmicroTrxn::setXit( Byte xit)
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10110 OmicroTrxn::setXit data_ is NULL" << std::endl; 
+		i("E10110 OmicroTrxn::setXit data_ is NULL");
 		return false;
 	}
 
@@ -112,7 +110,7 @@ bool  OmicroTrxn::setXit( Byte xit)
 Byte OmicroTrxn::getXit()
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10112 OmicroTrxn::getXit data_ is NULL" << std::endl; 
+		i("E10112 OmicroTrxn::getXit data_ is NULL");
 		return 0;
 	}
 	return data_[TRXN_HEADER_START+1];
@@ -132,7 +130,7 @@ char* OmicroTrxn::getBeacon()
 bool OmicroTrxn::setBeacon( const char *s)
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10011 OmicroTrxn::setBeacon data_ is NULL" << std::endl; 
+		i("E10011 OmicroTrxn::setBeacon data_ is NULL");
 		return false;
 	}
 
@@ -140,7 +138,7 @@ bool OmicroTrxn::setBeacon( const char *s)
 	int sz = TRXN_BEACON_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10001 OmicroTrxn::setBeacon s=[" << s << "] wrong size " << len << std::endl; 
+		i("E10001 OmicroTrxn::setBeacon s=[%s] wrong size=%d", s, len);
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -150,14 +148,14 @@ bool OmicroTrxn::setBeacon( const char *s)
 bool OmicroTrxn::setBeacon()
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10111 OmicroTrxn::setBeacon data_ is NULL" << std::endl; 
+		i("E10111 OmicroTrxn::setBeacon data_ is NULL");
 		return false;
 	}
 
 	int start = TRXN_BEACON_START;
 	int sz = TRXN_BEACON_SZ;
 	char s[TRXN_BEACON_SZ+1];
-	ulong pm = pow(10, TRXN_BEACON_SZ);
+	ulong pm = ipow(10, TRXN_BEACON_SZ);
 	sprintf(s, "%*d", TRXN_BEACON_SZ, int(time(NULL)%pm) );
 
 	memcpy( data_+start, s, sz );
@@ -179,7 +177,7 @@ char* OmicroTrxn::getSender()
 bool OmicroTrxn::setSender( const char *s)
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10012 OmicroTrxn::setSender data_ is NULL" << std::endl; 
+		i("E10012 OmicroTrxn::setSender data_ is NULL");
 		return false;
 	}
 
@@ -187,7 +185,7 @@ bool OmicroTrxn::setSender( const char *s)
 	int sz = TRXN_SENDER_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10002 OmicroTrxn::setSender s=[" << s << "] wrong size " << len << std::endl; 
+		i("E10002 OmicroTrxn::setSender s=[%s] wrong size=%d", s, len);
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -208,7 +206,7 @@ char* OmicroTrxn::getReceiver()
 bool OmicroTrxn::setReceiver( const char *s)
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10013 OmicroTrxn::setReceiver data_ is NULL" << std::endl; 
+		i("E10013 OmicroTrxn::setReceiver data_ is NULL");
 		return false;
 	}
 
@@ -216,7 +214,7 @@ bool OmicroTrxn::setReceiver( const char *s)
 	int sz = TRXN_RECEIVER_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10003 OmicroTrxn::setReceiver s=[" << s << "] wrong size " << len << std::endl; 
+		i("E10003 OmicroTrxn::setReceiver s=[%s] wrong size %d", s, len);
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -246,7 +244,7 @@ char* OmicroTrxn::getAmount()
 bool OmicroTrxn::setAmount( const char *s)
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10014 OmicroTrxn::setAmount data_ is NULL" << std::endl; 
+		i("E10014 OmicroTrxn::setAmount data_ is NULL");
 		return false;
 	}
 
@@ -254,7 +252,7 @@ bool OmicroTrxn::setAmount( const char *s)
 	int sz = TRXN_AMOUNT_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10004 OmicroTrxn::setAmout s=[" << s << "] wrong size " << len << std::endl; 
+		i("E10004 OmicroTrxn::setAmout s=[%s] wrong size %d", s, len);
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -275,7 +273,7 @@ char* OmicroTrxn::getTimeStamp()
 bool OmicroTrxn::setTimeStamp( const char *s)
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10015 OmicroTrxn::setTimeStamp data_ is NULL" << std::endl; 
+		i("E10015 OmicroTrxn::setTimeStamp data_ is NULL");
 		return false;
 	}
 
@@ -283,7 +281,7 @@ bool OmicroTrxn::setTimeStamp( const char *s)
 	int sz = TRXN_TIMESTAMP_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10005 OmicroTrxn::setTimeStamp s=[" << s << "] wrong size " << len << std::endl; 
+		i("E10005 OmicroTrxn::setTimeStamp s=[%s] wrong size %d", s, len );
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -293,7 +291,7 @@ bool OmicroTrxn::setTimeStamp( const char *s)
 bool OmicroTrxn::setNowTimeStamp()
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10015 OmicroTrxn::setNowTimeStamp data_ is NULL" << std::endl; 
+		i("E10015 OmicroTrxn::setNowTimeStamp data_ is NULL");
 		return false;
 	}
 
@@ -332,7 +330,7 @@ char* OmicroTrxn::getTrxnType()
 bool OmicroTrxn::setTrxnType( const char *s)
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10016 OmicroTrxn::setTrxnType data_ is NULL" << std::endl; 
+		i("E10016 OmicroTrxn::setTrxnType data_ is NULL");
 		return false;
 	}
 
@@ -340,7 +338,7 @@ bool OmicroTrxn::setTrxnType( const char *s)
 	int sz = TRXN_TRXNTYPE_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10006 OmicroTrxn::setTrxnType s=[" << s << "] wrong size " << len << std::endl; 
+		i("E10006 OmicroTrxn::setTrxnType s=[%s] wrong size %d", s, len);
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -361,7 +359,7 @@ char* OmicroTrxn::getAssetType()
 bool OmicroTrxn::setAssetType( const char *s)
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10017 OmicroTrxn::setAssetType data_ is NULL" << std::endl; 
+		i("E10017 OmicroTrxn::setAssetType data_ is NULL");
 		return false;
 	}
 
@@ -369,7 +367,7 @@ bool OmicroTrxn::setAssetType( const char *s)
 	int sz = TRXN_ASSETTYPE_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10007 OmicroTrxn::setAssetType s=[" << s << "] wrong size" << len << std::endl; 
+		i("E10007 OmicroTrxn::setAssetType s=[%s] wrong size %d", s, len);
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -399,7 +397,7 @@ int OmicroTrxn::getVoteInt()
 bool OmicroTrxn::setVote( const char *s )
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10217 OmicroTrxn::setVote data_ is NULL" << std::endl; 
+		i("E10217 OmicroTrxn::setVote data_ is NULL");
 		return false;
 	}
 
@@ -407,7 +405,7 @@ bool OmicroTrxn::setVote( const char *s )
 	int sz = TRXN_VOTE_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10207 OmicroTrxn::setVote s=[" << s << "] wrong size" << len << std::endl; 
+		i("E10207 OmicroTrxn::setVote s=[%s] wrong size %d", s, len);
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -455,14 +453,14 @@ char* OmicroTrxn::getSignature()
 bool OmicroTrxn::setSignature( const char *s)
 {
 	if ( NULL == data_ ) {
-		std::cout << "E10018 OmicroTrxn::setSignature data_ is NULL" << std::endl; 
+		i("E10018 OmicroTrxn::setSignature data_ is NULL");
 		return false;
 	}
 	int start = TRXN_SIGNATURE_START;
 	int sz = TRXN_SIGNATURE_SZ;
 	int len = strlen(s);
 	if ( len != sz ) {
-		std::cout << "E10008 OmicroTrxn::setSignature s=[" << s << "] wrong size " << len << std::endl; 
+		i("E10008 OmicroTrxn::setSignature s=[%s] wrong size %d", s, len);
 		return false;
 	}
 	memcpy( data_+start, s, sz );
@@ -504,6 +502,7 @@ bool OmicroTrxn::isValidClientTrxn()
 	unsigned long nowt = getNowTimeUS();
 	if ( nowt - trxnTime > 60000000 ) {
 		// lag of 60 seconds
+		i("a303376 warn isValidClientTrxn() nowt=%ld trxnTime=%ld more than 60 seconds");
 		return false;
 	}
 

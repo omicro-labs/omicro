@@ -1,6 +1,5 @@
 
 #include <math.h>
-#include <iostream>
 #include "nodelist.h"
 #include "dynamiccircuit.h"
 #include "xxHash/xxhash.h"

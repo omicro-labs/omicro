@@ -69,24 +69,11 @@ class omserver
     }
 
   private:
-    void do_accept()
-    {
-      acceptor_.async_accept(
-          [this](bcode ec, tcp::socket socket)
-          {
-            if (!ec)
-            {
-				std::shared_ptr<omsession> sess = std::make_shared<omsession>(id_, level_, nodeList_, std::move(socket));
-				sess->start();
-                //std::make_shared<omsession>(id_, level_, nodeList_, std::move(socket))->start();
-            }
-  
-            do_accept();
-          });
-    }
-
+    void do_accept();
 	void readID();
     tcp::acceptor acceptor_;
+	sstr getDataDir() const;
+
 	int level_;
 	NodeList nodeList_;
 	sstr address_, port_;

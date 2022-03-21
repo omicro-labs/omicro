@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <iostream>
+#include "omutil.h"
 #include "ommsghdr.h"
 
 OmMsgHdr::OmMsgHdr( const char *str, int len)
@@ -23,7 +23,7 @@ ulong OmMsgHdr::getLength() const
 	buf_[OM_HDR_LEN_SZ] = '\0';
 	ulong e = atol(buf_);
 	buf_[OM_HDR_LEN_SZ] = v;
-	std::cout << "a33400 getLength e=" << e << std::endl;
+	d("a33400 OmMsgHdr::getLength() hdrlen=%d", e);
 	return e;
 }
 

@@ -1,4 +1,3 @@
-#include <iostream>
 #include <cstring>
 #include <string>
 #include <arpa/inet.h>
@@ -31,20 +30,18 @@ OmicroClient::OmicroClient( const char *srv, int port )
 
     int gAddRes = getaddrinfo(ipAddress, portNum, &hints, &p);
     if (gAddRes != 0) {
-        std::cout << gai_strerror(gAddRes) << "\n";
+		i("E20031 getaddrinfo error %s", gai_strerror(gAddRes) );
         return;
     }
 
     if (p == NULL) {
-        std::cout << "No addresses found\n";
+        i("E20034 No addresses found");
         return;
     }
 
     int sockFD = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
     if (sockFD == -1) {
-        std::cout << "Error while creating socket\n";
-        std::cout << strerror(errno) << "\n";
-        std::cout << errno << "\n";
+		i("E20035 Error creating socket errno=%d errstr=[%s]", errno, strerror(errno) ); 
         return;
     }
 
@@ -52,12 +49,16 @@ OmicroClient::OmicroClient( const char *srv, int port )
     int connectR = connect(sockFD, p->ai_addr, p->ai_addrlen);
     if (connectR == -1) {
         close(sockFD);
-        std::cout << "Error while connecting socket\n";
-        std::cout << errno << " " << strerror(errno) << "\n";
+		i("E20036 Error connect errno=%d errstr=[%s]", errno, strerror(errno) ); 
         return;
     }
 
 	socket_ = sockFD;
+	struct timeval tv;
+	tv.tv_sec = 5;  /* 10 Secs Timeout */
+	tv.tv_usec = 0; 
+	setsockopt(socket_, SOL_SOCKET, SO_SNDTIMEO,(struct timeval *)&tv, sizeof(struct timeval));
+	setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv, sizeof(struct timeval));
 
 	d("a70231 OmicroClient ctor connectOK_ srv=%s port=%d", srv, port);
 	connectOK_ = true;
@@ -73,6 +74,8 @@ OmicroClient::~OmicroClient()
 
 sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 {
+	d("a4421 OmicroClient::sendMessage(%s) expectReply=%d", s(msg), expectReply );
+
 	if ( ! connectOK_ ) {
 		d("a52031 sendMessage return empty because connect is not OK");
 		return "";
@@ -84,31 +87,48 @@ sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 	mhdr.setLength(msg.size());
 	mhdr.setPlain();
 
-	int len1 = safewrite(socket_, hdr, OMHDR_SZ );
-	std::cout << "a23373 client write hdr len1=" << len1 << std::endl;
-	int len2 = safewrite(socket_, msg.c_str(), msg.size() );
-	std::cout << "a23373 client write data len2=" << len2 << std::endl;
+	long len1 = safewrite(socket_, hdr, OMHDR_SZ );
+	if ( len1 < 0 ) {
+		d("a4202 OmicroClient::sendMessage write timeout hdr");
+		return "";
+	}
+
+	d("a23373 client write hdr len1=%d",len1);
+	long len2 = safewrite(socket_, msg.c_str(), msg.size() );
+	if ( len2 < 0 ) {
+		d("a4203 OmicroClient::sendMessage write timeout msg");
+		return "";
+	}
+
+	d("a23373 client write data len2=%d expectReply=%d", len2, expectReply);
 
 	if ( expectReply ) {
+		// sleep(1);
 		char hdr2[OMHDR_SZ+1];
 		memset(hdr2, 0, OMHDR_SZ+1);
 
-    	size_t hdrlen = saferead(socket_, hdr2,OMHDR_SZ );
+    	long hdrlen = saferead(socket_, hdr2, OMHDR_SZ );
+		if ( hdrlen < 0 ) {
+			d("a4205 OmicroClient::sendMessage read timeout hdr2 []");
+			return "";
+		}
 
 		OmMsgHdr mhdr2(hdr2, OMHDR_SZ);
 		ulong sz = mhdr2.getLength();
-		std::cout << "a23373 client get hdr hdrlen=" << hdrlen << std::endl;
-		std::cout << "a23373 client get data sz=" << sz << std::endl;
+		d("a23373 client get hdr hdrlen=%d hdr2=[%s] sz=%d", hdrlen, hdr2, sz );
 
 		char *reply = (char*)malloc(sz+1);
-		memset(reply, 0, sz+1);
-
-    	size_t reply_length = saferead(socket_, reply, sz );
-    	std::cout << "client Reply is: " << hdrlen << " " << reply_length << " " << sz << " [";
-    	std::cout.write(reply, reply_length);
-    	std::cout << "]\n";
+    	long reply_length = saferead(socket_, reply, sz );
+		if ( reply_length < 0 ) {
+			d("a4206 OmicroClient::sendMessage read timeout reply []");
+			free( reply );
+			return "";
+		}
 
 		sstr res(reply, sz);
+		d("client Reply is: hdrlen=%d reply_length=%d sz=%d", hdrlen, reply_length, sz);
+		d("       reply=[%s]", s(res) );
+
 		free(reply);
 		return res;
 	}

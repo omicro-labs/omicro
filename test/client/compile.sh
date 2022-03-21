@@ -1,3 +1,3 @@
 cd build
-/bin/rm -f omicroclient
+/bin/rm -f omclient
 make

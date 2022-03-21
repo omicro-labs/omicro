@@ -115,10 +115,10 @@ void dpvec( const strvec &vec )
 	}
 }
 
-ssize_t safewrite( int fd, const char *buf, ulong len )
+long safewrite( int fd, const char *buf, long len )
 {
-    size_t nleft;
-    ssize_t nwritten;
+    long nleft;
+    long nwritten;
     const char *ptr;
 
     ptr = buf;
@@ -137,10 +137,10 @@ ssize_t safewrite( int fd, const char *buf, ulong len )
     return (len);
 }
 
-ssize_t saferead( int fd, char *buf, ulong len )
+long saferead( int fd, char *buf, long len )
 {
-     size_t  nleft;
-     ssize_t nread;
+     long  nleft;
+     long nread;
      char   *ptr;
 
      ptr = buf;
@@ -160,4 +160,12 @@ ssize_t saferead( int fd, char *buf, ulong len )
      return (len - nleft);  /* return >= 0 */
 }
 
+ulong ipow(ulong num, int power)
+{
+	ulong res = 1;
+	for ( int i=0; i < power; ++i ) {
+		res *= num;
+	}
+	return res;
+}
 
