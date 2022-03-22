@@ -30,26 +30,32 @@ void *threadSendMsg(void *arg);
 class omsession : public std::enable_shared_from_this<omsession>
 {
   public:
-    omsession(sstr id, int level, const NodeList &nodeL, tcp::socket socket) ;
+    omsession( boost::asio::io_context& io_context, sstr id, int level, const NodeList &nodeL, tcp::socket socket) ;
     void start();
   
   private:
+	boost::asio::io_context& io_context_;
     void do_read();
     void do_write(std::size_t length);
 	void reply( const sstr &str );
 	void multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec);
 	void callback(const sstr &msg);
 	bool initTrxn( OmicroTrxn &txn );
+	void makeSessionID();
   
     tcp::socket socket_;
-    //enum { max_length = 3024 };
     char hdr_[OMHDR_SZ+1];
-    // char data_[max_length];
 	bool stop_;
 	sstr id_;
 	int  level_;
 	const NodeList &nodeList_;
 	TrxnState trxnState_;
+	sstr clientIP_;
+	bool passedC_;
+
+	std::mutex stmtx_;
+	std::condition_variable stcv_;
+	sstr  sid_;
 };
 
 /// The signal_set is used to register for process termination notifications.
@@ -58,19 +64,12 @@ class omsession : public std::enable_shared_from_this<omsession>
 class omserver
 {
   public:
-    omserver(boost::asio::io_context& io_context, sstr srvip, sstr port)
-        :acceptor_(io_context, tcp::endpoint(boost::asio::ip::address::from_string(srvip.c_str()), atoi(port.c_str()) ))
-    {
-		address_ = srvip;
-		port_ = port;
-		readID();
-		level_ = nodeList_.getLevel();
-        do_accept();
-    }
+    omserver(boost::asio::io_context &io_context, const sstr &srvip, const sstr &port);
 
   private:
     void do_accept();
 	void readID();
+	boost::asio::io_context &io_context_;
     tcp::acceptor acceptor_;
 	sstr getDataDir() const;
 

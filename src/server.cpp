@@ -14,16 +14,21 @@
 #include "omutil.h"
 #include "omicroclient.h"
 #include "ommsghdr.h"
+#include "omsync.h"
 
 EXTERN_LOGGING
 using namespace boost::asio::ip;
 
-omsession::omsession(sstr id, int level, const NodeList &nodeL, tcp::socket socket)
-        : socket_(std::move(socket)), nodeList_(nodeL)
+
+omsession::omsession(boost::asio::io_context& io_context, sstr id, int level, const NodeList &nodeL, tcp::socket socket)
+        : io_context_(io_context), socket_(std::move(socket)), nodeList_(nodeL)
 {
     stop_ = false;
     id_ = id;
     level_ = level;
+	clientIP_ = socket_.remote_endpoint().address().to_string();
+	passedC_ = false;
+	makeSessionID();
 }
 
 void omsession::start()
@@ -49,13 +54,19 @@ void omsession::do_read()
 
 				boost::asio::async_read(socket_, boost::asio::buffer(data,dlen), 
 				  [this, self, data](bcode ec2, std::size_t length2 )
-				  {
-                      d("a82828 srv do read read data[%d]", length2 );
-                      sstr msg(data, length2);
-					  free(data);
-                      callback( msg );
-    				  do_read();
-				  });
+				{
+                    d("a82828 srv do read read data[%d]", length2 );
+                    sstr msg(data, length2);
+				    free(data);
+					try {
+                        callback( msg );
+					} catch ( std::exception& e ) {
+						i("a92201 in async_read data exception: [%s]", e.what() );
+						abort();
+					    return;
+					}
+    				do_read();
+				});
             } else {
                 d("a82838 srv do read read no data");
 			}
@@ -84,7 +95,6 @@ void omsession::reply( const sstr &str )
 	mhdr.setLength( str.size() );
 	mhdr.setPlain();
 
-    /***
     auto self(shared_from_this());
     boost::asio::async_write(socket_, boost::asio::buffer(hdr_, OMHDR_SZ),
           [this, self, str](bcode ec, std::size_t len)
@@ -102,16 +112,23 @@ void omsession::reply( const sstr &str )
                 d("a33309 111 error srv reply hdr len=%d", len);
             }
     });
-    ***/
 
-	d("a53550 in omsession::reply str=[%s] len=%d", s(str), str.size() );
-	d("a00291 server write header back hdr_=[%s] ...", hdr_ );
-    int len1 = boost::asio::write(socket_, boost::asio::buffer(hdr_, OMHDR_SZ) );
-	d("a00291 server write header back hdr_=[%s] done sentbytes=%d", hdr_, len1 );
+	/***
+	try {
+    	d("a53550 in omsession::reply str=[%s] len=%d", s(str), str.size() );
+    	d("a00291 server write header back hdr_=[%s] ...", hdr_ );
+        int len1 = boost::asio::write(socket_, boost::asio::buffer(hdr_, OMHDR_SZ) );
+    	d("a00291 server write header back hdr_=[%s] done sentbytes=%d", hdr_, len1 );
+    
+    	d("a00292 server write str back str=[%s] ...", str.c_str() );
+       	int len2 = boost::asio::write(socket_, boost::asio::buffer(str.c_str(), str.size()));
+    	d("a00292 server write str back str=[%s] strlen=%d done sentbytes=%d", str.c_str(), str.size(), len2 );
+	} catch (std::exception& e) {
+		i("a66331 in server reply() exception [%s] clientIP_=[%s]", e.what(), s(clientIP_) );
+		abort();
+	}
+	***/
 
-	d("a00292 server write str back str=[%s] ...", str.c_str() );
-   	int len2 = boost::asio::write(socket_, boost::asio::buffer(str.c_str(), str.size()));
-	d("a00292 server write str back str=[%s] strlen=%d done sentbytes=%d", str.c_str(), str.size(), len2 );
 }
 
 void omsession::callback(const sstr &msg)
@@ -160,23 +177,33 @@ void omsession::callback(const sstr &msg)
 			bool iAmLeader = circ.isLeader( beacon, id_, true, followers );
 			if ( iAmLeader ) {
 				// state to A
-				bool goodXit = trxnState_.goState( level_, trxnId, XIT_i );
-				if ( goodXit ) {
+				bool toAgood = trxnState_.goState( level_, trxnId, XIT_i );
+				if ( toAgood ) {
+					d("a00233 XIT_i toAgood true");
+
 					// send XIT_j to all followers in this leader zone
 					bool toBgood = trxnState_.goState( level_, trxnId, XIT_j );
-					d("a21200 iAmLeader toBgood=%d", toBgood );
+					d("a21200 iAmLeader XIT_j  toBgood=%d", toBgood );
 
 					t.setXit( XIT_j );
 					strvec replyVec;
-					d("a31112 %s multicast followers for vote expect reply ..", s(id_));
+					d("a31112 %s multicast XIT_j followers for vote expect reply ..", s(id_));
 					pvec( followers );
 					multicast( followers, t.str(), true, replyVec );
-					d("a31112 %s multicast followers for vote done replyVec=%d", s(id_), replyVec.size() );
+					d("a31112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(id_), replyVec.size() );
 
 					// got replies from followers, state to C
 					bool toCgood = trxnState_.goState( level_, trxnId, XIT_k );
 					if ( toCgood ) {
-						d("a55550 toCgood true");
+						{
+							d("a55450 toCgood true, lk mtx ...");
+							std::unique_lock<std::mutex> lk(stmtx_);
+							d("a55450 toCgood true, lk mtx done, notify all");
+							passedC_ = true;
+							stcv_.notify_all();
+							d("a55450 toCgood true, passedC_=%d sid=%s", passedC_, s(sid_));
+						}
+						d("a55550 recv XIT_k toCgood true");
 						if ( level_ == 2 ) {
 							int votes = replyVec.size(); // how many replied
 							t.setVoteInt( votes );
@@ -184,20 +211,20 @@ void omsession::callback(const sstr &msg)
 							t.setXit( XIT_l );
 							strvec otherLeaders;
 							circ.getOtherLeaders( beacon, id_, otherLeaders );
-							d("a31102 %s round-1 multicast otherLeaders noreplyexpected ..", s(id_));
+							d("a31102 %s round-1 multicast XIT_l otherLeaders noreplyexpected ..", s(id_));
 							pvec(otherLeaders);
 							multicast( otherLeaders, t.str(), false, replyVec );
-							d("a31102 %s round-1 multicast otherLeaders done replyVec=%d", s(id_), replyVec.size() );
+							d("a31102 %s round-1 multicast XIT_l otherLeaders done replyVec=%d\n", s(id_), replyVec.size() );
 						} else {
 							// level_ == 3  todo
 							d("a63311 error level_ == 2 false");
 						}
 
 					} else {
-						d("a3305 toCgood is false");
+						d("a3305 XIT_j toCgood is false");
 					}
 				} else {
-					d("a3306 to state A is false");
+					d("a3306 XIT_i to state A toAgood is false");
 				}
 			} else {
 				d("a3308 i [%s] am not leader, ignore XIT_i", s(id_));
@@ -211,9 +238,9 @@ void omsession::callback(const sstr &msg)
 		} else if ( xit == XIT_l ) {
 			d("a92822 %s received XIT_l ...", s(id_) );
 
-			sstr m = sstr("GOOD_TRXN|XIT_l|")+id_ + "upon receiving XIT_l";
-			reply(m);
-			d("a38221 after recv XIT_l replied back [%s]", s(m) );
+			//sstr m = sstr("GOOD_TRXN|XIT_l|")+id_ + "|upon receiving XIT_l";
+			//reply(m);
+			// d("a38221 after recv XIT_l replied back [%s]", s(m) );
 
 		    // received one XIT_l, there may be more XIT_l in next 3 seconds
 			static std::unordered_map<sstr, std::vector<uint>> collectTrxn;
@@ -223,33 +250,51 @@ void omsession::callback(const sstr &msg)
 			DynamicCircuit circ( nodeList_);
 			bool iAmLeader = circ.getOtherLeaders( beacon, id_, otherLeaders );
 			if ( iAmLeader ) {
-				collectTrxn[trxnId].push_back(1);
-				totalVotes[trxnId] += t.getVoteInt();
-				d("a3733 got XIT_l am leader increment collectTrxn[trxnId]");
-
-				uint twofp1 = twofplus1( otherLeaders.size() + 1);
-				d("a53098 twofp1=%d otherleaders=%d", twofp1, otherLeaders.size() );
-				uint recvcnt = collectTrxn[trxnId].size();
-				if ( recvcnt >= twofp1 ) { 
-					// state to D
-					bool toDgood = trxnState_.goState( level_, trxnId, XIT_l );
-					if ( toDgood ) {
-						// todo L2 L3
-						t.setXit( XIT_m );
-						t.setVoteInt( totalVotes[trxnId] );
-						strvec nullvec;
-						d("a33221 %s round-2 multicast otherLeaders ...", s(id_));
-						pvec(otherLeaders);
-						multicast( otherLeaders, t.str(), false, nullvec );
-						d("a33221 %s round-2 multicast otherLeaders done", s(id_));
-					} else {
-						d("a4457 %s toDgood is false", s(id_));
+				d("a30024 i am leader client=[%s]", s(clientIP_));
+				// make sure state C is done first
+    			//auto self(shared_from_this());
+				boost::asio::post(io_context_, [&]() {
+					{
+						d("a111023 unique_lock client=[%s] ...",  s(clientIP_));
+						std::unique_lock<std::mutex> lk(stmtx_);
+						d("a111024 cv_wait_timeout client=[%s] passedC_=%d sid=[%s] ...", s(clientIP_), passedC_, s(sid_));
+						int trc = cv_wait_timeout( passedC_, lk, stcv_, 5);
+						if ( trc < 0 ) {
+							d("a72203 cv_wait_timeout got timeout, skip rest client=[%s]", s(clientIP_) );
+							passedC_ = false;
+							return;
+						}
+						d("a555039 cv_wait_timeout NO timeout passedC_=%d sid=[%s]", passedC_, s(sid_) );
 					}
-					collectTrxn.erase(trxnId);
-					totalVotes.erase(trxnId);
-				} else {
-					d("a2234 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d, nostart round-2", s(id_), recvcnt, twofp1 );
-				}
+    				collectTrxn[trxnId].push_back(1);
+    				totalVotes[trxnId] += t.getVoteInt();
+    				d("a3733 got XIT_l am leader increment collectTrxn[trxnId]");
+    
+    				uint twofp1 = twofplus1( otherLeaders.size() + 1);
+    				d("a53098 twofp1=%d otherleaders=%d", twofp1, otherLeaders.size() );
+    				uint recvcnt = collectTrxn[trxnId].size();
+    				if ( recvcnt >= twofp1 ) { 
+    					// state to D
+    					bool toDgood = trxnState_.goState( level_, trxnId, XIT_l );
+    					if ( toDgood ) {
+    						d("a331208 from XIT_l to toDgood true");
+    						// todo L2 L3
+    						t.setXit( XIT_m );
+    						t.setVoteInt( totalVotes[trxnId] );
+    						strvec nullvec;
+    						d("a33221 %s round-2 multicast otherLeaders ...", s(id_));
+    						pvec(otherLeaders);
+    						multicast( otherLeaders, t.str(), false, nullvec );
+    						d("a33221 %s round-2 multicast otherLeaders done", s(id_));
+    					} else {
+    						d("a4457 %s XIT_l toDgood is false", s(id_));
+    					}
+    					collectTrxn.erase(trxnId);
+    					totalVotes.erase(trxnId);
+    				} else {
+    					d("a2234 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d, nostart round-2", s(id_), recvcnt, twofp1 );
+    				}
+				} );
 			} else {
 				d("a2234 %s got XIT_l, i am not leader", s(id_) );
 			}
@@ -279,6 +324,7 @@ void omsession::callback(const sstr &msg)
 					// state to E
 					bool toEgood = trxnState_.goState( level_, trxnId, XIT_m );
 					if ( toEgood ) {
+						d("a02227 from XIT_m toEgood true");
 						// todo L2 L3
 						t.setXit( XIT_n );
 						t.setVoteInt( avgVotes );
@@ -296,8 +342,10 @@ void omsession::callback(const sstr &msg)
 						// d("a99992 conv=%ld clientconv=%ld\n", conv,  clientConv_[trxnId] );
 						sstr m( sstr("GOOD_TRXN|") + id_);
 						d("a4002 reply back food trxn...");
-				// kcp_server_->send_msg(clientConv_[trxnId], m);
+						// kcp_server_->send_msg(clientConv_[trxnId], m);
 						// qwer
+					} else {
+						d("a72128 from XIT_m toEgood false");
 					}
 					collectTrxn.erase(trxnId);
 					totalVotes.erase(trxnId);
@@ -311,7 +359,7 @@ void omsession::callback(const sstr &msg)
 		}
     }
 
-	d("a555023 callback done");
+	d("a555023 callback done clientIP_=[%s]", s(clientIP_));
 }
 
 void *threadSendMsg(void *arg)
@@ -397,7 +445,6 @@ void omsession::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expe
 #endif
 
 // non thread send
-#if 1
 void omsession::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec )
 {
 	sstr id, ip, port;
@@ -431,10 +478,31 @@ void omsession::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expe
 
 	d("a31303 multicast msgs to nodes %d done expectReply=%d replied=%d", len, expectReply, replyVec.size() );
 }
-#endif
 
-/*** server
-***/
+void omsession::makeSessionID()
+{
+    struct timeval now;
+    gettimeofday( &now, NULL );
+	char buf[16];
+	sprintf(buf, "%d%ld", int(now.tv_sec%10),  now.tv_usec);
+	sid_ = buf;
+}
+
+
+/**
+*   Server methods
+**/
+
+omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, const sstr &port)
+      : io_context_(io_context),
+	    acceptor_(io_context, tcp::endpoint(boost::asio::ip::address::from_string(srvip.c_str()), atoi(port.c_str()) ))
+{
+    address_ = srvip;
+    port_ = port;
+    readID();
+    level_ = nodeList_.getLevel();
+    do_accept();
+}
 
 void omserver::do_accept()
 {
@@ -443,7 +511,7 @@ void omserver::do_accept()
           {
             if (!ec)
             {
-                std::shared_ptr<omsession> sess = std::make_shared<omsession>(id_, level_, nodeList_, std::move(socket));
+                std::shared_ptr<omsession> sess = std::make_shared<omsession>(io_context_, id_, level_, nodeList_, std::move(socket));
                 sess->start();
             }
 

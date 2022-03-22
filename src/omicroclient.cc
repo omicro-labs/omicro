@@ -89,27 +89,27 @@ sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 
 	long len1 = safewrite(socket_, hdr, OMHDR_SZ );
 	if ( len1 < 0 ) {
-		d("a4202 OmicroClient::sendMessage write timeout hdr");
+		d("a4202 OmicroClient::sendMessage write timeout empty hdr");
 		return "";
 	}
 
 	d("a23373 client write hdr len1=%d",len1);
 	long len2 = safewrite(socket_, msg.c_str(), msg.size() );
 	if ( len2 < 0 ) {
-		d("a4203 OmicroClient::sendMessage write timeout msg");
+		d("a4203 OmicroClient::sendMessage write timeout empty msg");
 		return "";
 	}
 
 	d("a23373 client write data len2=%d expectReply=%d", len2, expectReply);
 
 	if ( expectReply ) {
-		// sleep(1);
+		sleep(1);
 		char hdr2[OMHDR_SZ+1];
 		memset(hdr2, 0, OMHDR_SZ+1);
 
     	long hdrlen = saferead(socket_, hdr2, OMHDR_SZ );
 		if ( hdrlen < 0 ) {
-			d("a4205 OmicroClient::sendMessage read timeout hdr2 []");
+			d("a4205 OmicroClient::sendMessage read timeout hdr2 empty []");
 			return "";
 		}
 
@@ -120,7 +120,7 @@ sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 		char *reply = (char*)malloc(sz+1);
     	long reply_length = saferead(socket_, reply, sz );
 		if ( reply_length < 0 ) {
-			d("a4206 OmicroClient::sendMessage read timeout reply []");
+			d("a4206 OmicroClient::sendMessage read timeout reply empty []");
 			free( reply );
 			return "";
 		}

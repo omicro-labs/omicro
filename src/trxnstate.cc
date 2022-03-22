@@ -1,4 +1,5 @@
 #include "trxnstate.h"
+#include "omutil.h"
 
 TrxnState::TrxnState()
 {
@@ -59,6 +60,7 @@ bool TrxnState::goStateL2( const sstr &trxnid, Byte transit, Byte curState, OmSt
 	} else if ( curState == ST_E && transit == XIT_n ) {
 		nextState = ST_F;
 	} else {
+		d("a62330 TrxnState::goStateL2 curState=[%c] transit=[%c] not allowed", char(curState), char(transit) );
 		return false;
 	}
 

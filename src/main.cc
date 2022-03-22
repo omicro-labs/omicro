@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
     }
     catch (std::exception& e)
     {
-        i("E44308 exception: %s",e.what() );
+        i("E44308 exception: [%s] i am %s %s, exit", e.what(), argv[1], argv[2] );
     }
 
     return 0;
