@@ -18,6 +18,8 @@ class OmicroClient
   protected:
 	bool connectOK_;
 	int  socket_;
+	sstr srv_;
+	int  port_;
 };
 
 #endif

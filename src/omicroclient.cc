@@ -21,6 +21,8 @@ OmicroClient::OmicroClient( const char *srv, int port )
 
     auto &ipAddress = srv;
     auto &portNum   = ps;
+	srv_ = srv;
+	port_ = port;
 
     addrinfo hints, *p;
     memset(&hints, 0, sizeof(hints));
@@ -77,7 +79,7 @@ sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 	d("a4421 OmicroClient::sendMessage(%s) expectReply=%d", s(msg), expectReply );
 
 	if ( ! connectOK_ ) {
-		d("a52031 sendMessage return empty because connect is not OK");
+		d("a52031 sendMessage return empty because connect %s:%d is not OK", s(srv_), port_);
 		return "";
 	}
 
@@ -89,7 +91,7 @@ sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 
 	long len1 = safewrite(socket_, hdr, OMHDR_SZ );
 	if ( len1 < 0 ) {
-		d("a4202 OmicroClient::sendMessage write timeout empty hdr");
+		d("a4202 OmicroClient::sendMessage %s:%d write timeout empty hdr", s(srv_), port_);
 		return "";
 	}
 
@@ -103,13 +105,13 @@ sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 	d("a23373 client write data len2=%d expectReply=%d", len2, expectReply);
 
 	if ( expectReply ) {
-		sleep(1);
+		// sleep(1);
 		char hdr2[OMHDR_SZ+1];
 		memset(hdr2, 0, OMHDR_SZ+1);
 
     	long hdrlen = saferead(socket_, hdr2, OMHDR_SZ );
 		if ( hdrlen < 0 ) {
-			d("a4205 OmicroClient::sendMessage read timeout hdr2 empty []");
+			d("a4205 OmicroClient::sendMessage read %s:%d timeout hdr2 empty []", s(srv_), port_);
 			return "";
 		}
 
