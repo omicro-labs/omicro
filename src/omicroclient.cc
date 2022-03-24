@@ -57,7 +57,7 @@ OmicroClient::OmicroClient( const char *srv, int port )
 
 	socket_ = sockFD;
 	struct timeval tv;
-	tv.tv_sec = 5;  /* 10 Secs Timeout */
+	tv.tv_sec = 30;  /* 10 Secs Timeout */
 	tv.tv_usec = 0; 
 	setsockopt(socket_, SOL_SOCKET, SO_SNDTIMEO,(struct timeval *)&tv, sizeof(struct timeval));
 	setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv, sizeof(struct timeval));

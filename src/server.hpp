@@ -31,7 +31,6 @@ class omserver
 	~omserver();
 
 	void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
-
 	void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
 	static void multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
 
@@ -41,6 +40,11 @@ class omserver
 	NodeList nodeList_;
 	int level_;
 	sstr id_;
+
+	// debug only
+	sstr srvport_;
+	int  waitCount_;
+	// debug only
 
 
   private:
@@ -54,8 +58,14 @@ class omserver
 	void doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
 				  const strvec &otherLeaders,  OmicroTrxn &t );
 
+	void tryRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
+				  const strvec &otherLeaders, const strvec &followers, OmicroTrxn &t );
+	void doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
+				  const strvec &otherLeaders,  const strvec &followers, OmicroTrxn &t );
+
 	sstr address_, port_;
 	boost::asio::steady_timer *timer_;
+	boost::asio::steady_timer *timer2_;
 
 };
 

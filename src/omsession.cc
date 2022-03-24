@@ -136,6 +136,8 @@ void omsession::callback(const sstr &msg)
 	**/
 
 	OmicroTrxn t(msg.c_str());
+	// t.setSrvPort( serv_.srvport_.c_str() );
+
 	bool validTrxn = t.isValidClientTrxn();
 	if ( ! validTrxn ) {
 		sstr m(sstr("BAD_INVALID_TRXN|") + id_ + "|" + msg);
@@ -146,6 +148,8 @@ void omsession::callback(const sstr &msg)
 	sstr trxnId = t.getTrxnID();
 	bool isInitTrxn = t.isInitTrxn();
 	bool rc;
+	char *pfrom = t.getSrvPort();
+
 	if ( isInitTrxn ) {
 		sstr m;
 		d("a333301  i am any node, launching initTrxn ..." );
@@ -182,23 +186,13 @@ void omsession::callback(const sstr &msg)
 					strvec replyVec;
 					d("a31112 %s multicast XIT_j followers for vote expect reply ..", s(id_));
 					pvec( followers );
+					t.setSrvPort( serv_.srvport_.c_str() );
 					omserver::multicast( followers, t.str(), true, replyVec );
 					d("a31112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(id_), replyVec.size() );
 
 					// got replies from followers, state to C
 					bool toCgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_k );
 					if ( toCgood ) {
-						/***
-						{
-							d("a55450 toCgood true, lk mtx ...");
-							std::unique_lock<std::mutex> lk(serv_.getMutx(trxnId));
-							d("a55450 toCgood true, lk mtx done, notify all");
-							serv_.passedC_[trxnId] = true;
-							serv_.getCond(trxnId).notify_all();
-							d("a55450 toCgood true, serv_.passedC_=%d sid=%s", serv_.passedC_[trxnId], s(sid_));
-						}
-						***/
-
 						d("a55550 recv XIT_k toCgood true");
 						if ( serv_.level_ == 2 ) {
 							int votes = replyVec.size(); // how many replied
@@ -209,6 +203,7 @@ void omsession::callback(const sstr &msg)
 							circ.getOtherLeaders( beacon, id_, otherLeaders );
 							d("a31102 %s round-1 multicast XIT_l otherLeaders noreplyexpected ..", s(id_));
 							pvec(otherLeaders);
+							// txn.setSrvPort( serv_.srvport_.c_str() );
 							omserver::multicast( otherLeaders, t.str(), false, replyVec );
 							d("a31102 %s round-1 multicast XIT_l otherLeaders done replyVec=%d\n", s(id_), replyVec.size() );
 						} else {
@@ -228,23 +223,24 @@ void omsession::callback(const sstr &msg)
 			// else i am not leader, igore 'i' xit
 		} else if ( xit == XIT_j ) {
 			// I am follower, give my vote to leader
-			d("a5501 received XIT_j reply back good");
-			sstr m(sstr("GOOD_TRXN|XIT_j|")+id_);
+			d("a5501 received XIT_j from [%s] reply back good", pfrom);
+			sstr m = sstr("GOOD_TRXN|XIT_j|")+id_;
 			reply(m);
 		} else if ( xit == XIT_l ) {
-			d("a92822 %s received XIT_l ...", s(id_) );
+			d("a92822 %s received XIT_l from [%s] ...", s(id_), pfrom );
 			serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t );
 		} else if ( xit == XIT_m ) {
 		    // received one XIT_m, there may be more XIT_m in next 3 seconds
 			// qwer
-			d("a54103 %s got XIT_m", s(id_) );
+			d("a54103 %s got XIT_m from [%s]", s(id_), pfrom );
 			serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t );
 		} else if ( xit == XIT_n ) {
 			// follower gets a trxn commit message
-			d("a9999 follower commit a TRXN %s", s(trxnId));
+			d("a9999 follower commit a TRXN %s from [%s]", s(trxnId), pfrom);
 		}
     }
 
+	free(pfrom);
 	d("a555023 callback done clientIP_=[%s]", s(clientIP_));
 }
 
@@ -273,6 +269,7 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	strvec replyVec;
 	d("a3118 multicast to ZoneLeaders ...");
 	pvec( hostVec );
+	txn.setSrvPort( serv_.srvport_.c_str() );
 	omserver::multicast( hostVec, txn.str(), true, replyVec );
 	d("a3118 multicast to ZoneLeaders done");
 

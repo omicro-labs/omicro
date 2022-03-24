@@ -192,6 +192,42 @@ bool OmicroTrxn::setSender( const char *s)
 	return true;
 }
 
+char* OmicroTrxn::getSrvPort()
+{
+	if ( NULL == data_ ) return NULL;
+	int start = TRXN_SRVPORT_START;
+	int sz = TRXN_SRVPORT_SZ;
+	char *p = (char*)malloc(sz+1);
+	memcpy( p, data_+start, sz );
+	p[sz] = '\0';
+	return p;
+}
+
+bool OmicroTrxn::setSrvPort( const char *s)
+{
+	if ( NULL == data_ ) {
+		i("E12012 OmicroTrxn::setSrvPort data_ is NULL");
+		return false;
+	}
+
+	int start = TRXN_SRVPORT_START;
+	int sz = TRXN_SRVPORT_SZ;
+	int len = strlen(s);
+	if ( len > sz ) {
+		i("E12002 OmicroTrxn::setSrvPort s=[%s] wrong size=%d toobig", s, len);
+		return false;
+	}
+
+	char buf[sz+1];
+	memset(buf, ' ', sz);
+	memcpy(buf, s, len);
+	buf[sz] = '\0';
+	d("a33065 setSrvPort() tmp buf=[%s] buflen=%d", buf, strlen(buf) );
+	memcpy(data_+start, buf, sz );
+	return true;
+}
+
+
 char* OmicroTrxn::getReceiver()
 {
 	if ( NULL == data_ ) return NULL;
@@ -522,6 +558,7 @@ void  OmicroTrxn::makeDummyTrxn()
 	setHeader("123456");
 	setBeacon("12345678");
 	//setBeacon();
+	setSrvPort("127.0.0.1:client");
 
 	setSender("0xAduehHhfjOkfjetOjrUrjQjfSfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaDDExkYm");
 
