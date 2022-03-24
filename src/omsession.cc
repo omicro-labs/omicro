@@ -1,4 +1,3 @@
-#include <boost/bind.hpp>
 #include <signal.h>
 #include <cstdlib>
 #include <pthread.h>
@@ -189,14 +188,17 @@ void omsession::callback(const sstr &msg)
 					// got replies from followers, state to C
 					bool toCgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_k );
 					if ( toCgood ) {
+						/***
 						{
 							d("a55450 toCgood true, lk mtx ...");
-							std::unique_lock<std::mutex> lk(stmtx_);
+							std::unique_lock<std::mutex> lk(serv_.getMutx(trxnId));
 							d("a55450 toCgood true, lk mtx done, notify all");
 							serv_.passedC_[trxnId] = true;
-							stcv_.notify_all();
+							serv_.getCond(trxnId).notify_all();
 							d("a55450 toCgood true, serv_.passedC_=%d sid=%s", serv_.passedC_[trxnId], s(sid_));
 						}
+						***/
+
 						d("a55550 recv XIT_k toCgood true");
 						if ( serv_.level_ == 2 ) {
 							int votes = replyVec.size(); // how many replied

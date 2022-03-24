@@ -80,7 +80,8 @@ MY_LIBS = $(HASH)/xxHash/libxxhash.a \
 
 #BOOST_DEFINE = -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
 
-BOOST_DEFINE = -DBOOST_BIND_GLOBAL_PLACEHOLDERS 
+#BOOST_DEFINE = -DBOOST_BIND_GLOBAL_PLACEHOLDERS 
+BOOST_DEFINE = 
 
 #MUDUO_DEFINE = -D MUDUO_STD_STRING -D __GXX_EXPERIMENTAL_CXX0X__
 
@@ -125,7 +126,7 @@ HDREXTS = .h .H .hh .hpp .HPP .h++ .hxx .hp
 # The pre-processor and compiler options.
 # Users can override those variables from the command line.
 CFLAGS  =
-CXXFLAGS= -std=c++11
+CXXFLAGS= -std=c++14
 
 # The C program compiler.
 CC     = gcc

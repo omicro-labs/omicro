@@ -502,7 +502,7 @@ bool OmicroTrxn::isValidClientTrxn()
 	unsigned long nowt = getNowTimeUS();
 	if ( nowt - trxnTime > 60000000 ) {
 		// lag of 60 seconds
-		i("a303376 warn isValidClientTrxn() nowt=%ld trxnTime=%ld more than 60 seconds");
+		i("a303376 warn isValidClientTrxn() nowt=%ld trxnTime=%ld more than 60 seconds", nowt, trxnTime);
 		return false;
 	}
 

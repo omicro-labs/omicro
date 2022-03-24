@@ -1,4 +1,4 @@
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <signal.h>
 #include <cstdlib>
 #include <pthread.h>
@@ -7,7 +7,6 @@
 #include <memory>
 #include <utility>
 #include <boost/asio.hpp>
-#include <mutex>
 
 #include "omicrotrxn.h"
 #include "server.hpp"
@@ -31,6 +30,12 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
     level_ = nodeList_.getLevel();
 
     do_accept();
+	timer_ = new boost::asio::steady_timer( io_context_ );
+}
+
+omserver::~omserver()
+{
+	delete timer_;
 }
 
 void omserver::do_accept()
@@ -113,7 +118,6 @@ void omserver::readID()
 	}
 }
 
-// L2
 void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t )
 {
 	strvec otherLeaders;
@@ -123,56 +127,60 @@ void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 		d("a2234 %s got XIT_l, i am not leader", s(id_) );
 		return;
 	}
+	d("a30024 onRecvL() i am leader client=[%s] sid=[%s] tryRecvL ...", s(clientIP), s(sid));
 
-	d("a30024 i am leader client=[%s]", s(clientIP));
-	// make sure state C is done first
-   	//auto self(shared_from_this());
-	boost::asio::post(io_context_, [&]() {
-		bool &passedC = passedC_[trxnId];
-		{
-			d("a111023 unique_lock client=[%s] ...",  s(clientIP));
-			std::unique_lock<std::mutex> lk(getMutx(trxnId));
-			d("a111024 cv_wait_timeout client=[%s] passedC_=%d sid=[%s] ...", s(clientIP), passedC, s(sid));
-			int trc = cv_wait_timeout( passedC, lk, getCond(trxnId), 5);
-			if ( trc < 0 ) {
-				d("a72203 cv_wait_timeout got timeout, skip rest client=[%s]", s(clientIP) );
-				passedC_.erase(trxnId);
-				return;
-			}
-			d("a555039 cv_wait_timeout NO timeout passedC_=%d sid=[%s]", passedC, s(sid) );
-			passedC_.erase(trxnId);
-		}
-
-		collectTrxn_[trxnId].push_back(1);
-		totalVotes_[trxnId] += t.getVoteInt();
-		d("a3733 got XIT_l am leader increment collectTrxn[trxnId]");
-
-		uint twofp1 = twofplus1( otherLeaders.size() + 1);
-		d("a53098 twofp1=%d otherleaders=%d", twofp1, otherLeaders.size() );
-		uint recvcnt = collectTrxn_[trxnId].size();
-		if ( recvcnt >= twofp1 ) { 
-			// state to D
-			bool toDgood = trxnState_.goState( level_, trxnId, XIT_l );
-			if ( toDgood ) {
-				d("a331208 from XIT_l to toDgood true");
-				// todo L2 L3
-				t.setXit( XIT_m );
-				t.setVoteInt( totalVotes_[trxnId] );
-				strvec nullvec;
-				d("a33221 %s round-2 multicast otherLeaders ...", s(id_));
-				pvec(otherLeaders);
-				multicast( otherLeaders, t.str(), false, nullvec );
-				d("a33221 %s round-2 multicast otherLeaders done", s(id_));
-			} else {
-				d("a4457 %s XIT_l toDgood is false", s(id_));
-			}
-			collectTrxn_.erase(trxnId);
-			totalVotes_.erase(trxnId);
-		} else {
-			d("a2234 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d, nostart round-2", s(id_), recvcnt, twofp1 );
-		}
-	} );
+	tryRecvL( beacon, trxnId, clientIP, sid, otherLeaders, t);
 }
+
+void omserver::tryRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
+					    const strvec &otherLeaders,  OmicroTrxn &t )
+{
+	Byte curState;
+	if (trxnState_.getState(trxnId, curState) && curState == ST_C ) {
+		d("a81116 curState == ST_C doRecvL ...");
+		doRecvL( beacon, trxnId, clientIP, sid, otherLeaders, t );
+	} else {
+		d("a81116 curState != ST_C wait 100 millisecs then tryRecvL ...");
+		timer_->expires_at(timer_->expiry() + boost::asio::chrono::milliseconds(100));
+		timer_->async_wait(boost::bind(&omserver::tryRecvL, this, beacon, trxnId, clientIP, sid, otherLeaders, t ));
+	}
+}
+
+void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
+					    const strvec &otherLeaders,  OmicroTrxn &t )
+{
+
+	d("a5549381 onRecvL check that server is in ST_C, go ahead");
+	collectTrxn_[trxnId].push_back(1);
+	totalVotes_[trxnId] += t.getVoteInt();
+	d("a3733 got XIT_l am leader increment collectTrxn[trxnId]");
+		
+	uint twofp1 = twofplus1( otherLeaders.size() + 1);
+	d("a53098 twofp1=%d otherleaders=%d", twofp1, otherLeaders.size() );
+	uint recvcnt = collectTrxn_[trxnId].size();
+	if ( recvcnt >= twofp1 ) { 
+		// state to D
+		bool toDgood = trxnState_.goState( level_, trxnId, XIT_l );
+		if ( toDgood ) {
+			d("a331208 from XIT_l to toDgood true");
+			// todo L2 L3
+			t.setXit( XIT_m );
+			t.setVoteInt( totalVotes_[trxnId] );
+			strvec nullvec;
+			d("a33221 %s round-2 multicast otherLeaders ...", s(id_));
+			pvec(otherLeaders);
+			multicast( otherLeaders, t.str(), false, nullvec );
+			d("a33221 %s round-2 multicast otherLeaders done", s(id_));
+		} else {
+			d("a4457 %s XIT_l toDgood is false", s(id_));
+		}
+		collectTrxn_.erase(trxnId);
+		totalVotes_.erase(trxnId);
+	} else {
+		d("a2234 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d, nostart round-2", s(id_), recvcnt, twofp1 );
+	}
+}
+
 
 // L2
 void omserver::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t )
@@ -226,36 +234,6 @@ void omserver::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 		totalVotes_.erase(trxnId);
 	}
 }
-
-
-std::mutex& omserver::getMutx(const sstr &trxnId)
-{
-	auto itr = stmtx_.find(trxnId);
-	if ( itr == stmtx_.end() ) {
-		stmtx_.emplace(std::piecewise_construct, std::forward_as_tuple(trxnId), std::forward_as_tuple());
-		return stmtx_[trxnId];
-	} else {
-		return itr->second;
-	}
-}
-
-std::condition_variable& omserver::getCond( const sstr &trxnId)
-{
-	auto itr = stcv_.find(trxnId);
-	if ( itr == stcv_.end() ) {
-		stcv_.emplace(std::piecewise_construct, std::forward_as_tuple(trxnId), std::forward_as_tuple());
-		return stcv_[trxnId];
-	} else {
-		return itr->second;
-	}
-}
-
-void omserver::clearMutxCond( const sstr &trxnId )
-{
-	stmtx_.erase( trxnId );
-	stcv_.erase( trxnId );
-}
-
 
 
 #if 0
