@@ -1,0 +1,20 @@
+download site http://fallabs.com/tokyocabinet/
+download tokyocabinet-1.4.48.tar.gz
+
+Execute the following commands:
+
+/bin/rm -rf tc
+mkdir tc
+
+curdir=`pwd -P`
+installdir=$curdir/tc
+
+tar zxf tokyocabinet-1.4.48.tar.gz
+
+cd tokyocabinet-1.4.48
+./configure --prefix=$installdir
+make
+make install
+
+
+

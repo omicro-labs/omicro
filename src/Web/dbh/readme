@@ -1,0 +1,18 @@
+https://sourceforge.net/projects/dbh/files/dbh/
+download libdbh2-5.0.22.tar.gz
+
+Execute following commands in current directory (src/Web/dbh):
+
+tar zxf libdbh2-5.0.22.tar.gz
+/bin/rm -rf dbh2
+mkdir dbh2
+curdir=`pwd -P`
+installdir=$curdir/dbh2
+cd libdbh2-5.0.22
+./configure --prefix=$installdir
+make
+make install
+
+Then src/Web/dbh/dbh2/include will contain header file
+and src/Web/dbh/dbh2/lib will contain library files.
+

@@ -71,11 +71,15 @@ BOOST_INC_PATH=/usr/local/boost_1.78.0/include
 
 HASH=../Web/hash
 NTRU=../Web/ntru/libntru
+TC=../Web/tc/tc
+
 
 # The linker options.
 MY_LIBS = $(HASH)/xxHash/libxxhash.a \
 		  $(NTRU)/libntru.a \
-          $(BOOST_LIB_PATH)/libboost_system.a $(BOOST_LIB_PATH)/libboost_filesystem.a
+          $(BOOST_LIB_PATH)/libboost_system.a \
+		  $(BOOST_LIB_PATH)/libboost_filesystem.a \
+		  $(TC)/lib/libtokyocabinet.a -lz -lbz2
 
 
 #BOOST_DEFINE = -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
@@ -94,6 +98,7 @@ WORNING_FLAGS = -Wall
 CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
             -I $(HASH) \
             -I $(NTRU) \
+            -I $(TC)/include \
 			-g3 \
 			$(BOOST_DEFINE)
 
