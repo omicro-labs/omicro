@@ -318,6 +318,7 @@ void omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expec
 	for ( int i=0; i < len; ++i ) {
 		pthread_join( thrd[i], NULL );
 		if ( expectReply ) {
+			d("a59031 pthread_join i=%d done expectReply=1", i );
 			if ( thrdParam[i].reply.size() > 0 ) {
 				replyVec.push_back( thrdParam[i].reply );
 			}
@@ -371,6 +372,7 @@ void *threadSendMsg(void *arg)
     ThreadParam *p = (ThreadParam*)arg;
     OmicroClient cli( p->srv.c_str(), p->port);
     p->reply = cli.sendMessage( p->trxn.c_str(), p->expectReply );
+	d("a30114 cli.sendMessage returned p->expectReply=%d p->reply=[%s]", p->expectReply, s(p->reply) );
     return NULL;
 }
 

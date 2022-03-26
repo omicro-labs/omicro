@@ -1,15 +1,17 @@
+#include <random>
 #include <malloc.h>
 #include <sys/time.h>
 #include <string.h>
 #include "omicrotrxn.h"
 #include "omutil.h"
+#include "server.hpp"
 EXTERN_LOGGING
 
 OmicroTrxn::OmicroTrxn()
 {
 	data_ = (char*)malloc(TRXN_TOTAL_SZ+1);
-	//data_[TRXN_TOTAL_SZ] = '\0';
-	memset(data_, 0, TRXN_TOTAL_SZ+1);
+	data_[TRXN_TOTAL_SZ] = '\0';
+	memset(data_, ' ', TRXN_TOTAL_SZ);
 	readOnly_ = false;
 }
 
@@ -162,6 +164,29 @@ bool OmicroTrxn::setBeacon()
 	return true;
 }
 
+char * OmicroTrxn::getID()
+{
+	if ( NULL == data_ ) return NULL;
+	int start = TRXN_ID_START;
+	int sz = TRXN_ID_SZ;
+	char *p = (char*)malloc(sz+1);
+	memcpy( p, data_+start, sz );
+	p[sz] = '\0';
+	return p;
+}
+
+void  OmicroTrxn::setID()
+{
+	// 2 8-byte rand hex
+	int start = TRXN_ID_START;
+
+	char s[TRXN_ID_SZ+1];
+	std::uniform_int_distribution<uint64_t> distribution;
+	std::mt19937_64   engine(std::random_device{}());
+	uint64_t r1 = distribution(engine);
+	sprintf(s, "%lx", r1 );
+	memcpy( data_+start, s, TRXN_ID_SZ );
+}
 
 char* OmicroTrxn::getSender()
 {
@@ -515,10 +540,10 @@ const char *OmicroTrxn::str() const
 char * OmicroTrxn::getTrxnID() const
 {
 	// sender + timestamp
-	char *p = (char*)malloc( TRXN_SENDER_SZ + TRXN_TIMESTAMP_SZ + 1);
-	memcpy( p, data_ + TRXN_SENDER_START, TRXN_SENDER_SZ );
-	memcpy( p + TRXN_SENDER_SZ, data_ + TRXN_TIMESTAMP_START, TRXN_TIMESTAMP_SZ );
-	p[TRXN_SENDER_SZ + TRXN_TIMESTAMP_SZ] = '\0';
+	char *p = (char*)malloc( TRXN_ID_SZ + TRXN_TIMESTAMP_SZ + 1);
+	memcpy( p, data_ + TRXN_ID_START, TRXN_ID_SZ );
+	memcpy( p + TRXN_ID_SZ, data_ + TRXN_TIMESTAMP_START, TRXN_TIMESTAMP_SZ );
+	p[TRXN_ID_SZ + TRXN_TIMESTAMP_SZ] = '\0';
 	return p;
 }
 
@@ -565,6 +590,7 @@ void  OmicroTrxn::makeDummyTrxn()
 {
 	setHeader("123456");
 	setBeacon("12345678");
+	// setBlankID();
 	//setBeacon();
 	setSrvPort("127.0.0.1:client");
 

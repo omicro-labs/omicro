@@ -145,12 +145,15 @@ void omsession::callback(const sstr &msg)
 		return;
 	}
 
-	sstr trxnId; t.getTrxnIDStr( trxnId );
+	sstr trxnId; 
 	bool isInitTrxn = t.isInitTrxn();
 	bool rc;
 	char *pfrom = t.getSrvPort();
 
 	if ( isInitTrxn ) {
+		t.setID();
+		t.getTrxnIDStr( trxnId );
+		d("a43713 init trxnId=[%s]", s(trxnId) );
 		sstr m;
 		d("a333301  i am any node, launching initTrxn ..." );
 		rc = initTrxn( t );
@@ -164,6 +167,8 @@ void omsession::callback(const sstr &msg)
 		reply( m);
 		d("a333301 reply %s done", s(m) );
 	} else {
+		t.getTrxnIDStr( trxnId );
+		d("a43714 exist trxnId=[%s]", s(trxnId) );
 		Byte xit = t.getXit();
 		sstr beacon = t.getBeacon();
 		if ( xit == XIT_i ) {
@@ -210,15 +215,24 @@ void omsession::callback(const sstr &msg)
 							// level_ == 3  todo
 							d("a63311 error level_ == 2 false");
 						}
-
+						d("a57003 GOOD_TRXN|XIT_i reply back");
+						sstr m = sstr("GOOD_TRXN|XIT_i|")+id_;
+						reply(m);
 					} else {
 						d("a3305 XIT_j toCgood is false");
+						sstr m = sstr("BAD_TRXN|XIT_i|")+id_;
+						reply(m);
 					}
 				} else {
 					d("a3306 XIT_i to state A toAgood is false");
+					sstr m = sstr("BAD_TRXN|XIT_i|")+id_;
+					reply(m);
 				}
 			} else {
+				// bad
 				d("a3308 i [%s] am not leader, ignore XIT_i", s(id_));
+				sstr m = sstr("BAD_TRXN|XIT_i|")+id_;
+				reply(m);
 			}
 			// else i am not leader, igore 'i' xit
 		} else if ( xit == XIT_j ) {
@@ -234,6 +248,9 @@ void omsession::callback(const sstr &msg)
 			// qwer
 			d("a54103 %s got XIT_m from [%s]", s(id_), pfrom );
 			serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t );
+			// qwer
+			//sstr m = sstr("GOOD_TRXN|XIT_m|")+id_;
+			//reply(m);
 		} else if ( xit == XIT_n ) {
 			// follower gets a trxn commit message
 			d("a9999 follower commit a TRXN %s from [%s]", s(trxnId), pfrom);
@@ -251,7 +268,7 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	// serv_.nodeList_ is std::vector<string>
 	sstr beacon = txn.getBeacon();
 	sstr trxnid; txn.getTrxnIDStr( trxnid );
-	d("a80123 initTrxn() threadid=%ld beacon=[%s] trxnid=%s", pthread_self(), s(beacon), trxnid.substr(0,10).c_str() );
+	d("a80123 initTrxn() threadid=%ld beacon=[%s] trxnid=[%s]", pthread_self(), s(beacon), s(trxnid) );
 
 	// for each zone leader
 	//   send leader msg: trxn, with tranit XIT_i
@@ -268,19 +285,22 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	txn.setXit( XIT_i );
 
 	strvec replyVec;
-	d("a3118 multicast to ZoneLeaders ...");
+	d("a31181 multicast to ZoneLeaders ...");
 	pvec( hostVec );
 	txn.setSrvPort( serv_.srvport_.c_str() );
 	omserver::multicast( hostVec, txn.str(), true, replyVec );
-	d("a3118 multicast to ZoneLeaders done");
+	d("a31183 multicast to ZoneLeaders done");
 
 	uint numReply = replyVec.size();
 	uint onefp1 = onefplus1(hostVec.size());
-	d("a4550 numReply=%d onefp1=%d", numReply, onefp1);
+	d("a45504 numReply=%d onefp1=%d", numReply, onefp1);
 	if ( numReply >= onefp1 ) {
 		return true;
 	} else {
-		return false;
+		// return false;
+
+		// debug why numReply == 0?
+		return true;
 	}
 }
 

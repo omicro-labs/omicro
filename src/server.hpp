@@ -3,6 +3,7 @@
 
 #include <boost/asio.hpp>
 #include <string>
+#include <random>
 #include "nodelist.h"
 #include "omicrodef.h"
 #include "omutil.h"
@@ -46,6 +47,7 @@ class omserver
 	sstr srvport_;
 	int  waitCount_;
 	// debug only
+
 	BlockMgr  blockMgr_;
 
 

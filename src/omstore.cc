@@ -25,7 +25,8 @@ int OmStore::put(const char *key, int ksize, const char *value, int vsize)
 {
 	bool rc = tchdbput(hdb_, (char*)key, ksize, (char*)value, vsize );
 	if ( rc ) {
-		d("a500278 OmStore::put data to [%s] OK", fpath_.c_str() );
+		d("a500278 OmStore::put data to [%s] OK ksize=%d vsize=%d", fpath_.c_str(), ksize, vsize );
+		d("a500278 put key=[%s] value=[%s]", key, value );
 		return 0;
 	} else {
 		i("E304032 OmStore::put data to [%s] error [%s]", fpath_.c_str(), lastError() );
