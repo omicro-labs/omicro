@@ -8,6 +8,7 @@
 #include "omutil.h"
 #include "trxnstate.h"
 #include "ommsghdr.h"
+#include "blockmgr.h"
 
 using boost::asio::ip::tcp;
 using becode = boost::system::error_code;
@@ -45,6 +46,7 @@ class omserver
 	sstr srvport_;
 	int  waitCount_;
 	// debug only
+	BlockMgr  blockMgr_;
 
 
   private:

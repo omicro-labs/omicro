@@ -145,7 +145,7 @@ void omsession::callback(const sstr &msg)
 		return;
 	}
 
-	sstr trxnId = t.getTrxnID();
+	sstr trxnId; t.getTrxnIDStr( trxnId );
 	bool isInitTrxn = t.isInitTrxn();
 	bool rc;
 	char *pfrom = t.getSrvPort();
@@ -237,6 +237,7 @@ void omsession::callback(const sstr &msg)
 		} else if ( xit == XIT_n ) {
 			// follower gets a trxn commit message
 			d("a9999 follower commit a TRXN %s from [%s]", s(trxnId), pfrom);
+			serv_.blockMgr_.saveTrxn( t );
 		}
     }
 
@@ -249,7 +250,7 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	// find zone leaders and ask them to collect votes from members
 	// serv_.nodeList_ is std::vector<string>
 	sstr beacon = txn.getBeacon();
-	sstr trxnid = txn.getTrxnID();
+	sstr trxnid; txn.getTrxnIDStr( trxnid );
 	d("a80123 initTrxn() threadid=%ld beacon=[%s] trxnid=%s", pthread_self(), s(beacon), trxnid.substr(0,10).c_str() );
 
 	// for each zone leader

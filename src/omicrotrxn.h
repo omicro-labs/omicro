@@ -94,11 +94,12 @@ class OmicroTrxn
 	char *getSignature();
 	bool setSignature( const char *s );
 
-	const char *getString();
-	const char *str();
-	char *getTrxnID();
-	int   length();
-	int   size();
+	const char *getString() const;
+	const char *str() const;
+	char *getTrxnID() const;
+	void  getTrxnIDStr( sstr &idstr ) const;
+	int   length() const;
+	int   size() const;
 	void  makeDummyTrxn();
 	void  print();
 	bool  setInitTrxn();

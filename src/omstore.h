@@ -2,15 +2,16 @@
 #define _om_store_h_
 
 #include <tchdb.h>
+#include "omicrodef.h"
 
 #define OM_DB_WRITE ( HDBOWRITER|HDBOCREAT )
 #define OM_DB_READ  (HDBOREADER )
 
-class omstore
+class OmStore
 {
   public:
-    omstore( const char *fpath, int mode );
-    ~omstore();
+    OmStore( const char *fpath, int mode );
+    ~OmStore();
 
 	int put(const char *key, int ksize, const char *value, int vsize);
 	char *get( const char *key );
@@ -20,6 +21,7 @@ class omstore
   protected:
     bool ok_;
 	TCHDB *hdb_; 
+	sstr fpath_;
 };
 
 #endif

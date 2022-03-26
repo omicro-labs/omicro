@@ -28,13 +28,19 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
     port_ = port;
     readID();
     level_ = nodeList_.getLevel();
+	srvport_ = address_ + ":" + port_;
 
-    do_accept();
+	sstr dataDir = getDataDir(); 
+	i("Data dir is [%s]", dataDir.c_str());
+	blockMgr_.setDataDir( dataDir );
+
 	timer_ = new boost::asio::steady_timer( io_context_ );
 	timer2_ = new boost::asio::steady_timer( io_context_ );
 	waitCount_ = 0;
 
-	srvport_ = address_ + ":" + port_;
+    do_accept();
+	i("omserver is ready");
+
 }
 
 omserver::~omserver()
@@ -61,9 +67,11 @@ void omserver::do_accept()
 
 sstr omserver::getDataDir() const
 {
-	sstr dir;
-	dir = "../data/";
-	dir += address_ + "/" + port_;
+	::mkdir( "../data/", 0700 );
+	sstr dip = sstr("../data/") + address_;
+	::mkdir( dip.c_str(), 0700 );
+
+	sstr dir = dip + "/" + port_;
 	return dir;
 }
 
@@ -266,6 +274,7 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 
 			// i do commit too to state F
 			// block_.add( t );
+			blockMgr_.saveTrxn( t );
 			d("a9999 leader commit a TRXN %s ", s(trxnId));
 			trxnState_.goState( level_, trxnId, XIT_n );
 			// reply back to client

@@ -503,16 +503,16 @@ bool OmicroTrxn::setSignature( const char *s)
 	return true;
 }
 
-const char *OmicroTrxn::getString()
+const char *OmicroTrxn::getString() const
 {
 	return (char*)data_;
 }
-const char *OmicroTrxn::str()
+const char *OmicroTrxn::str() const
 {
 	return (char*)data_;
 }
 
-char * OmicroTrxn::getTrxnID()
+char * OmicroTrxn::getTrxnID() const
 {
 	// sender + timestamp
 	char *p = (char*)malloc( TRXN_SENDER_SZ + TRXN_TIMESTAMP_SZ + 1);
@@ -522,12 +522,20 @@ char * OmicroTrxn::getTrxnID()
 	return p;
 }
 
-int OmicroTrxn::length()
+void OmicroTrxn::getTrxnIDStr( sstr &tid ) const
+{
+	char *pt = getTrxnID();
+	tid = pt;
+	free(pt);
+}
+
+
+int OmicroTrxn::length() const
 {
 	return TRXN_TOTAL_SZ;
 }
 
-int OmicroTrxn::size()
+int OmicroTrxn::size() const
 {
 	return TRXN_TOTAL_SZ;
 }
