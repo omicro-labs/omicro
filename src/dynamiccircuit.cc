@@ -23,6 +23,24 @@ int DynamicCircuit::getNumZones()
 	int numZones;
 	if ( level_ == 2 ) {
 		numZones = int( sqrt(nlen) );
+		if ( nlen > numZones*numZones ) {
+			++numZones;
+		}
+	} else {
+		numZones = int( std::cbrt(nlen) );
+		if (  nlen > numZones*numZones*numZones ) {
+			++numZones;
+		}
+	}
+	return numZones;
+}
+
+int DynamicCircuit::getNumFullZones()
+{
+	int nlen = nodeList_.length();
+	int numZones;
+	if ( level_ == 2 ) {
+		numZones = int( sqrt(nlen) );
 	} else {
 		numZones = int( std::cbrt(nlen) );
 	}
@@ -33,18 +51,20 @@ int DynamicCircuit::getNumZones()
 void DynamicCircuit::getZoneLeaders( const sstr &beacon, strvec &vec )
 {
 	int numZones = getNumZones();
-	getLeaders( numZones, beacon, vec );
+	int numFullZones = getNumFullZones();
+	getLeaders( numZones, numFullZones, beacon, vec );
 }
 
 // L2 leaders
-void DynamicCircuit::getLeaders( int numZones, const sstr &beacon, strvec &vec )
+void DynamicCircuit::getLeaders( int numZones, int numFullZones,  const sstr &beacon, strvec &vec )
 {
 	strvec leader(numZones);
 	XXH64_hash_t hash;
 	int seed = atoi( beacon.c_str() );
 	int zone;
 	uint len = nodeList_.size();
-	uint dd = len/numZones;
+
+	uint dd = len/numFullZones;
 
 	for ( unsigned int i=0; i < len; ++i ) {
 		hash = XXH64( nodeList_[i].c_str(), nodeList_[i].size(), seed ) % len ;
@@ -72,12 +92,13 @@ bool DynamicCircuit::getOtherLeaders( const sstr &beacon, const sstr &srvid, str
 	int zone;
 
 	uint len = nodeList_.size();
-	uint dd = len/numZones;
+	int numFullZones = getNumFullZones();
+	uint dd = len/numFullZones;
 
 	XXH64_hash_t hash;
 	hash = XXH64( srvid.c_str(), srvid.size(), seed ) % len;
-	int zoneid =  hash / numZones;
-	d("a20231 getOtherLeaders srvid=[%s] zoneid=%d", s(srvid), zoneid );
+	int zoneid =  hash / dd;
+	d("a20231 getOtherLeaders srvid=[%s] zoneid=%d dd=%d", s(srvid), zoneid, dd );
 
 	bool idIsLeader = false;
 	bool first = true;
@@ -87,6 +108,7 @@ bool DynamicCircuit::getOtherLeaders( const sstr &beacon, const sstr &srvid, str
 		zone = hash / dd;
 
 		if ( zone == zoneid ) {
+			d("a33080 getOtherLeaders zone == zoneid =%d first=%d rec=[%s] =?= srvid=[%s]", zone, first, s(rec), s(srvid) );
 			if ( first && ( rec == srvid) ) {
 			    first = false;
 				idIsLeader = true;
@@ -111,15 +133,16 @@ bool DynamicCircuit::getOtherLeaders( const sstr &beacon, const sstr &srvid, str
 
 bool DynamicCircuit::isLeader( const sstr &beacon, const sstr &srvid, bool getFollowers, strvec &followersVec )
 {
-	int numZones = getNumZones();
+	//int numZones = getNumZones();
+	int numFullZones = getNumFullZones();
 	int seed = atoi( beacon.c_str() );
 
 	uint len = nodeList_.size();
-	uint dd = len/numZones;
+	uint dd = len/numFullZones;
 
 	XXH64_hash_t hash;
 	hash = XXH64( srvid.c_str(), srvid.size(), seed ) % len;
-	int zoneid =  hash / numZones;
+	int zoneid =  hash / dd;
 	d("a22201 isLeader check srvid=[%s] zoneid=%d", s(srvid), zoneid );
 
 	int zone;
@@ -164,16 +187,17 @@ bool DynamicCircuit::getOtherLeadersAndThisFollowers( const sstr &beacon, const 
 												  strvec &otherLeaders, strvec &followers )
 {
 	int numZones = getNumZones();
+	int numFullZones = getNumFullZones();
 	strvec leader(numZones);
 	XXH64_hash_t hash;
 	int seed = atoi( beacon.c_str() );
 	int zone;
 
 	uint len = nodeList_.size();
-	uint dd = len/numZones;
+	uint dd = len/numFullZones;
 
 	hash = XXH64( srvid.c_str(), srvid.size(), seed ) % len;
-	int zoneid =  hash / numZones;
+	int zoneid =  hash / dd;
 	d("a40023 srvid=%s zoneid=%d", s(srvid), zoneid );
 
 	bool idIsLeader = false;

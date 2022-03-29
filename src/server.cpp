@@ -34,9 +34,10 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
 	i("Data dir is [%s]", dataDir.c_str());
 	blockMgr_.setDataDir( dataDir );
 
-	timer_ = new boost::asio::steady_timer( io_context_ );
-	timer2_ = new boost::asio::steady_timer( io_context_ );
-	waitCount_ = 0;
+	timer1_ = new btimer( io_context_ );
+	timer2_ = new btimer( io_context_ );
+	waitCCount_ = 0;
+	waitDCount_ = 0;
 
     do_accept();
 	i("omserver is ready");
@@ -45,7 +46,7 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
 
 omserver::~omserver()
 {
-	delete timer_;
+	delete timer1_;
 	delete timer2_;
 }
 
@@ -137,7 +138,7 @@ void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	DynamicCircuit circ( nodeList_);
 	bool iAmLeader = circ.getOtherLeaders( beacon, id_, otherLeaders );
 	if ( ! iAmLeader ) {
-		d("a2234 %s got XIT_l, i am not leader", s(id_) );
+		d("a22034 %s got XIT_l, i am not leader", s(id_) );
 		return;
 	}
 	d("a30024 onRecvL() i am leader client=[%s] sid=[%s] tryRecvL ...", s(clientIP), s(sid));
@@ -149,23 +150,31 @@ void omserver::tryRecvL( const sstr &beacon, const sstr &trxnId, const sstr &cli
 					    const strvec &otherLeaders,  OmicroTrxn &t )
 {
 	Byte curState = ST_0;
-	if (trxnState_.getState(trxnId, curState) && curState == ST_C ) {
+	bool rc = trxnState_.getState(trxnId, curState);
+	if ( rc && curState > ST_C ) {
+		// later comers
+		d("a70012 tryRecvL T_l curState=%c passed ST_C already, late msg, ignored", curState);
+		return;
+	}
+
+	if ( rc && curState == ST_C ) {
 		d("a81116 curState == ST_C doRecvL ...");
 		doRecvL( beacon, trxnId, clientIP, sid, otherLeaders, t );
 	} else {
 		// debug only
-		++waitCount_;
-		if ( waitCount_ > 100 ) {
-			d("a9207 waitCount_ > 100 give up wait");
-			waitCount_ = 0;
+		++waitCCount_;
+		if ( waitCCount_ > 100 ) {
+			d("a9207 error waitCCount_ > 100 give up wait");
+			waitCCount_ = 0;
 			return;
 		}
 
-		d("a81116 curState != ST_C (curstte=%c) wait 500 millisecs then tryRecvL ...", curState );
+		d("a81116 curState != ST_C (curstte=%c) wait 100 millisecs then tryRecvL ...", curState );
 		d("a81116 curState != ST_C sid=[%s] trxnid=[%s]", s(sid), trxnId.substr(0,50).c_str() );
-		timer_->expires_at(timer_->expiry() + boost::asio::chrono::milliseconds(500));
-		timer_->async_wait(boost::bind(&omserver::tryRecvL, this, beacon, trxnId, clientIP, sid, otherLeaders, boost::ref(t) ));
+		timer1_->expires_at(timer1_->expiry() + boost::asio::chrono::milliseconds(100));
+		timer1_->async_wait(boost::bind(&omserver::tryRecvL, this, beacon, trxnId, clientIP, sid, otherLeaders, boost::ref(t) ));
 	}
+	//doRecvL( beacon, trxnId, clientIP, sid, otherLeaders, t );
 }
 
 void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
@@ -182,6 +191,7 @@ void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	d("a53098 twofp1=%d otherleaders=%d", twofp1, otherLeaders.size() );
 	uint recvcnt = collectTrxn_[trxnId].size();
 	if ( recvcnt >= twofp1 ) { 
+		d("a2234 %s got XIT_l, a leader,  rcvcnt=%d >= twofp1=%d", s(id_), recvcnt, twofp1 );
 		// state to D
 		bool toDgood = trxnState_.goState( level_, trxnId, XIT_l );
 		if ( toDgood ) {
@@ -201,7 +211,8 @@ void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 		collectTrxn_.erase(trxnId);
 		totalVotes_.erase(trxnId);
 	} else {
-		d("a2234 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d, nostart round-2", s(id_), recvcnt, twofp1 );
+		// d("a2234 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d, nostart round-2", s(id_), recvcnt, twofp1 );
+		d("a2234 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d", s(id_), recvcnt, twofp1 );
 	}
 }
 
@@ -225,20 +236,28 @@ void omserver::tryRecvM( const sstr &beacon, const sstr &trxnId, const sstr &cli
 					    const strvec &otherLeaders, const strvec &followers, OmicroTrxn &t )
 {
 	Byte curState;
-	if (trxnState_.getState(trxnId, curState) && curState == ST_D ) {
+	bool rc = trxnState_.getState(trxnId, curState);
+	if ( rc && curState > ST_D ) {
+		// later comers
+		d("a70013 tryRecvL T_m curState=%c passed ST_D already, late msg, ignored", curState);
+		return;
+	}
+
+	if ( rc && curState == ST_D ) {
 		d("a81117 curState == ST_D doRecvM ...");
 		doRecvM( beacon, trxnId, clientIP, sid, otherLeaders, followers, t );
 	} else {
 		// debug only
-		++waitCount_;
-		if ( waitCount_ > 100 ) {
+		++waitDCount_;
+		if ( waitDCount_ > 100 ) {
 			d("a9209 waitCount_ > 100 give up wait");
-			waitCount_ = 0;
+			i("E40430 error waitCount_ > 100 give up wait in tryRecvM");
+			waitDCount_ = 0;
 			return;
 		}
 
-		d("a81117 curState != ST_D wait 200 millisecs then tryRecvM ...");
-		timer2_->expires_at(timer2_->expiry() + boost::asio::chrono::milliseconds(200));
+		d("a81117 error curState != ST_D wait 100 millisecs then tryRecvM ...");
+		timer2_->expires_at(timer2_->expiry() + boost::asio::chrono::milliseconds(100));
 		timer2_->async_wait(boost::bind(&omserver::tryRecvM, this, beacon, trxnId, clientIP, sid, otherLeaders, followers, boost::ref(t) ));
 	}
 }
@@ -276,11 +295,11 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			// block_.add( t );
 			blockMgr_.saveTrxn( t );
 			d("a9999 leader commit a TRXN %s ", s(trxnId));
-			trxnState_.goState( level_, trxnId, XIT_n );
+			trxnState_.goState( level_, trxnId, XIT_n );  // to ST_F
 			// reply back to client
 			// d("a99992 conv=%ld clientconv=%ld\n", conv,  clientConv_[trxnId] );
-			sstr m( sstr("GOOD_TRXN|") + id_);
-			d("a4002 reply back good trxn...");
+			// sstr m( sstr("GOOD_TRXN|") + id_);
+			// d("a4002 reply back good trxn...");
 			// kcp_server_->send_msg(clientConv_[trxnId], m);
 		} else {
 			d("a72128 from XIT_m toEgood false");
@@ -293,15 +312,16 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 
 
 #if 1
-void omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec )
+int omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec )
 {
 	sstr id, ip, port;
 	int len = hostVec.size();
 	if ( len < 1 ) {
-		return;
+		i("E50292 multicast hostVec.size < 1");
+		return false;
 	}
 
-	d("a31303 multicast msgs to nodes %d expectReply=%d ...", len, expectReply );
+	d("a31303 multicast send msgs to nodes %d expectReply=%d ...", len, expectReply );
 	replyVec.clear();
 
 	pthread_t thrd[len];
@@ -315,6 +335,10 @@ void omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expec
 		pthread_create(&thrd[i], NULL, &threadSendMsg, (void *)&thrdParam[i]);
 	}
 
+	// todo
+	//sleep(5);
+
+	int connected = 0;
 	for ( int i=0; i < len; ++i ) {
 		pthread_join( thrd[i], NULL );
 		if ( expectReply ) {
@@ -322,10 +346,16 @@ void omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expec
 			if ( thrdParam[i].reply.size() > 0 ) {
 				replyVec.push_back( thrdParam[i].reply );
 			}
+			// replyVec.push_back( "here456");
+		}
+
+		if ( thrdParam[i].reply != "NOCONN" ) {
+			++connected;
 		}
 	}
 
-	d("a31303 multicast msgs to nodes %d done expectReply=%d replied=%d", len, expectReply, replyVec.size() );
+	d("a31303 multicast msgs to nodes %d done expectReply=%d replied=%d connected=%d", len, expectReply, replyVec.size(), connected );
+	return connected;
 }
 #endif
 
@@ -371,7 +401,12 @@ void *threadSendMsg(void *arg)
 {
     ThreadParam *p = (ThreadParam*)arg;
     OmicroClient cli( p->srv.c_str(), p->port);
-    p->reply = cli.sendMessage( p->trxn.c_str(), p->expectReply );
+	if ( ! cli.connectOK() ) {
+		p->reply = "NOCONN";
+		return NULL;
+	}
+	d("a30114 cli.sendMessage ... " );
+    p->reply = cli.sendMessage( OM_RX,  p->trxn.c_str(), p->expectReply );
 	d("a30114 cli.sendMessage returned p->expectReply=%d p->reply=[%s]", p->expectReply, s(p->reply) );
     return NULL;
 }

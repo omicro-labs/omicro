@@ -12,7 +12,6 @@
 #include "blockmgr.h"
 
 using boost::asio::ip::tcp;
-using becode = boost::system::error_code;
 
 struct ThreadParam
 {
@@ -34,7 +33,7 @@ class omserver
 
 	void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
 	void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
-	static void multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
+	static int multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
 
 	std::unordered_map<sstr, std::vector<uint>> collectTrxn_;
 	std::unordered_map<sstr, ulong> totalVotes_;
@@ -45,7 +44,8 @@ class omserver
 
 	// debug only
 	sstr srvport_;
-	int  waitCount_;
+	int  waitCCount_;
+	int  waitDCount_;
 	// debug only
 
 	BlockMgr  blockMgr_;
@@ -54,8 +54,6 @@ class omserver
   private:
     void do_accept();
 	void readID();
-	boost::asio::io_context &io_context_;
-    tcp::acceptor acceptor_;
 	sstr getDataDir() const;
 	void tryRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
 				  const strvec &otherLeaders,  OmicroTrxn &t );
@@ -67,9 +65,12 @@ class omserver
 	void doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
 				  const strvec &otherLeaders,  const strvec &followers, OmicroTrxn &t );
 
+	boost::asio::io_context &io_context_;
+    tcp::acceptor acceptor_;
 	sstr address_, port_;
-	boost::asio::steady_timer *timer_;
-	boost::asio::steady_timer *timer2_;
+	btimer *timer1_; // ST_C
+	btimer *timer2_; // ST_D
+
 
 };
 

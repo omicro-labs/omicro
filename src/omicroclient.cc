@@ -1,14 +1,20 @@
 #include <cstring>
-#include <string>
+#include <string.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <errno.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <boost/bind/bind.hpp>
 
 #include "omicroclient.h"
+#include "omicrotrxn.h"
+#include "omicroquery.h"
 #include "omutil.h"
 #include "ommsghdr.h"
+#include "omstrsplit.h"
+#include "omicrodef.h" 
 
 EXTERN_LOGGING
 
@@ -57,13 +63,20 @@ OmicroClient::OmicroClient( const char *srv, int port )
 
 	socket_ = sockFD;
 	struct timeval tv;
-	tv.tv_sec = 30;  /* 10 Secs Timeout */
+	tv.tv_sec = 5;  // 10 Secs Timeout
 	tv.tv_usec = 0; 
-	setsockopt(socket_, SOL_SOCKET, SO_SNDTIMEO,(struct timeval *)&tv, sizeof(struct timeval));
+	//setsockopt(socket_, SOL_SOCKET, SO_SNDTIMEO,(struct timeval *)&tv, sizeof(struct timeval));
 	setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv, sizeof(struct timeval));
 
 	d("a70231 OmicroClient ctor connectOK_ srv=%s port=%d", srv, port);
 	connectOK_ = true;
+
+	/***
+	timer_ = new btimer( io_context_ );
+	boost::asio::io_context::work worker(io_context_);
+	io_context_.run();
+	**/
+
 }
 
 OmicroClient::~OmicroClient()
@@ -74,9 +87,10 @@ OmicroClient::~OmicroClient()
 	}
 }
 
-sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
+sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 {
-	d("a4421 OmicroClient::sendMessage(%s) expectReply=%d", s(msg), expectReply );
+	//d("a4421 OmicroClient::sendMessage(%s) expectReply=%d", s(msg), expectReply );
+	d("a4421 OmicroClient::sendMessage expectReply=%d", expectReply );
 
 	if ( ! connectOK_ ) {
 		d("a52031 sendMessage return empty because connect %s:%d is not OK", s(srv_), port_);
@@ -84,56 +98,93 @@ sstr OmicroClient::sendMessage( const sstr &msg, bool expectReply )
 	}
 
 	char hdr[OMHDR_SZ+1];
-	memset(hdr, 0, OMHDR_SZ+1);
-	OmMsgHdr mhdr(hdr, OMHDR_SZ);
+	OmMsgHdr mhdr(hdr, OMHDR_SZ, true);
 	mhdr.setLength(msg.size());
 	mhdr.setPlain();
+	mhdr.setMsgType( mtype );
 
 	long len1 = safewrite(socket_, hdr, OMHDR_SZ );
-	if ( len1 < 0 ) {
+	if ( len1 <= 0 ) {
 		d("a4202 OmicroClient::sendMessage %s:%d write timeout empty hdr", s(srv_), port_);
 		return "";
 	}
-
 	d("a23373 client write hdr len1=%d",len1);
+
 	long len2 = safewrite(socket_, msg.c_str(), msg.size() );
-	if ( len2 < 0 ) {
+	if ( len2 <= 0 ) {
 		d("a4203 OmicroClient::sendMessage write timeout empty msg");
 		return "";
 	}
-
 	d("a23373 client write data len2=%d expectReply=%d", len2, expectReply);
 
+	int cnt = 0;
+	sstr res;
 	if ( expectReply ) {
-		// sleep(1);
+		//sleep(3);
 		char hdr2[OMHDR_SZ+1];
-		memset(hdr2, 0, OMHDR_SZ+1);
+		OmMsgHdr mhdr2(hdr2, OMHDR_SZ, true);
 
     	long hdrlen = saferead(socket_, hdr2, OMHDR_SZ );
-		if ( hdrlen < 0 ) {
-			d("a4205 OmicroClient::sendMessage read %s:%d timeout hdr2 empty []", s(srv_), port_);
+		if ( hdrlen <= 0 ) {
+			d("a4205 OmicroClient::sendMessage read from %s:%d timeout hdr2 empty hdrlen=%d []", s(srv_), port_, hdrlen);
+			d("a4205 errno=%d errstr=[%s]", errno, strerror(errno) );
 			return "";
 		}
 
-		OmMsgHdr mhdr2(hdr2, OMHDR_SZ);
 		ulong sz = mhdr2.getLength();
-		d("a23373 client get hdr hdrlen=%d hdr2=[%s] sz=%d", hdrlen, hdr2, sz );
+		d("a23373 client received hdr hdrlen=%d hdr2=[%s] sz=%d", hdrlen, hdr2, sz );
 
 		char *reply = (char*)malloc(sz+1);
     	long reply_length = saferead(socket_, reply, sz );
-		if ( reply_length < 0 ) {
-			d("a4206 OmicroClient::sendMessage read timeout reply empty []");
+		if ( reply_length <= 0 ) {
+			d("a4206 OmicroClient::sendMessage read timeout reply empty reply_length=%d []", reply_length);
 			free( reply );
 			return "";
 		}
 
-		sstr res(reply, sz);
-		d("client Reply is: hdrlen=%d reply_length=%d sz=%d", hdrlen, reply_length, sz);
-		d("       reply=[%s]", s(res) );
+		res = sstr(reply, sz);
+		d("cnt=%d client received data: hdrlen=%d reply_length=%d sz=%d", cnt, hdrlen, reply_length, sz);
+		d("cnt=%d       received data =[%s]", cnt, s(res) );
 
 		free(reply);
-		return res;
+		++cnt;
+
 	}
 
-    return "";
+	return res;
+}
+
+sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
+{
+	t.setInitTrxn();
+	sstr reply = sendMessage( OM_RX, t.str(), true );
+	OmStrSplit sp(reply, '|');
+	sstr stat = sp[0];
+	sstr trxnId = sp[2];
+	d("a42228 sendTrxn reply=[%s]\n", s(reply));
+
+	if ( strstr( stat.c_str(), "BAD" ) ) {
+		d("a32208 got BAD from server [%s]", stat.c_str() );
+		return stat;
+	}
+
+	OmicroQuery q;
+	q.setTrxnId( trxnId );
+
+	int WAIT_MS = 50;
+	int waitCnt = waitSeconds*(1000/WAIT_MS);
+	int cnt = 0;
+	while ( true ) {
+		reply = sendMessage( OM_RQ, q.str(), true );
+		if ( ! strstr( reply.c_str(), "NOTFOUND") ) {
+			break;
+		}
+		usleep(1000*WAIT_MS);
+		++cnt;
+		if ( cnt > waitCnt ) {
+			break;
+		}
+	}
+
+	return reply;
 }

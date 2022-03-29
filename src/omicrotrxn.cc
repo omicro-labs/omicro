@@ -10,8 +10,12 @@ EXTERN_LOGGING
 OmicroTrxn::OmicroTrxn()
 {
 	data_ = (char*)malloc(TRXN_TOTAL_SZ+1);
-	data_[TRXN_TOTAL_SZ] = '\0';
 	memset(data_, ' ', TRXN_TOTAL_SZ);
+	data_[TRXN_TOTAL_SZ] = '\0';
+
+	// set msgype to OM_RX
+	data_[OM_HDR_LEN_SZ+1] = OM_RX;
+
 	readOnly_ = false;
 }
 
@@ -22,6 +26,10 @@ OmicroTrxn::OmicroTrxn( const char *str )
 	if ( len == TRXN_TOTAL_SZ ) {
 		data_ = (char*)str;
 		data_[TRXN_TOTAL_SZ] = '\0';
+
+		// set msgype to OM_RX
+		data_[OM_HDR_LEN_SZ+1] = OM_RX;
+
 	} else {
 		i("E00001 OmicroTrxn::OmicroTrxn(s) str=[%s] is too short", s(str) );
 		i("       str.len=%d TRXN_TOTAL_SZ=%d", len, TRXN_TOTAL_SZ );
@@ -98,6 +106,7 @@ bool OmicroTrxn::isInitTrxn()
 	}
 }
 
+//2nd byte
 bool  OmicroTrxn::setXit( Byte xit)
 {
 	if ( NULL == data_ ) {
@@ -386,6 +395,14 @@ char* OmicroTrxn::getTrxnType()
 	memcpy( p, data_+start, sz );
 	p[sz] = '\0';
 	return p;
+}
+
+void OmicroTrxn::getTrxnType(sstr &txnType)
+{
+	char *p = getTrxnType();
+	if ( ! p ) return;
+	txnType = sstr(p);
+	free(p);
 }
 
 bool OmicroTrxn::setTrxnType( const char *s)

@@ -13,6 +13,8 @@ using Byte = unsigned char;
 using strvec = std::vector<std::string>;
 using strshptr = std::shared_ptr<std::string>;
 using bcode = boost::system::error_code;
+using btimer = boost::asio::steady_timer;
+using becode = boost::system::error_code;
 
 #ifndef ulong
 using ulong = unsigned long;

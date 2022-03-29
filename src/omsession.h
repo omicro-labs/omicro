@@ -27,8 +27,9 @@ class omsession : public std::enable_shared_from_this<omsession>
 
     void do_read();
     void do_write(std::size_t length);
-	void reply( const sstr &str );
-	void callback(const sstr &msg);
+	void reply( const sstr &str, tcp::socket &sock );
+	void doTrxn(const char *msg, int len);
+	void doQuery(const char *msg, int len);
 	bool initTrxn( OmicroTrxn &txn );
 	void makeSessionID();
   

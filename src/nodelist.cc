@@ -54,7 +54,9 @@ void NodeList::readFile()
 	}
 
 	fclose( fp );
-	// print();
+	d("a02828 nodelist:  size=%d", list_.size() );
+	print();
+
 }
 
 bool

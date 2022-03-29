@@ -24,6 +24,8 @@
 #define  XIT_p    'p' 
 #define  XIT_q    'q' 
 
+#define  XIT_z    'z' 
+
 // states
 #define  ST_0   '0'
 #define  ST_A   'A'

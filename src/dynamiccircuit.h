@@ -19,7 +19,9 @@ class DynamicCircuit
   	int level_;
   	const NodeList &nodeList_;
   	int getNumZones();
-	void getLeaders( int numZones, const sstr &beacon, strvec &vec );
+  	int getNumFullZones();
+	int getZoneSize();
+	void getLeaders( int numZones, int numFullZones, const sstr &beacon, strvec &vec );
 };
 
 #endif

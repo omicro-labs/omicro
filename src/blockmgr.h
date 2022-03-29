@@ -14,6 +14,7 @@ class BlockMgr
     ~BlockMgr();
 
 	int saveTrxn( const OmicroTrxn &trxn);
+	void queryTrxn( const sstr &trxnid, sstr &res );
 
   protected:
     void initDirs();

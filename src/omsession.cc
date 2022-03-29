@@ -10,6 +10,8 @@
 #include "dynamiccircuit.h"
 #include "omutil.h"
 #include "ommsghdr.h"
+#include "omicroclient.h"
+#include "omstrsplit.h"
 
 EXTERN_LOGGING
 using namespace boost::asio::ip;
@@ -20,6 +22,8 @@ omsession::omsession(boost::asio::io_context& io_context, omserver &srv, tcp::so
     stop_ = false;
 	clientIP_ = socket_.remote_endpoint().address().to_string();
 	makeSessionID();
+	hdr_[OMHDR_SZ] = '\0';
+	d("a00001 newsession sid_=[%s]", s(sid_) );
 }
 
 void omsession::start()
@@ -38,110 +42,74 @@ void omsession::do_read()
             if (!ec)  // no error
             {
 				// do read data
-				OmMsgHdr mhdr(hdr_, OMHDR_SZ);
+				OmMsgHdr mhdr(hdr_, OMHDR_SZ, false);
 				ulong dlen = mhdr.getLength();
 				char *data = (char*)malloc( dlen );
-				d("a63003 a91838 srv doread dlen=%d", dlen);
+				data[dlen] = '\0';
+				d("a63003 a91838 srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
 
-				boost::asio::async_read(socket_, boost::asio::buffer(data,dlen), 
-				  [this, self, data](bcode ec2, std::size_t length2 )
-				{
-                    d("a82828 srv do read read data[%d]", length2 );
-                    sstr msg(data, length2);
-				    free(data);
-					try {
-                        callback( msg );
-					} catch ( std::exception& e ) {
-						i("a92201 in async_read data exception: [%s]", e.what() );
-						abort();
-					    return;
-					}
-    				do_read();
-				});
+				bcode ec2;
+				int len2 =  boost::asio::read( socket_, boost::asio::buffer(data,dlen), ec2 );
+				d("a45023 boost::asio::read len2=%d dlen=%d", len2, dlen );
+				data[len2] = '\0';
+
+				char t = mhdr.getMsgType();
+				if ( t == OM_RX ) {
+					doTrxn( data, len2 );
+				} else if ( t == OM_RQ ) {
+					doQuery( data, len2 );
+				} else {
+					d("E30292 error invalid msgtype [%c]", t );
+				}
+
+				free(data);
+    			do_read();
             } else {
                 d("a82838 srv do read read no data");
 			}
     });
 }
 
-#if 0
-void omsession::do_write(std::size_t length)
+void omsession::reply( const sstr &str, tcp::socket &socket )
 {
-    auto self(shared_from_this());
-    boost::asio::async_write(socket_, boost::asio::buffer(data_, length),
-          [this, self](bcode ec, std::size_t /*length*/)
-          {
-            if (!ec)  // no error, OK
-            {
-                // do_read();
-                d("a82823 write_some data_[%s]", data_ );
-            }
-    });
-}
-#endif
-
-void omsession::reply( const sstr &str )
-{
-	OmMsgHdr mhdr(hdr_, OMHDR_SZ);
+	OmMsgHdr mhdr(hdr_, OMHDR_SZ, true);
 	mhdr.setLength( str.size() );
 	mhdr.setPlain();
 
     auto self(shared_from_this());
-    boost::asio::async_write(socket_, boost::asio::buffer(hdr_, OMHDR_SZ),
-          [this, self, str](bcode ec, std::size_t len)
+
+    boost::asio::async_write(socket, boost::asio::buffer(hdr_, OMHDR_SZ),
+          [this, self, str, &socket](bcode ec, std::size_t len)
           {
-            d("a55550 111 in omsession::reply str=[%s] len=%d", s(str), str.size() );
+            d("a51550 111 in omsession::reply str=[%s] len=%d", s(str), str.size() );
             if (!ec)  // no error, OK
             {
-                d("a33300 srv replyback hdr len=%d", len );
-                boost::asio::async_write(socket_, boost::asio::buffer(str.c_str(), str.size() ),
-                    [this, self, str](bcode ec, std::size_t len2)
-                    {
-                        d("a82823 222 srver reply back, async_write str=[%s] srlen=%d len2=%d", s(str), str.size(), len2 );
-                    });
+				d("a43390 reply send async_write hdrmsg OK");
+				try {
+       				int len2 = boost::asio::write(socket, boost::asio::buffer(str.c_str(), str.size()));
+    				d("a00292 server write str back str=[%s] strlen=%d done sentbytes=%d", str.c_str(), str.size(), len2 );
+				} catch (std::exception& e) {
+					i("a66331 error brokenpipe in server reply() exception [%s] clientIP_=[%s]", e.what(), s(clientIP_) );
+				}
             } else {
-                d("a33309 111 error srv reply hdr len=%d", len);
+                d("a33309 111 error async_write() srv reply hdr len=%d", len);
             }
     });
-
-	/***
-	try {
-    	d("a53550 in omsession::reply str=[%s] len=%d", s(str), str.size() );
-    	d("a00291 server write header back hdr_=[%s] ...", hdr_ );
-        int len1 = boost::asio::write(socket_, boost::asio::buffer(hdr_, OMHDR_SZ) );
-    	d("a00291 server write header back hdr_=[%s] done sentbytes=%d", hdr_, len1 );
-    
-    	d("a00292 server write str back str=[%s] ...", str.c_str() );
-       	int len2 = boost::asio::write(socket_, boost::asio::buffer(str.c_str(), str.size()));
-    	d("a00292 server write str back str=[%s] strlen=%d done sentbytes=%d", str.c_str(), str.size(), len2 );
-	} catch (std::exception& e) {
-		i("a66331 in server reply() exception [%s] clientIP_=[%s]", e.what(), s(clientIP_) );
-		abort();
-	}
-	***/
-
 }
 
-void omsession::callback(const sstr &msg)
+void omsession::doTrxn(const char *msg, int msglen)
 {
+	//d("a71002 doTrxn msg.len=%d msg=[%s]", msg.size(), s(msg) );
+	d("a71002 doTrxn msg.len=%d", msglen );
 	sstr id_ = serv_.id_;
 
-	d("a2108 callback: msg=[%s]", msg.substr(0, 40).c_str());
-
-	// auto send back msg for testing.
-	/**
-	sstr m1 = sstr("Server echo back: hello from server ") + id_;
-	d("a0223848 Server echo bac m1.size=%d", m1.size() );
-	reply( m1 );
-	**/
-
-	OmicroTrxn t(msg.c_str());
-	// t.setSrvPort( serv_.srvport_.c_str() );
+	OmicroTrxn t(msg);
 
 	bool validTrxn = t.isValidClientTrxn();
 	if ( ! validTrxn ) {
-		sstr m(sstr("BAD_INVALID_TRXN|") + id_ + "|" + msg);
-		reply(m);
+		sstr m = sstr("BAD_INVALID_TRXN|") + id_;
+		reply(m, socket_);
+		i("E40282 BAD_INVALID_TRXN ignore" );
 		return;
 	}
 
@@ -155,24 +123,26 @@ void omsession::callback(const sstr &msg)
 		t.getTrxnIDStr( trxnId );
 		d("a43713 init trxnId=[%s]", s(trxnId) );
 		sstr m;
-		d("a333301  i am any node, launching initTrxn ..." );
+		d("a333301  i am clientnode, launching initTrxn ..." );
 		rc = initTrxn( t );
-		d("a333301  i am any node, launched initTrxn rc=%d", rc );
+		d("a333301  i am clientnode, launched initTrxn rc=%d", rc );
 		if ( rc ) {
-			m = sstr("GOOD_TRXN|") +id_;
+			m = sstr("GOOD_TRXN|initTrxn|") +trxnId + "|" + sid_;
 		} else {
-			m = sstr("BAD_TRXN|") +id_ + "|" + msg;
+			m = sstr("BAD_TRXN|initTrxn|") +trxnId + "|" + sid_;
 		}
-		d("a333301 reply %s", s(m) );
-		reply( m);
-		d("a333301 reply %s done", s(m) );
+
+		d("a333301 reply to endclient %s", s(m) );
+		reply(m, socket_);
+		d("a333301 reply to endclient %s done", s(m) );
 	} else {
 		t.getTrxnIDStr( trxnId );
 		d("a43714 exist trxnId=[%s]", s(trxnId) );
 		Byte xit = t.getXit();
 		sstr beacon = t.getBeacon();
 		if ( xit == XIT_i ) {
-			d("a82208 %s recved XIT_i", s(id_));
+
+			d("a82208 %s recved XIT_i", s(sid_));
 			// I got 'i', I must be a leader
 			DynamicCircuit circ( serv_.nodeList_);
 			strvec followers;
@@ -189,16 +159,17 @@ void omsession::callback(const sstr &msg)
 
 					t.setXit( XIT_j );
 					strvec replyVec;
-					d("a31112 %s multicast XIT_j followers for vote expect reply ..", s(id_));
+					d("a31112 %s multicast XIT_j followers for vote expect reply ..", s(sid_));
 					pvec( followers );
 					t.setSrvPort( serv_.srvport_.c_str() );
 					omserver::multicast( followers, t.str(), true, replyVec );
-					d("a31112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(id_), replyVec.size() );
+					d("a31112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(sid_), replyVec.size() );
 
 					// got replies from followers, state to C
 					bool toCgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_k );
 					if ( toCgood ) {
-						d("a55550 recv XIT_k toCgood true");
+						// d("a55550 recv XIT_k toCgood true");
+						d("a55550 received all replies of XITT_j toCgood true");
 						if ( serv_.level_ == 2 ) {
 							int votes = replyVec.size(); // how many replied
 							t.setVoteInt( votes );
@@ -206,60 +177,80 @@ void omsession::callback(const sstr &msg)
 							t.setXit( XIT_l );
 							strvec otherLeaders;
 							circ.getOtherLeaders( beacon, id_, otherLeaders );
-							d("a31102 %s round-1 multicast XIT_l otherLeaders noreplyexpected ..", s(id_));
+							d("a31102 %s round-1 multicast XIT_l otherLeaders noreplyexpected ..", s(sid_));
 							pvec(otherLeaders);
 							// txn.setSrvPort( serv_.srvport_.c_str() );
 							omserver::multicast( otherLeaders, t.str(), false, replyVec );
-							d("a31102 %s round-1 multicast XIT_l otherLeaders done replyVec=%d\n", s(id_), replyVec.size() );
+							d("a31102 %s round-1 multicast XIT_l otherLeaders done replyVec=%d\n", s(sid_), replyVec.size() );
+							// XIT_m should be in reply
+							// if there are enough replies, multicase XIT_n to followers
+							d("a43330 XIT_m should be in reply multicase XIT_n to followers ...");
 						} else {
 							// level_ == 3  todo
 							d("a63311 error level_ == 2 false");
 						}
-						d("a57003 GOOD_TRXN|XIT_i reply back");
-						sstr m = sstr("GOOD_TRXN|XIT_i|")+id_;
-						reply(m);
+
 					} else {
 						d("a3305 XIT_j toCgood is false");
-						sstr m = sstr("BAD_TRXN|XIT_i|")+id_;
-						reply(m);
 					}
 				} else {
 					d("a3306 XIT_i to state A toAgood is false");
-					sstr m = sstr("BAD_TRXN|XIT_i|")+id_;
-					reply(m);
 				}
 			} else {
 				// bad
-				d("a3308 i [%s] am not leader, ignore XIT_i", s(id_));
-				sstr m = sstr("BAD_TRXN|XIT_i|")+id_;
-				reply(m);
+				d("a3308 i [%s] am not leader, ignore XIT_i", s(sid_));
 			}
 			// else i am not leader, igore 'i' xit
 		} else if ( xit == XIT_j ) {
 			// I am follower, give my vote to leader
 			d("a5501 received XIT_j from [%s] reply back good", pfrom);
-			sstr m = sstr("GOOD_TRXN|XIT_j|")+id_;
-			reply(m);
+			sstr m = sstr("GOOD_TRXN|XIT_j|")+id_ + "|" + sid_;;
+			d("a555550 GOOD_TRXN|XIT_j m=[%s]", m.c_str() );
+			reply(m, socket_);
 		} else if ( xit == XIT_l ) {
-			d("a92822 %s received XIT_l from [%s] ...", s(id_), pfrom );
+			d("a92822 %s received XIT_l from [%s] ...", s(sid_), pfrom );
 			serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t );
 		} else if ( xit == XIT_m ) {
 		    // received one XIT_m, there may be more XIT_m in next 3 seconds
-			// qwer
 			d("a54103 %s got XIT_m from [%s]", s(id_), pfrom );
 			serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t );
-			// qwer
-			//sstr m = sstr("GOOD_TRXN|XIT_m|")+id_;
-			//reply(m);
 		} else if ( xit == XIT_n ) {
 			// follower gets a trxn commit message
 			d("a9999 follower commit a TRXN %s from [%s]", s(trxnId), pfrom);
 			serv_.blockMgr_.saveTrxn( t );
+		} else if ( xit == XIT_z ) {
+			// query trxn status
+			sstr res;
+			serv_.blockMgr_.queryTrxn( trxnId, res );
+			reply( res, socket_ ); 
+			d("a40088 received XIT_z return res");
 		}
     }
 
 	free(pfrom);
-	d("a555023 callback done clientIP_=[%s]", s(clientIP_));
+	d("a555023 doTrxn done clientIP_=[%s]", s(clientIP_));
+}
+
+void omsession::doQuery(const char *msg, int msglen)
+{
+	d("a71002 doQuery msg.len=%d msg=[%s]", msglen, msg );
+	sstr id_ = serv_.id_;
+
+	OmStrSplit sp( msg, '|');
+	sstr qtype = sp[0]; 
+	sstr trxnId = sp[1]; 
+
+	if ( qtype == "QT" ) {
+		// query trxn status
+		sstr res;
+		serv_.blockMgr_.queryTrxn( trxnId, res );
+		reply( res, socket_ ); 
+		d("a40088 received QT return res");
+	} else {
+		reply( sstr(msg) + "|BADREQUEST", socket_ ); 
+	}
+
+	d("a535023 doQuery done clientIP_=[%s]", s(clientIP_));
 }
 
 bool omsession::initTrxn( OmicroTrxn &txn )
@@ -285,21 +276,18 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	txn.setXit( XIT_i );
 
 	strvec replyVec;
-	d("a31181 multicast to ZoneLeaders ...");
+	d("a31181 multicast to ZoneLeaders expectReply=false ...");
 	pvec( hostVec );
 	txn.setSrvPort( serv_.srvport_.c_str() );
-	omserver::multicast( hostVec, txn.str(), true, replyVec );
-	d("a31183 multicast to ZoneLeaders done");
+	int connected = omserver::multicast( hostVec, txn.str(), false, replyVec );
+	d("a31183 multicast to ZoneLeaders done connected=%d", connected);
 
-	uint numReply = replyVec.size();
-	uint onefp1 = onefplus1(hostVec.size());
-	d("a45504 numReply=%d onefp1=%d", numReply, onefp1);
-	if ( numReply >= onefp1 ) {
+	uint twofp1 = twofplus1(hostVec.size());
+	if ( uint(connected) >= twofp1 ) {
+		d("a4221 connected=%u >= onefp1=%u true", uint(connected), twofp1 );
 		return true;
 	} else {
-		// return false;
-
-		// debug why numReply == 0?
+		d("a4222 connected=%u < onefp1=%u false", uint(connected), twofp1 );
 		return true;
 	}
 }

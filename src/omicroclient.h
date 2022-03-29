@@ -6,13 +6,17 @@
 #include <cstring>
 #include "omicrodef.h"
 
+
+class OmicroTrxn;
+
 class OmicroClient
 {
   public:
   	OmicroClient( const char *host, int port );
   	~OmicroClient();
 
-	sstr sendMessage( const sstr &msg, bool expectReply );
+	sstr sendTrxn( OmicroTrxn &t, int waitSeconds=10 );
+	sstr sendMessage( char mtype, const sstr &msg, bool expectReply );
 	bool connectOK() const { return connectOK_; }
 
   protected:

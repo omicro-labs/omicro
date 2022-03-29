@@ -49,15 +49,15 @@ bool TrxnState::goStateL2( const sstr &trxnid, Byte transit, Byte curState, OmSt
 
 	if ( curState == ST_0 && transit == XIT_i ) {
 		nextState = ST_A;
-	} else if ( curState == ST_A && transit == XIT_j ) {
+	} else if ( (curState == ST_A || curState == ST_B) && transit == XIT_j ) {
 		nextState = ST_B;
-	} else if ( curState == ST_B && transit == XIT_k ) {
+	} else if ( ( curState == ST_B || curState == ST_C) && transit == XIT_k ) {
 		nextState = ST_C;
-	} else if ( curState == ST_C && transit == XIT_l ) {
+	} else if ( (curState == ST_C || curState == ST_D) && transit == XIT_l ) {
 		nextState = ST_D;
-	} else if ( curState == ST_D && transit == XIT_m ) {
+	} else if ( (curState == ST_D || curState == ST_E) && transit == XIT_m ) {
 		nextState = ST_E;
-	} else if ( curState == ST_E && transit == XIT_n ) {
+	} else if ( (curState == ST_E || curState == ST_F ) && transit == XIT_n ) {
 		nextState = ST_F;
 	} else {
 		d("a62330 TrxnState::goStateL2 curState=[%c] transit=[%c] not allowed", char(curState), char(transit) );

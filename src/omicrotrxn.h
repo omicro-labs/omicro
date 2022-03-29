@@ -86,6 +86,7 @@ class OmicroTrxn
 	bool setNowTimeStamp();
 
 	char *getTrxnType();
+	void getTrxnType( sstr &txnType );
 	bool setTrxnType( const char *s );
 
 	char *getAssetType();

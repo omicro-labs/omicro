@@ -2,10 +2,15 @@
 #include "omutil.h"
 #include "ommsghdr.h"
 
-OmMsgHdr::OmMsgHdr( const char *str, int len)
+OmMsgHdr::OmMsgHdr( const char *str, int len, bool init)
 {
 	assert( len == OMHDR_SZ );
 	buf_ = (char*)str;
+
+	if ( init ) {
+		memset(buf_, ' ', len);
+	}
+	buf_[len] = '\0';
 }
 
 void OmMsgHdr::setLength(ulong sz)
@@ -24,6 +29,9 @@ ulong OmMsgHdr::getLength() const
 	ulong e = atol(buf_);
 	buf_[OM_HDR_LEN_SZ] = v;
 	d("a33400 OmMsgHdr::getLength() hdrlen=%d", e);
+	if ( e < 2 ) {
+		abort();
+	}
 	return e;
 }
 
@@ -35,6 +43,21 @@ void OmMsgHdr::setPlain()
 void OmMsgHdr::setCompressed()
 {
 	buf_[OM_HDR_LEN_SZ] = OM_COMPRESSED;
+}
+
+char OmMsgHdr::getCompression()
+{
+	return buf_[OM_HDR_LEN_SZ];
+}
+
+void OmMsgHdr::setMsgType( char t)
+{
+	buf_[OM_HDR_LEN_SZ+1] = t;
+}
+
+char OmMsgHdr::getMsgType()
+{
+	return buf_[OM_HDR_LEN_SZ+1];
 }
 
 const char *OmMsgHdr::s() const

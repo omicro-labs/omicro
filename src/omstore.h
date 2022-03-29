@@ -14,7 +14,10 @@ class OmStore
     ~OmStore();
 
 	int put(const char *key, int ksize, const char *value, int vsize);
+
+	// NULL or free by caller
 	char *get( const char *key );
+
 	void close();
 	const char *lastError();
 

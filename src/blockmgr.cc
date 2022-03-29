@@ -37,6 +37,25 @@ int BlockMgr::saveTrxn( const OmicroTrxn &trxn)
 	return 0;
 }
 
+void BlockMgr::queryTrxn( const sstr &trxnId, sstr &res )
+{
+	auto itr = storeMap_.find( trxnId );
+	if ( itr == storeMap_.end() ) {
+		res = trxnId + "|NOTFOUND1";
+		return;
+	} else {
+		char *p = itr->second->get( trxnId.c_str() ); 
+		if ( NULL == p ) {
+			res = trxnId + "|NOTFOUND2";
+			return; 
+		} else {
+			res = sstr(p);
+			return;
+		}
+	}
+}
+
+
 void BlockMgr::initDirs()
 {
 	::mkdir( dataDir_.c_str(), 0700 );
