@@ -58,7 +58,7 @@ void BlockMgr::queryTrxn( const sstr &trxnId, sstr &res )
 
 void BlockMgr::initDirs()
 {
-	::mkdir( dataDir_.c_str(), 0700 );
+	makedirPath( dataDir_ );
 	d("a44427 mkdir [%s]", dataDir_.c_str() );
 	sstr topd = dataDir_;
 	sstr is, js, d;

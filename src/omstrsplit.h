@@ -5,7 +5,6 @@
 class OmStrSplit
 {
 	public:   
-
 		OmStrSplit();
 		OmStrSplit(const sstr& str, char sep = ' ', bool ignoreregion=false );
 		OmStrSplit(const char *str, char sep = ' ', bool ignoreregion=false );
@@ -18,13 +17,13 @@ class OmStrSplit
 	    const sstr& operator[](int i ) const;
 	    sstr& operator[](int i );
 		sstr& last() const;
-		long length() const;
-		long size() const;
-		long slength() const;
+		long  length() const;
+		long  size() const;
+		long  slength() const;
 		bool  exists(const sstr &token) const;
 		bool  contains(const sstr &token, sstr &rec ) const;
-		void	print() const;
-		void	printStr() const;
+		void  print() const;
+		void  printStr() const;
 		void  shift();
 		void  back();
 		const char *c_str() const;

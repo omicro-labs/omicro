@@ -2,7 +2,7 @@
 #define _omicro_key_h_
 
 #include "omicrodef.h"
-#include "src/ntru.h"
+#include "saber.h"
 
 class OmicroKey
 {
@@ -11,22 +11,15 @@ class OmicroKey
   	~OmicroKey();
 
 	// level: 1 moderate; 2 high;  3 highest
-	int createKeyPair( int level, const sstr &salt, sstr &secretKey, sstr &publicKey );
+	static void createKeyPair( sstr &secretKey, sstr &publicKey );
 	// secretKey: "3|34|3|-30|8|9|-2|...."
 	// publicKey: "5|31|3|-30|2|-4|8|...."
 
-	sstr encrypt( int level, const sstr &msg, const sstr &secretKey ); 
-	sstr decrypt( int level, const sstr &encmsg, const sstr &publicKey ); 
+	static void encrypt( const sstr &msg, const sstr &publicKey, sstr &cipher, sstr &passwd, sstr &encMsg );
+	static void decrypt( const sstr &encMsg, const sstr &secretKey, const sstr &cipher, sstr &plain );
 
-	sstr sign( int level, const sstr &msg, const sstr &secretKey );
-	bool verify( int level, const sstr &signedmsg, const sstr &publicKey );
-
-  protected:
-  	void pubKeyToString( const NtruEncPubKey &pkey, sstr &str );
-  	void stringToPubKey( const sstr &str,  NtruEncPubKey &pkey );
-
-  	void privKeyToString( const NtruEncPrivKey &skey, sstr &str );
-  	void stringToPrivKey( const sstr &str, NtruEncPrivKey &skey );
+	static void sign( const sstr &msg, const sstr &pubKey, sstr &cipher, sstr &signature );
+	static bool verify(const sstr &msg, const sstr &signature, const sstr &cipher, const sstr &secretKey);
 
 };
 

@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "omutil.h"
+#include "omstrsplit.h"
 
 EXTERN_LOGGING
 
@@ -167,5 +168,26 @@ ulong ipow(ulong num, int power)
 		res *= num;
 	}
 	return res;
+}
+
+void makedirPath( const sstr &fullpath )
+{
+    if ( fullpath.size()<1) return;
+
+    bool isabs = false;
+    char *pstr=(char*)fullpath.c_str();
+    if ( '/' == pstr[0] ) {
+        isabs = true; // absolute path
+    }
+
+    sstr  path;
+    OmStrSplit ar(fullpath, '/');
+    for ( int i=0; i<ar.length(); i++) {
+        if (isabs ) path="/"; else path="";
+        for (int j=0; j<=i; j++) {
+            path += ar[j] + "/";
+        }
+        ::mkdir( path.c_str(), 0700 );
+    }
 }
 

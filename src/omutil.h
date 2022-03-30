@@ -45,4 +45,7 @@ long safewrite( int fd, const char *buf, long len );
 // integer power
 ulong ipow(ulong num, int power);
 
+// similar to mkdir -p <fpath>
+void makedirPath( const sstr &fullpath );
+
 #endif

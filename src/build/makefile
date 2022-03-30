@@ -64,22 +64,25 @@ LC_OS_NAME = $(shell echo $(OS_NAME) | tr '[A-Z]' '[a-z]')
 MY_CFLAGS =
 
 ##omicro
-BOOST_LIB_PATH=/usr/local/lib
-BOOST_INC_PATH=/usr/local/include
 BOOST_LIB_PATH=/usr/local/boost_1.78.0/lib
 BOOST_INC_PATH=/usr/local/boost_1.78.0/include
 
 HASH=../Web/hash
 NTRU=../Web/ntru/libntru
 TC=../Web/tc/tc
+SABER=../Web/saber
+BASE85=../Web/base85
+AES=../Web/aes
 
 
 # The linker options.
 MY_LIBS = $(HASH)/xxHash/libxxhash.a \
-		  $(NTRU)/libntru.a \
+		  $(SABER)/SABER/Reference_Implementation_KEM/libsaber.a \
+		  $(BASE85)/ascii85/ascii85.o \
+		  $(AES)/tiny-AES-c/aes.o \
           $(BOOST_LIB_PATH)/libboost_system.a \
 		  $(BOOST_LIB_PATH)/libboost_filesystem.a \
-		  $(TC)/lib/libtokyocabinet.a -lz -lbz2
+		  $(TC)/lib/libtokyocabinet.a -lz -lbz2 -lcrypto
 
 
 #BOOST_DEFINE = -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
@@ -97,8 +100,10 @@ WORNING_FLAGS = -Wall
 # The pre-processor options used by the cpp (man cpp for more).
 CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
             -I $(HASH) \
-            -I $(NTRU) \
+            -I $(SABER) \
             -I $(TC)/include \
+            -I $(BASE85) \
+            -I $(AES) \
 			-g3 \
 			$(BOOST_DEFINE)
 
@@ -194,7 +199,7 @@ LINK.cxx    = $(CXX) $(MY_CFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS)
 # Delete the default suffixes
 .SUFFIXES:
 
-all: $(PROGRAM)
+all: lib $(PROGRAM)
 
 
 # Rules for generating object files (.o).
@@ -235,6 +240,9 @@ ctags: $(HEADERS) $(SOURCES)
 
 # Rules for generating the executable.
 #-------------------------------------
+lib: $(OBJS)
+	ar cr libomicro.a  $(OBJS)
+
 $(PROGRAM):$(OBJS)
 ifeq ($(SRC_CXX),)              # C program
 	$(LINK.c)   $(OBJS) $(MY_LIBS) -o $@
@@ -247,6 +255,7 @@ else                            # C++ program
 	mkdir -p ../../test/server/bin
 	/bin/cp -f $@ ../../test/server/bin/
 endif
+
 
 ifndef NODEP
 ifneq ($(DEPS),)

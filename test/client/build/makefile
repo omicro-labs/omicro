@@ -1,45 +1,6 @@
 #############################################################
 # Generic Makefile for C/C++ Program
 #
-# License: GPL (General Public License)
-# Author:  whyglinux <whyglinux AT gmail DOT com>
-# Date:    2006/03/04 (version 0.1)
-#          2007/03/24 (version 0.2)
-#          2007/04/09 (version 0.3)
-#          2007/06/26 (version 0.4)
-#          2008/04/05 (version 0.5)
-#
-# Description:
-# ------------
-# This is an easily customizable makefile template. The purpose is to
-# provide an instant building environment for C/C++ programs.
-#
-# It searches all the C/C++ source files in the specified directories,
-# makes dependencies, compiles and links to form an executable.
-#
-# Besides its default ability to build C/C++ programs which use only
-# standard C/C++ libraries, you can customize the Makefile to build
-# those using other libraries. Once done, without any changes you can
-# then build programs using the same or less libraries, even if source
-# files are renamed, added or removed. Therefore, it is particularly
-# convenient to use it to build codes for experimental or study use.
-#
-# GNU make is expected to use the Makefile. Other versions of makes
-# may or may not work.
-#
-# Usage:
-# ------
-# 1. Copy the Makefile to your program directory.
-# 2. Customize in the "Customizable Section" only if necessary:
-#    * to use non-standard C/C++ libraries, set pre-processor or compiler
-#      options to <MY_CFLAGS> and linker ones to <MY_LIBS>
-#      (See Makefile.gtk+-2.0 for an example)
-#    * to search sources in more directories, set to <SRCDIRS>
-#    * to specify your favorite program name, set to <PROGRAM>
-# 3. Type make to start building your program.
-#
-# Make Target:
-# ------------
 # The Makefile provides the following targets to make:
 #   $ make           compile and link
 #   $ make NODEP=yes compile and link without generating dependencies
@@ -70,6 +31,9 @@ BOOST_INC_PATH=/usr/local/boost_1.78.0/include
 
 SRCINC=../../../src
 SRCBUILD=../../../src/build
+SABER=../../../src/Web/saber
+BASE85=../../../src/Web/base85
+AES=../../../src/Web/aes
 
 PTHREADLIB=/lib64/libpthread.a
 RTLIB=/lib64/librt.a
@@ -84,15 +48,24 @@ MY_LIBS   = \
 			$(SRCBUILD)/ommsghdr.o \
 			$(SRCBUILD)/omstrsplit.o \
 			$(SRCBUILD)/omicroquery.o \
+			$(SABER)/SABER/Reference_Implementation_KEM/libsaber.a \
+			$(BASE85)/ascii85/ascii85.o \
+			$(AES)/tiny-AES-c/aes.o \
             $(BOOST_LIB_PATH)/libboost_system.a $(BOOST_LIB_PATH)/libboost_filesystem.a \
-            $(BOOST_LIB_PATH)/libboost_thread.a $(BOOST_LIB_PATH)/libboost_date_time.a 
+            $(BOOST_LIB_PATH)/libboost_thread.a $(BOOST_LIB_PATH)/libboost_date_time.a \
+			-l crypto -lz -lbz2
 
 
 # The pre-processor options used by the cpp (man cpp for more).
 #CPPFLAGS  = -Wall -I essential -I ddlib -O2
 
 #CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -g3 -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
-CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -I $(SRCINC) -g -ggdb
+CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) \
+            -I $(SRCINC) \
+			-I $(SABER) \
+			-I $(BASE85) \
+			-I $(AES) \
+			-g -ggdb
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)
