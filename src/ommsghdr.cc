@@ -60,6 +60,17 @@ char OmMsgHdr::getMsgType()
 	return buf_[OM_HDR_LEN_SZ+1];
 }
 
+void  OmMsgHdr::setQueryType( char t )
+{
+	buf_[OM_HDR_LEN_SZ+2] = t;
+}
+
+char  OmMsgHdr::setQueryType()
+{
+	return buf_[OM_HDR_LEN_SZ+2];
+}
+
+
 const char *OmMsgHdr::s() const
 {
 	return buf_;

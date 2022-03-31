@@ -4,11 +4,14 @@
 #include <string.h>
 #include "omicrotrxn.h"
 #include "omutil.h"
-#include "server.hpp"
+//#include "server.hpp"
+#include "omstrsplit.h"
+#include "omicrokey.h"
 EXTERN_LOGGING
 
 OmicroTrxn::OmicroTrxn()
 {
+	/***
 	data_ = (char*)malloc(TRXN_TOTAL_SZ+1);
 	memset(data_, ' ', TRXN_TOTAL_SZ);
 	data_[TRXN_TOTAL_SZ] = '\0';
@@ -17,11 +20,13 @@ OmicroTrxn::OmicroTrxn()
 	data_[OM_HDR_LEN_SZ+1] = OM_RX;
 
 	readOnly_ = false;
+	***/
+	hdr = "TT"; // plaintext, trxn
 }
 
 OmicroTrxn::OmicroTrxn( const char *str )
 {
-	readOnly_ = true;
+	/***
 	int len = strlen(str);
 	if ( len == TRXN_TOTAL_SZ ) {
 		data_ = (char*)str;
@@ -35,470 +40,121 @@ OmicroTrxn::OmicroTrxn( const char *str )
 		i("       str.len=%d TRXN_TOTAL_SZ=%d", len, TRXN_TOTAL_SZ );
 		data_ = NULL;
 	}
+	***/
+	OmStrSplit sp(str, '|');
+	hdr = sp[0];
+	id = sp[1];
+	beacon = sp[2];
+	srvport = sp[3];
+	sender = sp[4];
+	receiver = sp[5];
+	amount = sp[6];
+	timestamp = sp[7];
+	trxntype = sp[8];
+	assettype = sp[9];
+	vote = sp[10];
+
+	pad1 = sp[11];
+	pad2 = sp[12];
+	pad3 = sp[13];
+	pad4 = sp[14];
+	pad5 = sp[15];
+	pad6 = sp[16];
+	pad7 = sp[17];
+	pad8 = sp[18];
+	pad9 = sp[19];
+
+	cipher = sp[20];
+	signature = sp[21];
 }
 
 OmicroTrxn::~OmicroTrxn()
 {
-	if ( ! readOnly_ ) {
-		free( data_ );
-	}
 }
 
-// caller needs to free the pointer
-char* OmicroTrxn::getHeader()
+void OmicroTrxn::setInitTrxn()
 {
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_HEADER_START;
-	int sz = TRXN_HEADER_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
+	hdr[TRXN_HEADER_START] = 'I'; 
 }
 
-bool OmicroTrxn::setHeader( const char *s)
+void OmicroTrxn::setNotInitTrxn()
 {
-	if ( NULL == data_ ) {
-		i("E10010 OmicroTrxn::setHeader data_ is NULL");
-		return false;
-	}
-
-	int len = strlen(s);
-	int start = TRXN_HEADER_START;
-	int sz = TRXN_HEADER_SZ;
-	if ( len != sz ) {
-		i("E10000 OmicroTrxn::setHeader s=[%s] wrong size=%d", s, len );
-		return false;
-	}
-	memcpy( data_+start, s, sz );
-	return true;
-}
-
-bool  OmicroTrxn::setInitTrxn()
-{
-	if ( NULL == data_ ) {
-		i("E10010 OmicroTrxn::setHeader data_ is NULL");
-		return false;
-	}
-
-	data_[TRXN_HEADER_START] = 'I'; 
-	return true;
-}
-
-bool  OmicroTrxn::setNotInitTrxn()
-{
-	data_[TRXN_HEADER_START] = 'N'; 
-	return true;
+	hdr[TRXN_HEADER_START] = 'N'; 
 }
 
 // TRXN_HEADER_START+0:  'C' initiated from client, 'L' from leader
 bool OmicroTrxn::isInitTrxn()
 {
-	if ( NULL == data_ ) {
-		i("E10110 OmicroTrxn::isInitTrxn data_ is NULL");
-		return false;
-	}
-
-	if ( 'I' == data_[TRXN_HEADER_START] ) {
+	if ( 'I' == hdr[TRXN_HEADER_START] ) {
 		return true;
 	} else {
 		return false;
 	}
 }
 
-//2nd byte
-bool  OmicroTrxn::setXit( Byte xit)
+void OmicroTrxn::setID()
 {
-	if ( NULL == data_ ) {
-		i("E10110 OmicroTrxn::setXit data_ is NULL");
-		return false;
-	}
+    char s[16];
+    std::uniform_int_distribution<uint64_t> distribution;
+    std::mt19937_64   engine(std::random_device{}());
+    uint64_t r1 = distribution(engine);
+    sprintf(s, "%lx", r1 );
+    id = s;
+}
 
-	data_[TRXN_HEADER_START+1] = xit;
-	return true;
+//2nd byte
+void  OmicroTrxn::setXit( Byte xit)
+{
+	hdr[TRXN_HEADER_START+1] = xit;
 }
 
 Byte OmicroTrxn::getXit()
 {
-	if ( NULL == data_ ) {
-		i("E10112 OmicroTrxn::getXit data_ is NULL");
-		return 0;
-	}
-	return data_[TRXN_HEADER_START+1];
+	return hdr[TRXN_HEADER_START+1];
 }
 
-char* OmicroTrxn::getBeacon()
+void OmicroTrxn::setBeacon()
 {
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_BEACON_START;
-	int sz = TRXN_BEACON_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
+	char s[6+1];
+    ulong pm = ipow(10, 6);
+    sprintf(s, "%*d", 6, int(time(NULL)%pm) );
+	beacon = s;
 }
 
-bool OmicroTrxn::setBeacon( const char *s)
-{
-	if ( NULL == data_ ) {
-		i("E10011 OmicroTrxn::setBeacon data_ is NULL");
-		return false;
-	}
-
-	int start = TRXN_BEACON_START;
-	int sz = TRXN_BEACON_SZ;
-	int len = strlen(s);
-	if ( len != sz ) {
-		i("E10001 OmicroTrxn::setBeacon s=[%s] wrong size=%d", s, len);
-		return false;
-	}
-	memcpy( data_+start, s, sz );
-	return true;
-}
-
-bool OmicroTrxn::setBeacon()
-{
-	if ( NULL == data_ ) {
-		i("E10111 OmicroTrxn::setBeacon data_ is NULL");
-		return false;
-	}
-
-	int start = TRXN_BEACON_START;
-	int sz = TRXN_BEACON_SZ;
-	char s[TRXN_BEACON_SZ+1];
-	ulong pm = ipow(10, TRXN_BEACON_SZ);
-	sprintf(s, "%*d", TRXN_BEACON_SZ, int(time(NULL)%pm) );
-
-	memcpy( data_+start, s, sz );
-	return true;
-}
-
-char * OmicroTrxn::getID()
-{
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_ID_START;
-	int sz = TRXN_ID_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
-}
-
-void  OmicroTrxn::setID()
-{
-	// 2 8-byte rand hex
-	int start = TRXN_ID_START;
-
-	char s[TRXN_ID_SZ+1];
-	std::uniform_int_distribution<uint64_t> distribution;
-	std::mt19937_64   engine(std::random_device{}());
-	uint64_t r1 = distribution(engine);
-	sprintf(s, "%lx", r1 );
-	memcpy( data_+start, s, TRXN_ID_SZ );
-}
-
-char* OmicroTrxn::getSender()
-{
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_SENDER_START;
-	int sz = TRXN_SENDER_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
-}
-
-bool OmicroTrxn::setSender( const char *s)
-{
-	if ( NULL == data_ ) {
-		i("E10012 OmicroTrxn::setSender data_ is NULL");
-		return false;
-	}
-
-	int start = TRXN_SENDER_START;
-	int sz = TRXN_SENDER_SZ;
-	int len = strlen(s);
-	if ( len != sz ) {
-		i("E10002 OmicroTrxn::setSender s=[%s] wrong size=%d", s, len);
-		return false;
-	}
-	memcpy( data_+start, s, sz );
-	return true;
-}
-
-char* OmicroTrxn::getSrvPort()
-{
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_SRVPORT_START;
-	int sz = TRXN_SRVPORT_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
-}
-
-bool OmicroTrxn::setSrvPort( const char *s)
-{
-	if ( NULL == data_ ) {
-		i("E12012 OmicroTrxn::setSrvPort data_ is NULL");
-		return false;
-	}
-
-	int start = TRXN_SRVPORT_START;
-	int sz = TRXN_SRVPORT_SZ;
-	int len = strlen(s);
-	if ( len > sz ) {
-		i("E12002 OmicroTrxn::setSrvPort s=[%s] wrong size=%d toobig", s, len);
-		return false;
-	}
-
-	char buf[sz+1];
-	memset(buf, ' ', sz);
-	memcpy(buf, s, len);
-	buf[sz] = '\0';
-	d("a33065 setSrvPort() tmp buf=[%s] buflen=%d", buf, strlen(buf) );
-	memcpy(data_+start, buf, sz );
-	return true;
-}
-
-
-char* OmicroTrxn::getReceiver()
-{
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_RECEIVER_START;
-	int sz = TRXN_RECEIVER_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
-}
-
-bool OmicroTrxn::setReceiver( const char *s)
-{
-	if ( NULL == data_ ) {
-		i("E10013 OmicroTrxn::setReceiver data_ is NULL");
-		return false;
-	}
-
-	int start = TRXN_RECEIVER_START;
-	int sz = TRXN_RECEIVER_SZ;
-	int len = strlen(s);
-	if ( len != sz ) {
-		i("E10003 OmicroTrxn::setReceiver s=[%s] wrong size %d", s, len);
-		return false;
-	}
-	memcpy( data_+start, s, sz );
-	return true;
-}
 
 double OmicroTrxn::getAmountDouble()
 {
-	if ( NULL == data_ ) return 0.0;
-	char *p = getAmount();
-	double f = atof(p);
-	free(p);
+	double f = atof(amount.c_str());
 	return f;
 }
 
-char* OmicroTrxn::getAmount()
+void OmicroTrxn::setNowTimeStamp()
 {
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_AMOUNT_START;
-	int sz = TRXN_AMOUNT_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
-}
-
-bool OmicroTrxn::setAmount( const char *s)
-{
-	if ( NULL == data_ ) {
-		i("E10014 OmicroTrxn::setAmount data_ is NULL");
-		return false;
-	}
-
-	int start = TRXN_AMOUNT_START;
-	int sz = TRXN_AMOUNT_SZ;
-	int len = strlen(s);
-	if ( len != sz ) {
-		i("E10004 OmicroTrxn::setAmout s=[%s] wrong size %d", s, len);
-		return false;
-	}
-	memcpy( data_+start, s, sz );
-	return true;
-}
-
-char* OmicroTrxn::getTimeStamp()
-{
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_TIMESTAMP_START;
-	int sz = TRXN_TIMESTAMP_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
-}
-
-bool OmicroTrxn::setTimeStamp( const char *s)
-{
-	if ( NULL == data_ ) {
-		i("E10015 OmicroTrxn::setTimeStamp data_ is NULL");
-		return false;
-	}
-
-	int start = TRXN_TIMESTAMP_START;
-	int sz = TRXN_TIMESTAMP_SZ;
-	int len = strlen(s);
-	if ( len != sz ) {
-		i("E10005 OmicroTrxn::setTimeStamp s=[%s] wrong size %d", s, len );
-		return false;
-	}
-	memcpy( data_+start, s, sz );
-	return true;
-}
-
-bool OmicroTrxn::setNowTimeStamp()
-{
-	if ( NULL == data_ ) {
-		i("E10015 OmicroTrxn::setNowTimeStamp data_ is NULL");
-		return false;
-	}
-
-	int start = TRXN_TIMESTAMP_START;
-	int sz = TRXN_TIMESTAMP_SZ;
-	char tb[sz+1];
+	char tb[32];
     struct timeval now;
     gettimeofday( &now, NULL );
     ulong tot = now.tv_sec*1000000 + now.tv_usec;
     sprintf(tb, "%*ld", TRXN_TIMESTAMP_SZ, tot );
-	memcpy( data_+start, tb, sz );
-	return true;
+	timestamp = tb;
 }
 
 ulong OmicroTrxn::getTimeStampUS()
 {
-	char *p= getTimeStamp();
-	if ( !p ) return 0;
-	ulong us = atol(p);
-	free(p);
-	return us; // microseconds since epoch
-}
-
-
-char* OmicroTrxn::getTrxnType()
-{
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_TRXNTYPE_START;
-	int sz = TRXN_TRXNTYPE_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
-}
-
-void OmicroTrxn::getTrxnType(sstr &txnType)
-{
-	char *p = getTrxnType();
-	if ( ! p ) return;
-	txnType = sstr(p);
-	free(p);
-}
-
-bool OmicroTrxn::setTrxnType( const char *s)
-{
-	if ( NULL == data_ ) {
-		i("E10016 OmicroTrxn::setTrxnType data_ is NULL");
-		return false;
-	}
-
-	int start = TRXN_TRXNTYPE_START;
-	int sz = TRXN_TRXNTYPE_SZ;
-	int len = strlen(s);
-	if ( len != sz ) {
-		i("E10006 OmicroTrxn::setTrxnType s=[%s] wrong size %d", s, len);
-		return false;
-	}
-	memcpy( data_+start, s, sz );
-	return true;
-}
-
-char* OmicroTrxn::getAssetType()
-{
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_ASSETTYPE_START;
-	int sz = TRXN_ASSETTYPE_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
-}
-
-bool OmicroTrxn::setAssetType( const char *s)
-{
-	if ( NULL == data_ ) {
-		i("E10017 OmicroTrxn::setAssetType data_ is NULL");
-		return false;
-	}
-
-	int start = TRXN_ASSETTYPE_START;
-	int sz = TRXN_ASSETTYPE_SZ;
-	int len = strlen(s);
-	if ( len != sz ) {
-		i("E10007 OmicroTrxn::setAssetType s=[%s] wrong size %d", s, len);
-		return false;
-	}
-	memcpy( data_+start, s, sz );
-	return true;
-}
-
-char *OmicroTrxn::getVote()
-{
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_VOTE_START;
-	int sz = TRXN_VOTE_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
+	return atol(timestamp.c_str());
+	// microseconds since epoch
 }
 
 int OmicroTrxn::getVoteInt()
 {
-	char *p = getVote();
-	if ( ! p ) return 0;
-	int num = atoi(p);
-	free(p);
+	int num = atoi(vote.c_str());
 	return num;
 }
 
-bool OmicroTrxn::setVote( const char *s )
+void OmicroTrxn::setVoteInt( int votes )
 {
-	if ( NULL == data_ ) {
-		i("E10217 OmicroTrxn::setVote data_ is NULL");
-		return false;
-	}
-
-	int start = TRXN_VOTE_START;
-	int sz = TRXN_VOTE_SZ;
-	int len = strlen(s);
-	if ( len != sz ) {
-		i("E10207 OmicroTrxn::setVote s=[%s] wrong size %d", s, len);
-		return false;
-	}
-	memcpy( data_+start, s, sz );
-	return true;
-}
-
-bool OmicroTrxn::setVoteInt( int votes )
-{
-	char v[TRXN_VOTE_SZ+1];
-	sprintf(v, "%*d", TRXN_VOTE_SZ, votes );
-
-	int start = TRXN_VOTE_START;
-	int sz = TRXN_VOTE_SZ;
-	memcpy( data_+start, v, sz );
-	return true;
+	char v[16];
+	sprintf(v, "%d", votes );
+	vote = v;
 }
 
 void OmicroTrxn::addVote(int vote)
@@ -516,73 +172,48 @@ void OmicroTrxn::minusVote(int vote)
 	setVoteInt( v );
 }
 
-
-char* OmicroTrxn::getSignature()
+sstr&& OmicroTrxn::str()
 {
-	if ( NULL == data_ ) return NULL;
-	int start = TRXN_SIGNATURE_START;
-	int sz = TRXN_SIGNATURE_SZ;
-	char *p = (char*)malloc(sz+1);
-	memcpy( p, data_+start, sz );
-	p[sz] = '\0';
-	return p;
+	return std::move(hdr +
+	      + "|" + id 
+	      + "|" + beacon 
+	      + "|" + srvport 
+	      + "|" + sender 
+	      + "|" + receiver 
+	      + "|" + amount 
+	      + "|" + timestamp 
+	      + "|" + trxntype 
+	      + "|" + assettype 
+	      + "|" + vote 
+	      + "|" + pad1 
+	      + "|" + pad2 
+	      + "|" + pad3 
+	      + "|" + pad4 
+	      + "|" + pad5 
+	      + "|" + pad6 
+	      + "|" + pad7 
+	      + "|" + pad8 
+	      + "|" + pad9 
+	      + "|" + pad10
+	      + "|" + cipher
+	      + "|" + signature
+		  )
+		  ;
 }
 
-bool OmicroTrxn::setSignature( const char *s)
+void OmicroTrxn::makeSignature( const sstr &pubKey)
 {
-	if ( NULL == data_ ) {
-		i("E10018 OmicroTrxn::setSignature data_ is NULL");
-		return false;
-	}
-	int start = TRXN_SIGNATURE_START;
-	int sz = TRXN_SIGNATURE_SZ;
-	int len = strlen(s);
-	if ( len != sz ) {
-		i("E10008 OmicroTrxn::setSignature s=[%s] wrong size %d", s, len);
-		return false;
-	}
-	memcpy( data_+start, s, sz );
-	return true;
+	sstr data;
+	getTrxnData( data );
+	OmicroKey::sign( data, pubKey, cipher, signature );
 }
 
-const char *OmicroTrxn::getString() const
+void OmicroTrxn::getTrxnID( sstr &id ) const
 {
-	return (char*)data_;
-}
-const char *OmicroTrxn::str() const
-{
-	return (char*)data_;
+	id = sender + timestamp;
 }
 
-char * OmicroTrxn::getTrxnID() const
-{
-	// sender + timestamp
-	char *p = (char*)malloc( TRXN_ID_SZ + TRXN_TIMESTAMP_SZ + 1);
-	memcpy( p, data_ + TRXN_ID_START, TRXN_ID_SZ );
-	memcpy( p + TRXN_ID_SZ, data_ + TRXN_TIMESTAMP_START, TRXN_TIMESTAMP_SZ );
-	p[TRXN_ID_SZ + TRXN_TIMESTAMP_SZ] = '\0';
-	return p;
-}
-
-void OmicroTrxn::getTrxnIDStr( sstr &tid ) const
-{
-	char *pt = getTrxnID();
-	tid = pt;
-	free(pt);
-}
-
-
-int OmicroTrxn::length() const
-{
-	return TRXN_TOTAL_SZ;
-}
-
-int OmicroTrxn::size() const
-{
-	return TRXN_TOTAL_SZ;
-}
-
-bool OmicroTrxn::isValidClientTrxn()
+bool OmicroTrxn::isValidClientTrxn( const sstr &secretKey)
 {
 	ulong trxnTime = getTimeStampUS();
 	unsigned long nowt = getNowTimeUS();
@@ -593,39 +224,72 @@ bool OmicroTrxn::isValidClientTrxn()
 	}
 
 	// signature verification
+	sstr data;
+	getTrxnData( data );
+	bool rc = OmicroKey::verify(data, signature, cipher, secretKey);
+	return rc;
+}
 
-	return true;
+void OmicroTrxn::getTrxnData( sstr &data ) const
+{
+	data = hdr +
+	      + "|" + id 
+	      + "|" + beacon 
+	      + "|" + srvport 
+	      + "|" + sender 
+	      + "|" + receiver 
+	      + "|" + amount 
+	      + "|" + timestamp 
+	      + "|" + trxntype 
+	      + "|" + assettype 
+	      + "|" + vote 
+	      + "|" + pad1 
+	      + "|" + pad2 
+	      + "|" + pad3 
+	      + "|" + pad4 
+	      + "|" + pad5 
+	      + "|" + pad6 
+	      + "|" + pad7 
+	      + "|" + pad8 
+	      + "|" + pad9 
+	      + "|" + pad10
+		  ;
+	
+	
 }
 
 void OmicroTrxn::print()
 {
-	i("OmicroTrxn::print data=[%s]\n", data_ );
+	// i("OmicroTrxn::print data=[%s]\n" );
 }
 
 // for testing only
-void  OmicroTrxn::makeDummyTrxn()
+void  OmicroTrxn::makeDummyTrxn( const sstr &pubkey )
 {
-	setHeader("123456");
-	setBeacon("12345678");
+	//setHeader("123456");
+	hdr = "TT";
+
+	//setBeacon("12345678");
+	beacon = "12345678";
 	// setBlankID();
 	//setBeacon();
-	setSrvPort("127.0.0.1:client");
+	//setSrvPort("127.0.0.1:client");
+	srvport = "127.0.0.1:client";
 
-	setSender("0xAduehHhfjOkfjetOjrUrjQjfSfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaDDExkYm");
+	sender = "0xAduehHhfjOkfjetOjrUrjQjfSfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaDDExkYm";
 
-	setReceiver("0xBdHehIhwjGkJjSjBj8i0jVjPafEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjYkGjejrBrirJijXjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjeqrArirjrmfhwEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaBwEykZv");
+	receiver = "0xBdHehIhwjGkJjSjBj8i0jVjPafEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjYkGjejrBrirJijXjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjeqrArirjrmfhwEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaBwEykZv";
 
-	setAmount("123456789.999999");
+	amount = "123456789.999999";
 
 	setNowTimeStamp();
 
-	setTrxnType("AB");
+	trxntype = "AB";
 
-	setAssetType("XY");
+	assettype = "XY";
 	setVoteInt(0);
 
-	setSignature("SIGdbehZhIjfkVjegrqBiGjr3AqfEyehxnckfhe038ejdskaleeeyxelkdUpwsig");
-	d("a02238 makeDummyTrxn datalen=%d", strlen(data_) );
+	makeSignature( pubkey );
 }
 
 

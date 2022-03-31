@@ -105,7 +105,7 @@ void omsession::doTrxn(const char *msg, int msglen)
 
 	OmicroTrxn t(msg);
 
-	bool validTrxn = t.isValidClientTrxn();
+	bool validTrxn = t.isValidClientTrxn( serv_.secKey_);
 	if ( ! validTrxn ) {
 		sstr m = sstr("BAD_INVALID_TRXN|") + id_;
 		reply(m, socket_);
@@ -116,11 +116,11 @@ void omsession::doTrxn(const char *msg, int msglen)
 	sstr trxnId; 
 	bool isInitTrxn = t.isInitTrxn();
 	bool rc;
-	char *pfrom = t.getSrvPort();
+	sstr pfrom = t.srvport;
 
 	if ( isInitTrxn ) {
 		t.setID();
-		t.getTrxnIDStr( trxnId );
+		t.getTrxnID( trxnId );
 		d("a43713 init trxnId=[%s]", s(trxnId) );
 		sstr m;
 		d("a333301  i am clientnode, launching initTrxn ..." );
@@ -136,10 +136,10 @@ void omsession::doTrxn(const char *msg, int msglen)
 		reply(m, socket_);
 		d("a333301 reply to endclient %s done", s(m) );
 	} else {
-		t.getTrxnIDStr( trxnId );
+		t.getTrxnID( trxnId );
 		d("a43714 exist trxnId=[%s]", s(trxnId) );
 		Byte xit = t.getXit();
-		sstr beacon = t.getBeacon();
+		sstr beacon = t.beacon;
 		if ( xit == XIT_i ) {
 
 			d("a82208 %s recved XIT_i", s(sid_));
@@ -161,7 +161,7 @@ void omsession::doTrxn(const char *msg, int msglen)
 					strvec replyVec;
 					d("a31112 %s multicast XIT_j followers for vote expect reply ..", s(sid_));
 					pvec( followers );
-					t.setSrvPort( serv_.srvport_.c_str() );
+					t.srvport = serv_.srvport_;
 					omserver::multicast( followers, t.str(), true, replyVec );
 					d("a31112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(sid_), replyVec.size() );
 
@@ -203,12 +203,12 @@ void omsession::doTrxn(const char *msg, int msglen)
 			// else i am not leader, igore 'i' xit
 		} else if ( xit == XIT_j ) {
 			// I am follower, give my vote to leader
-			d("a5501 received XIT_j from [%s] reply back good", pfrom);
+			d("a5501 received XIT_j from [%s] reply back good", s(pfrom));
 			sstr m = sstr("GOOD_TRXN|XIT_j|")+id_ + "|" + sid_;;
 			d("a555550 GOOD_TRXN|XIT_j m=[%s]", m.c_str() );
 			reply(m, socket_);
 		} else if ( xit == XIT_l ) {
-			d("a92822 %s received XIT_l from [%s] ...", s(sid_), pfrom );
+			d("a92822 %s received XIT_l from [%s] ...", s(sid_), s(pfrom) );
 			serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t );
 		} else if ( xit == XIT_m ) {
 		    // received one XIT_m, there may be more XIT_m in next 3 seconds
@@ -216,7 +216,7 @@ void omsession::doTrxn(const char *msg, int msglen)
 			serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t );
 		} else if ( xit == XIT_n ) {
 			// follower gets a trxn commit message
-			d("a9999 follower commit a TRXN %s from [%s]", s(trxnId), pfrom);
+			d("a9999 follower commit a TRXN %s from [%s]", s(trxnId), s(pfrom));
 			serv_.blockMgr_.saveTrxn( t );
 		} else if ( xit == XIT_z ) {
 			// query trxn status
@@ -227,7 +227,6 @@ void omsession::doTrxn(const char *msg, int msglen)
 		}
     }
 
-	free(pfrom);
 	d("a555023 doTrxn done clientIP_=[%s]", s(clientIP_));
 }
 
@@ -246,6 +245,9 @@ void omsession::doQuery(const char *msg, int msglen)
 		serv_.blockMgr_.queryTrxn( trxnId, res );
 		reply( res, socket_ ); 
 		d("a40088 received QT return res");
+	} else if ( qtype == "QP" ) {
+		// request public key
+		reply( serv_.pubKey_, socket_ ); 
 	} else {
 		reply( sstr(msg) + "|BADREQUEST", socket_ ); 
 	}
@@ -257,8 +259,8 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 {
 	// find zone leaders and ask them to collect votes from members
 	// serv_.nodeList_ is std::vector<string>
-	sstr beacon = txn.getBeacon();
-	sstr trxnid; txn.getTrxnIDStr( trxnid );
+	sstr beacon = txn.beacon;
+	sstr trxnid; txn.getTrxnID( trxnid );
 	d("a80123 initTrxn() threadid=%ld beacon=[%s] trxnid=[%s]", pthread_self(), s(beacon), s(trxnid) );
 
 	// for each zone leader
@@ -278,7 +280,7 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	strvec replyVec;
 	d("a31181 multicast to ZoneLeaders expectReply=false ...");
 	pvec( hostVec );
-	txn.setSrvPort( serv_.srvport_.c_str() );
+	txn.srvport = serv_.srvport_;
 	int connected = omserver::multicast( hostVec, txn.str(), false, replyVec );
 	d("a31183 multicast to ZoneLeaders done connected=%d", connected);
 

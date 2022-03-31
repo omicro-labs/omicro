@@ -188,3 +188,27 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 
 	return reply;
 }
+
+sstr OmicroClient::reqPublicKey( int waitSeconds)
+{
+	OmicroQuery q;
+	q.setTrxnId( "1" );
+
+	int WAIT_MS = 50;
+	int waitCnt = waitSeconds*(1000/WAIT_MS);
+	int cnt = 0;
+	sstr reply;
+	while ( true ) {
+		reply = sendMessage( OM_RQ, q.strGetPublicKey(), true );
+		if ( ! strstr( reply.c_str(), "NOTFOUND") ) {
+			break;
+		}
+		usleep(1000*WAIT_MS);
+		++cnt;
+		if ( cnt > waitCnt ) {
+			break;
+		}
+	}
+
+	return reply;
+}

@@ -34,6 +34,9 @@ SRCBUILD=../../../src/build
 SABER=../../../src/Web/saber
 BASE85=../../../src/Web/base85
 AES=../../../src/Web/aes
+JSON=../../../src/Web/json/rapidjson
+HASH=../../../src/Web/hash
+
 
 PTHREADLIB=/lib64/libpthread.a
 RTLIB=/lib64/librt.a
@@ -42,15 +45,11 @@ CLIB=/lib64/libc.a
 
 # The linker options.
 MY_LIBS   = \
-			$(SRCBUILD)/omicroclient.o \
-			$(SRCBUILD)/omicrotrxn.o \
-			$(SRCBUILD)/omutil.o \
-			$(SRCBUILD)/ommsghdr.o \
-			$(SRCBUILD)/omstrsplit.o \
-			$(SRCBUILD)/omicroquery.o \
+			$(SRCBUILD)/libomicro.a \
 			$(SABER)/SABER/Reference_Implementation_KEM/libsaber.a \
 			$(BASE85)/ascii85/ascii85.o \
 			$(AES)/tiny-AES-c/aes.o \
+			$(HASH)/xxHash/libxxhash.a \
             $(BOOST_LIB_PATH)/libboost_system.a $(BOOST_LIB_PATH)/libboost_filesystem.a \
             $(BOOST_LIB_PATH)/libboost_thread.a $(BOOST_LIB_PATH)/libboost_date_time.a \
 			-l crypto -lz -lbz2
@@ -65,6 +64,7 @@ CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) \
 			-I $(SABER) \
 			-I $(BASE85) \
 			-I $(AES) \
+			-I $(JSON)/include \
 			-g -ggdb
 
 # The options used in linking as well as in any direct use of ld.

@@ -67,17 +67,19 @@ MY_CFLAGS =
 BOOST_LIB_PATH=/usr/local/boost_1.78.0/lib
 BOOST_INC_PATH=/usr/local/boost_1.78.0/include
 
-HASH=../Web/hash
-NTRU=../Web/ntru/libntru
-TC=../Web/tc/tc
-SABER=../Web/saber
-BASE85=../Web/base85
-AES=../Web/aes
-JSON=../Web/json/rapidjson
+HASH=../../Web/hash
+NTRU=../../Web/ntru/libntru
+TC=../../Web/tc/tc
+SABER=../../Web/saber
+BASE85=../../Web/base85
+AES=../../Web/aes
+JSON=../../Web/json/rapidjson
 
 
 # The linker options.
-MY_LIBS = $(HASH)/xxHash/libxxhash.a \
+MY_LIBS = \
+		  ../../build/libomicro.a \
+		  $(HASH)/xxHash/libxxhash.a \
 		  $(SABER)/SABER/Reference_Implementation_KEM/libsaber.a \
 		  $(BASE85)/ascii85/ascii85.o \
 		  $(AES)/tiny-AES-c/aes.o \
@@ -100,6 +102,7 @@ WORNING_FLAGS = -Wall
 
 # The pre-processor options used by the cpp (man cpp for more).
 CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
+			-I ../.. \
             -I $(HASH) \
             -I $(SABER) \
             -I $(TC)/include \
@@ -123,7 +126,7 @@ SRCDIRS   = ../
 
 # The executable file name.
 # If not specified, current directory name or `a.out' will be used.
-PROGRAM   = omserver
+KEYPROGRAM   = createkey
 
 ## Implicit Section: change the following only when necessary.
 ##==========================================================================
@@ -163,19 +166,11 @@ CTAGSFLAGS =
 SHELL   = /bin/sh
 EMPTY   =
 SPACE   = $(EMPTY) $(EMPTY)
-ifeq ($(PROGRAM),)
-	q
-	q
-	q
-  CUR_PATH_NAMES = $(subst /,$(SPACE),$(subst $(SPACE),_,$(CURDIR)))
-  PROGRAM = $(word $(words $(CUR_PATH_NAMES)),$(CUR_PATH_NAMES))
-  ifeq ($(PROGRAM),)
-    PROGRAM = a.out
-  endif
-endif
+
 ifeq ($(SRCDIRS),)
   SRCDIRS = .
 endif
+
 SOURCES = $(foreach d,$(SRCDIRS),$(wildcard $(addprefix $(d)/*,$(SRCEXTS))))
 HEADERS = $(foreach d,$(SRCDIRS),$(wildcard $(addprefix $(d)/*,$(HDREXTS))))
 SRC_CXX = $(filter-out %.c,$(SOURCES))
@@ -201,7 +196,7 @@ LINK.cxx    = $(CXX) $(MY_CFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS)
 # Delete the default suffixes
 .SUFFIXES:
 
-all: lib $(PROGRAM) 
+all: $(KEYPROGRAM)
 
 
 # Rules for generating object files (.o).
@@ -242,22 +237,9 @@ ctags: $(HEADERS) $(SOURCES)
 
 # Rules for generating the executable.
 #-------------------------------------
-LIB_OBJS := $(filter-out .//main.o, $(OBJS))
-lib: $(LIB_OBJS)
-	ar cr libomicro.a  $(LIB_OBJS)
 
-$(PROGRAM):$(OBJS)
-ifeq ($(SRC_CXX),)              # C program
-	$(LINK.c)   $(OBJS) $(MY_LIBS) -o $@
-	@echo Type ./$@ to execute the program.
-	mkdir -p ../../test/server/bin
-	/bin/cp -f $@ ../../test/server/bin/
-else                            # C++ program
-	$(LINK.cxx) $(OBJS) $(MY_LIBS) -o $@
-	@echo Type ./$@ to execute the program.
-	mkdir -p ../../test/server/bin
-	/bin/cp -f $@ ../../test/server/bin/
-endif
+$(KEYPROGRAM): main.o
+	$(LINK.cxx) main.o $(MY_LIBS) -o $@
 
 ifndef NODEP
 ifneq ($(DEPS),)

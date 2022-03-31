@@ -13,7 +13,7 @@ class BlockMgr
 	void setDataDir( const sstr &dataDir );
     ~BlockMgr();
 
-	int saveTrxn( const OmicroTrxn &trxn);
+	int saveTrxn( OmicroTrxn &trxn);
 	void queryTrxn( const sstr &trxnid, sstr &res );
 
   protected:

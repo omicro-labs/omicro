@@ -27,6 +27,8 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
     address_ = srvip;
     port_ = port;
     readID();
+    readPubkey();
+    readSeckey();
     level_ = nodeList_.getLevel();
 	srvport_ = address_ + ":" + port_;
 
@@ -38,6 +40,9 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
 	timer2_ = new btimer( io_context_ );
 	waitCCount_ = 0;
 	waitDCount_ = 0;
+
+	pubKey_ = "pjdjkjkjdj";
+	secKey_ = "sjdjkjkjdj";
 
     do_accept();
 	i("omserver is ready");
@@ -75,6 +80,53 @@ sstr omserver::getDataDir() const
 	sstr dir = dip + "/" + port_;
 	return dir;
 }
+
+void omserver::readPubkey()
+{
+	sstr idpath;
+	idpath = "../conf/";
+	idpath += address_ + "/" + port_ + "/publickey";
+
+	FILE *fp = fopen(idpath.c_str(), "r");
+	if ( ! fp ) {
+		i("E21030 error open [%s]", s(idpath) );
+		exit(1);
+	}
+
+	char line[2048];
+	fgets(line, 2048, fp);
+	int len = strlen(line);
+	if ( line[len-1] == '\n' ) {
+		 line[len-1] = '\0';
+	}
+
+	pubKey_ = line;
+	fclose(fp);
+}
+
+void omserver::readSeckey()
+{
+	sstr idpath;
+	idpath = "../conf/";
+	idpath += address_ + "/" + port_ + "/secretkey";
+
+	FILE *fp = fopen(idpath.c_str(), "r");
+	if ( ! fp ) {
+		i("E21034 error open [%s]", s(idpath) );
+		exit(1);
+	}
+
+	char line[3048];
+	fgets(line, 3048, fp);
+	int len = strlen(line);
+	if ( line[len-1] == '\n' ) {
+		 line[len-1] = '\0';
+	}
+
+	secKey_ = line;
+	fclose(fp);
+}
+
 
 void omserver::readID()
 {
@@ -202,7 +254,7 @@ void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			strvec nullvec;
 			d("a33221 %s round-2 multicast otherLeaders trnmsg=[%s] ...", s(id_), t.str() );
 			pvec(otherLeaders);
-			t.setSrvPort( srvport_.c_str() );
+			t.srvport = srvport_; 
 			multicast( otherLeaders, t.str(), false, nullvec );
 			d("a33221 %s round-2 multicast otherLeaders done", s(id_));
 		} else {
@@ -265,7 +317,7 @@ void omserver::tryRecvM( const sstr &beacon, const sstr &trxnId, const sstr &cli
 void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
 					    const strvec &otherLeaders, const strvec &followers, OmicroTrxn &t )
 {
-	t.setSrvPort( srvport_.c_str() );
+	t.srvport = srvport_;
 
 	collectTrxn_[trxnId].push_back(1);
 	totalVotes_[trxnId] += t.getVoteInt();
@@ -287,7 +339,7 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			strvec nullvec;
 			d("a33281 %s multicast XIT_n followers ...", s(id_));
 			pvec(followers);
-			t.setSrvPort( srvport_.c_str() );
+			t.srvport = srvport_;
 			omserver::multicast( followers, t.str(), false, nullvec );
 			d("a33281 %s multicast XIT_n followers done", s(id_));
 

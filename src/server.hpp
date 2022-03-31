@@ -49,11 +49,15 @@ class omserver
 	// debug only
 
 	BlockMgr  blockMgr_;
+	sstr pubKey_;
+	sstr secKey_;
 
 
   private:
     void do_accept();
 	void readID();
+	void readPubkey();
+	void readSeckey();
 	sstr getDataDir() const;
 	void tryRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
 				  const strvec &otherLeaders,  OmicroTrxn &t );

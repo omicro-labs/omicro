@@ -20,18 +20,20 @@ BlockMgr::~BlockMgr()
 {
 }
 
-int BlockMgr::saveTrxn( const OmicroTrxn &trxn)
+int BlockMgr::saveTrxn( OmicroTrxn &trxn)
 {
-	sstr trxnId; trxn.getTrxnIDStr( trxnId );
+	sstr trxnId; trxn.getTrxnID( trxnId );
 	auto itr = storeMap_.find( trxnId );
 	if ( itr == storeMap_.end() ) {
 		// omstore is created yet, create it and save trxn
 		sstr fpath = getStoreFilePath( trxnId );
 		OmstorePtr ptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
-		ptr->put( trxnId.c_str(), trxnId.size(),  trxn.str(), trxn.size() );
+		sstr &&ts = trxn.str();
+		ptr->put( trxnId.c_str(), trxnId.size(),  ts.c_str(), ts.size() );
 		storeMap_.emplace( trxnId, ptr );
 	} else {
-		itr->second->put( trxnId.c_str(), trxnId.size(),  trxn.str(), trxn.size() );
+		sstr &&ts = trxn.str();
+		itr->second->put( trxnId.c_str(), trxnId.size(),  ts.c_str(), ts.size() );
 	}
 
 	return 0;

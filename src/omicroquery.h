@@ -10,11 +10,11 @@ class OmicroQuery
   	~OmicroQuery();
 
 	void setTrxnId( const sstr &id);
-	sstr str();
+	sstr&& str();
+	sstr&& strGetPublicKey();
 
   protected:
   	sstr trnxId_;
-	char *data_;
 };
 
 #endif

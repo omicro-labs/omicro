@@ -17,6 +17,8 @@ class OmicroClient
 
 	sstr sendTrxn( OmicroTrxn &t, int waitSeconds=10 );
 	sstr sendMessage( char mtype, const sstr &msg, bool expectReply );
+	sstr reqPublicKey( int waitSeconds);
+
 	bool connectOK() const { return connectOK_; }
 
   protected:

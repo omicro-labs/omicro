@@ -13,7 +13,12 @@ void OmicroQuery::setTrxnId( const sstr &id )
 	trnxId_ = id;
 }
 
-sstr OmicroQuery::str()
+sstr&& OmicroQuery::str()
 {
-	return sstr("QT|") + trnxId_;
+	return std::move(sstr("QT|") + trnxId_);
+}
+
+sstr&& OmicroQuery::strGetPublicKey()
+{
+	return std::move(sstr("QP|") + trnxId_);
 }

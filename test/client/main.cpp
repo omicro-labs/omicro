@@ -14,28 +14,14 @@ int main(int argc, char* argv[])
 	g_debug = true;
 	OmicroClient client( argv[1], atoi(argv[2]) );
 	d("a02029 OmicroClient done");
+	sstr pubkey = client.reqPublicKey( 3 );
+	d("clientproxy pubkey=[%s]", s(pubkey) );
+	//return 0;
 
 	OmicroTrxn t1;
-	t1.makeDummyTrxn();
+	t1.makeDummyTrxn(pubkey);
 	d("a393939 t1.setInitTrxn"); 
 	t1.setInitTrxn();
-
-	// submit trxn
-	/***
-	d("t2.len=%d %d", t1.size(), strlen(t1.str()) );
-	sstr reply = client.sendMessage( OM_RX, t1.str(), true );
-	i("reply=[%s]\n\n", s(reply));
-
-	OmStrSplit sp(reply, '|');
-	sstr trxnId = sp[2];
-
-	//sleep(3);
-
-	OmicroQuery q;
-	q.setTrxnId( trxnId );
-
-	//reply = client.sendMessage( OM_RQ, q.str(), true );
-	***/
 
 	i("a000234 client.sendTrxn() ...");
 	sstr reply = client.sendTrxn( t1 );

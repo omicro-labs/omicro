@@ -14,7 +14,10 @@
 #define OM_RQ          'Q'
 #define OM_RX          'T'
 
-// [16 length of data][compress/plain][msgtype][][][][][][]{data...}
+// query type
+#define  OM_RQ_PK    'P'
+
+// [16 length of data][compress/plain][msgtype][querytype][][][][][]{data...}
 class OmMsgHdr
 {
   public:
@@ -27,6 +30,9 @@ class OmMsgHdr
 
 	void  setMsgType( char t );
 	char  getMsgType();
+
+	void  setQueryType( char t );
+	char  setQueryType();
 
 	const char *s() const;
 
