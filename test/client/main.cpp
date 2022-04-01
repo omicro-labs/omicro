@@ -16,15 +16,16 @@ int main(int argc, char* argv[])
 	d("a02029 OmicroClient done");
 	sstr pubkey = client.reqPublicKey( 3 );
 	d("clientproxy pubkey=[%s]", s(pubkey) );
-	//return 0;
 
-	OmicroTrxn t1;
-	t1.makeDummyTrxn(pubkey);
-	d("a393939 t1.setInitTrxn"); 
-	t1.setInitTrxn();
+	OmicroTrxn t;
+	//t.setInitTrxn();
+	t.makeDummyTrxn(pubkey);
+
+	//d("a20020 t.cipher=[%s]", s(t.cipher) );
+	//d("a20020 t.signature=[%s]", s(t.signature) );
 
 	i("a000234 client.sendTrxn() ...");
-	sstr reply = client.sendTrxn( t1 );
+	sstr reply = client.sendTrxn( t );
 
 	i("reply=[%s]", s(reply));
 

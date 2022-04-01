@@ -26,9 +26,12 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
 {
     address_ = srvip;
     port_ = port;
+
     readID();
     readPubkey();
     readSeckey();
+    readSrvportPubkey();
+
     level_ = nodeList_.getLevel();
 	srvport_ = address_ + ":" + port_;
 
@@ -40,9 +43,6 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
 	timer2_ = new btimer( io_context_ );
 	waitCCount_ = 0;
 	waitDCount_ = 0;
-
-	pubKey_ = "pjdjkjkjdj";
-	secKey_ = "sjdjkjkjdj";
 
     do_accept();
 	i("omserver is ready");
@@ -184,6 +184,37 @@ void omserver::readID()
 	}
 }
 
+void omserver::readSrvportPubkey()
+{
+	sstr idpath;
+	idpath = "../conf/";
+	idpath += address_ + "/" + port_ + "/srvport_pubkey";
+
+	FILE *fp = fopen(idpath.c_str(), "r");
+	if ( ! fp ) {
+		i("E21030 error open [%s]", s(idpath) );
+		exit(1);
+	}
+
+	char line[1400];
+
+	int len;
+	while ( NULL != fgets(line, 1400, fp) ) {
+		len = strlen(line);
+		if ( line[len-1] == '\n' ) {
+			 line[len-1] = '\0';
+		}
+		OmStrSplit sp(line, '|');
+		srvport_pubkey_.emplace(sp[0], sp[1]);
+	}
+	fclose(fp);
+}
+
+void omserver::getPubkey( const sstr &srvport, sstr &pubkey )
+{
+	pubkey = srvport_pubkey_[srvport];
+}
+
 void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t )
 {
 	strvec otherLeaders;
@@ -252,10 +283,11 @@ void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			t.setXit( XIT_m );
 			t.setVoteInt( totalVotes_[trxnId] );
 			strvec nullvec;
-			d("a33221 %s round-2 multicast otherLeaders trnmsg=[%s] ...", s(id_), t.str() );
 			pvec(otherLeaders);
 			t.srvport = srvport_; 
-			multicast( otherLeaders, t.str(), false, nullvec );
+			sstr dat; t.allstr(dat);
+			//d("a33221 %s round-2 multicast otherLeaders trnmsg=[%s] ...", s(id_), s(dat) );
+			multicast( otherLeaders, dat, false, nullvec );
 			d("a33221 %s round-2 multicast otherLeaders done", s(id_));
 		} else {
 			d("a4457 %s XIT_l toDgood is false", s(id_));
@@ -340,7 +372,8 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			d("a33281 %s multicast XIT_n followers ...", s(id_));
 			pvec(followers);
 			t.srvport = srvport_;
-			omserver::multicast( followers, t.str(), false, nullvec );
+			sstr dat; t.allstr(dat);
+			omserver::multicast( followers, dat, false, nullvec );
 			d("a33281 %s multicast XIT_n followers done", s(id_));
 
 			// i do commit too to state F
@@ -362,8 +395,6 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 
 }
 
-
-#if 1
 int omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec )
 {
 	sstr id, ip, port;
@@ -378,11 +409,18 @@ int omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expect
 
 	pthread_t thrd[len];
 	ThreadParam thrdParam[len];
+	sstr srvport, pubkey, dat;
 	for ( int i=0; i < len; ++i ) {
 		NodeList::getData( hostVec[i], id, ip, port);
 		thrdParam[i].srv = ip;
 		thrdParam[i].port = atoi(port.c_str());
-		thrdParam[i].trxn = trxnMsg;
+		srvport = ip + ":" + port;
+
+		getPubkey( srvport, pubkey );
+		OmicroTrxn t( trxnMsg.c_str() );
+		t.makeSignature(pubkey);
+
+		t.allstr(thrdParam[i].trxn);
 		thrdParam[i].expectReply = expectReply;
 		pthread_create(&thrd[i], NULL, &threadSendMsg, (void *)&thrdParam[i]);
 	}
@@ -398,7 +436,6 @@ int omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expect
 			if ( thrdParam[i].reply.size() > 0 ) {
 				replyVec.push_back( thrdParam[i].reply );
 			}
-			// replyVec.push_back( "here456");
 		}
 
 		if ( thrdParam[i].reply != "NOCONN" ) {
@@ -409,45 +446,6 @@ int omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expect
 	d("a31303 multicast msgs to nodes %d done expectReply=%d replied=%d connected=%d", len, expectReply, replyVec.size(), connected );
 	return connected;
 }
-#endif
-
-#if 0
-// non thread send
-void omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec )
-{
-	sstr id, ip, port;
-	int len = hostVec.size();
-	if ( len < 1 ) {
-		d("a50221 multicast hostVec is empty, noop");
-		return;
-	}
-
-	replyVec.clear();
-
-	d("a31303 multicast msgs to nodes %d expectReply=%d ...", len, expectReply );
-
-	ThreadParam thrdParam[len];
-	for ( int i=0; i < len; ++i ) {
-		NodeList::getData( hostVec[i], id, ip, port);
-		thrdParam[i].srv = ip;
-		thrdParam[i].port = atoi(port.c_str());
-		thrdParam[i].trxn = trxnMsg;
-		thrdParam[i].expectReply = expectReply;
-		threadSendMsg((void *)&thrdParam[i]);
-	}
-
-	for ( int i=0; i < len; ++i ) {
-		if ( expectReply ) {
-			if ( thrdParam[i].reply.size() > 0 ) {
-				replyVec.push_back( thrdParam[i].reply );
-			}
-		}
-	}
-
-	d("a31303 multicast msgs to nodes %d done expectReply=%d replied=%d", len, expectReply, replyVec.size() );
-}
-#endif
-
 
 void *threadSendMsg(void *arg)
 {
@@ -457,6 +455,7 @@ void *threadSendMsg(void *arg)
 		p->reply = "NOCONN";
 		return NULL;
 	}
+
 	d("a30114 cli.sendMessage ... " );
     p->reply = cli.sendMessage( OM_RX,  p->trxn.c_str(), p->expectReply );
 	d("a30114 cli.sendMessage returned p->expectReply=%d p->reply=[%s]", p->expectReply, s(p->reply) );

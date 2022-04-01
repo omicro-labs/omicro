@@ -4,43 +4,17 @@
 #include <string.h>
 #include "omicrotrxn.h"
 #include "omutil.h"
-//#include "server.hpp"
 #include "omstrsplit.h"
 #include "omicrokey.h"
 EXTERN_LOGGING
 
 OmicroTrxn::OmicroTrxn()
 {
-	/***
-	data_ = (char*)malloc(TRXN_TOTAL_SZ+1);
-	memset(data_, ' ', TRXN_TOTAL_SZ);
-	data_[TRXN_TOTAL_SZ] = '\0';
-
-	// set msgype to OM_RX
-	data_[OM_HDR_LEN_SZ+1] = OM_RX;
-
-	readOnly_ = false;
-	***/
 	hdr = "TT"; // plaintext, trxn
 }
 
 OmicroTrxn::OmicroTrxn( const char *str )
 {
-	/***
-	int len = strlen(str);
-	if ( len == TRXN_TOTAL_SZ ) {
-		data_ = (char*)str;
-		data_[TRXN_TOTAL_SZ] = '\0';
-
-		// set msgype to OM_RX
-		data_[OM_HDR_LEN_SZ+1] = OM_RX;
-
-	} else {
-		i("E00001 OmicroTrxn::OmicroTrxn(s) str=[%s] is too short", s(str) );
-		i("       str.len=%d TRXN_TOTAL_SZ=%d", len, TRXN_TOTAL_SZ );
-		data_ = NULL;
-	}
-	***/
 	OmStrSplit sp(str, '|');
 	hdr = sp[0];
 	id = sp[1];
@@ -63,9 +37,10 @@ OmicroTrxn::OmicroTrxn( const char *str )
 	pad7 = sp[17];
 	pad8 = sp[18];
 	pad9 = sp[19];
+	pad10 = sp[20];
 
-	cipher = sp[20];
-	signature = sp[21];
+	cipher = sp[21];
+	signature = sp[22];
 }
 
 OmicroTrxn::~OmicroTrxn()
@@ -82,7 +57,6 @@ void OmicroTrxn::setNotInitTrxn()
 	hdr[TRXN_HEADER_START] = 'N'; 
 }
 
-// TRXN_HEADER_START+0:  'C' initiated from client, 'L' from leader
 bool OmicroTrxn::isInitTrxn()
 {
 	if ( 'I' == hdr[TRXN_HEADER_START] ) {
@@ -115,9 +89,9 @@ Byte OmicroTrxn::getXit()
 
 void OmicroTrxn::setBeacon()
 {
-	char s[6+1];
-    ulong pm = ipow(10, 6);
-    sprintf(s, "%*d", 6, int(time(NULL)%pm) );
+	char s[7+1];
+    ulong pm = ipow(10, 7);
+    sprintf(s, "%*d", 7, int(time(NULL)%pm) );
 	beacon = s;
 }
 
@@ -134,7 +108,7 @@ void OmicroTrxn::setNowTimeStamp()
     struct timeval now;
     gettimeofday( &now, NULL );
     ulong tot = now.tv_sec*1000000 + now.tv_usec;
-    sprintf(tb, "%*ld", TRXN_TIMESTAMP_SZ, tot );
+    sprintf(tb, "%lu", tot );
 	timestamp = tb;
 }
 
@@ -172,34 +146,6 @@ void OmicroTrxn::minusVote(int vote)
 	setVoteInt( v );
 }
 
-sstr&& OmicroTrxn::str()
-{
-	return std::move(hdr +
-	      + "|" + id 
-	      + "|" + beacon 
-	      + "|" + srvport 
-	      + "|" + sender 
-	      + "|" + receiver 
-	      + "|" + amount 
-	      + "|" + timestamp 
-	      + "|" + trxntype 
-	      + "|" + assettype 
-	      + "|" + vote 
-	      + "|" + pad1 
-	      + "|" + pad2 
-	      + "|" + pad3 
-	      + "|" + pad4 
-	      + "|" + pad5 
-	      + "|" + pad6 
-	      + "|" + pad7 
-	      + "|" + pad8 
-	      + "|" + pad9 
-	      + "|" + pad10
-	      + "|" + cipher
-	      + "|" + signature
-		  )
-		  ;
-}
 
 void OmicroTrxn::makeSignature( const sstr &pubKey)
 {
@@ -208,7 +154,14 @@ void OmicroTrxn::makeSignature( const sstr &pubKey)
 	OmicroKey::sign( data, pubKey, cipher, signature );
 }
 
-void OmicroTrxn::getTrxnID( sstr &id ) const
+void OmicroTrxn::allstr( sstr &alldata )
+{
+	sstr data;
+	getTrxnData( data );
+	alldata = data + "|" + cipher + "|" + signature;
+}
+
+void OmicroTrxn::getTrxnID( sstr &id )
 {
 	id = sender + timestamp;
 }
@@ -227,10 +180,16 @@ bool OmicroTrxn::isValidClientTrxn( const sstr &secretKey)
 	sstr data;
 	getTrxnData( data );
 	bool rc = OmicroKey::verify(data, signature, cipher, secretKey);
+	/**
+	d("a22208 trxndata=[%s] len=%d  rc=%d", s(data), data.size(), rc );
+	d("a22208 secretKey=[%s] len=%d", s(secretKey), secretKey.size() );
+	d("a22208 cipher=[%s] len=%d", s(cipher), cipher.size() );
+	d("a22208 signature=[%s] len=%d", s(signature), signature.size() );
+	**/
 	return rc;
 }
 
-void OmicroTrxn::getTrxnData( sstr &data ) const
+void OmicroTrxn::getTrxnData( sstr &data )
 {
 	data = hdr +
 	      + "|" + id 
@@ -254,8 +213,6 @@ void OmicroTrxn::getTrxnData( sstr &data ) const
 	      + "|" + pad9 
 	      + "|" + pad10
 		  ;
-	
-	
 }
 
 void OmicroTrxn::print()
@@ -266,19 +223,15 @@ void OmicroTrxn::print()
 // for testing only
 void  OmicroTrxn::makeDummyTrxn( const sstr &pubkey )
 {
-	//setHeader("123456");
-	hdr = "TT";
+	hdr = "IT";
 
-	//setBeacon("12345678");
 	beacon = "12345678";
-	// setBlankID();
 	//setBeacon();
-	//setSrvPort("127.0.0.1:client");
 	srvport = "127.0.0.1:client";
 
-	sender = "0xAduehHhfjOkfjetOjrUrjQjfSfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaDDExkYm";
+	sender = "0xAdhfgOkfuetOjr";
 
-	receiver = "0xBdHehIhwjGkJjSjBj8i0jVjPafEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjYkGjejrBrirJijXjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjeqrArirjrmfhwEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaleeeyxelkdppwsxn0xAduehfhfjfkfjejrjrirjrjfjfEyehxnckfhe038ejdskaBwEykZv";
+	receiver = "0xBIhwvGkBj8";
 
 	amount = "123456789.999999";
 
@@ -291,5 +244,4 @@ void  OmicroTrxn::makeDummyTrxn( const sstr &pubkey )
 
 	makeSignature( pubkey );
 }
-
 

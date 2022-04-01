@@ -28,11 +28,11 @@ int BlockMgr::saveTrxn( OmicroTrxn &trxn)
 		// omstore is created yet, create it and save trxn
 		sstr fpath = getStoreFilePath( trxnId );
 		OmstorePtr ptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
-		sstr &&ts = trxn.str();
-		ptr->put( trxnId.c_str(), trxnId.size(),  ts.c_str(), ts.size() );
+		sstr ts; trxn.allstr(ts);
+		ptr->put( trxnId.c_str(), trxnId.size(), ts.c_str(), ts.size() );
 		storeMap_.emplace( trxnId, ptr );
 	} else {
-		sstr &&ts = trxn.str();
+		sstr ts; trxn.allstr(ts);
 		itr->second->put( trxnId.c_str(), trxnId.size(),  ts.c_str(), ts.size() );
 	}
 

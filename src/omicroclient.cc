@@ -89,7 +89,7 @@ OmicroClient::~OmicroClient()
 
 sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 {
-	//d("a4421 OmicroClient::sendMessage(%s) expectReply=%d", s(msg), expectReply );
+	//d("a4421 OmicroClient::sendMessage(msg=%s) msglen=%d expectReply=%d", s(msg), msg.size(), expectReply );
 	d("a4421 OmicroClient::sendMessage expectReply=%d", expectReply );
 
 	if ( ! connectOK_ ) {
@@ -102,6 +102,8 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 	mhdr.setLength(msg.size());
 	mhdr.setPlain();
 	mhdr.setMsgType( mtype );
+	hdr[OMHDR_SZ] = '\0';
+	//d("a10192 hdr=[%s] OMHDR_SZ=%d msg.size()=%d safewrte ...", hdr, OMHDR_SZ, msg.size() );
 
 	long len1 = safewrite(socket_, hdr, OMHDR_SZ );
 	if ( len1 <= 0 ) {
@@ -115,7 +117,7 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 		d("a4203 OmicroClient::sendMessage write timeout empty msg");
 		return "";
 	}
-	d("a23373 client write data len2=%d expectReply=%d", len2, expectReply);
+	//d("a23373 client write data len2=%d expectReply=%d", len2, expectReply);
 
 	int cnt = 0;
 	sstr res;
@@ -126,29 +128,28 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 
     	long hdrlen = saferead(socket_, hdr2, OMHDR_SZ );
 		if ( hdrlen <= 0 ) {
-			d("a4205 OmicroClient::sendMessage read from %s:%d timeout hdr2 empty hdrlen=%d []", s(srv_), port_, hdrlen);
-			d("a4205 errno=%d errstr=[%s]", errno, strerror(errno) );
+			i("E333928 OmicroClient::sendMessage read from %s:%d timeout hdr2 empty hdrlen=%d []", s(srv_), port_, hdrlen);
+			i("errno=%d errstr=[%s]", errno, strerror(errno) );
 			return "";
 		}
 
 		ulong sz = mhdr2.getLength();
-		d("a23373 client received hdr hdrlen=%d hdr2=[%s] sz=%d", hdrlen, hdr2, sz );
+		//d("a23373 client received hdr hdrlen=%d hdr2=[%s] sz=%d", hdrlen, hdr2, sz );
 
 		char *reply = (char*)malloc(sz+1);
     	long reply_length = saferead(socket_, reply, sz );
 		if ( reply_length <= 0 ) {
-			d("a4206 OmicroClient::sendMessage read timeout reply empty reply_length=%d []", reply_length);
+			i("E30298 OmicroClient::sendMessage read timeout reply empty reply_length=%d []", reply_length);
 			free( reply );
 			return "";
 		}
 
 		res = sstr(reply, sz);
-		d("cnt=%d client received data: hdrlen=%d reply_length=%d sz=%d", cnt, hdrlen, reply_length, sz);
-		d("cnt=%d       received data =[%s]", cnt, s(res) );
+		//d("cnt=%d client received data: hdrlen=%d reply_length=%d sz=%d", cnt, hdrlen, reply_length, sz);
+		//d("cnt=%d       received data =[%s]", cnt, s(res) );
 
 		free(reply);
 		++cnt;
-
 	}
 
 	return res;
@@ -157,7 +158,8 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 {
 	t.setInitTrxn();
-	sstr reply = sendMessage( OM_RX, t.str(), true );
+	sstr alldata; t.allstr(alldata);
+	sstr reply = sendMessage( OM_RX, alldata, true );
 	OmStrSplit sp(reply, '|');
 	sstr stat = sp[0];
 	sstr trxnId = sp[2];
@@ -174,8 +176,9 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 	int WAIT_MS = 50;
 	int waitCnt = waitSeconds*(1000/WAIT_MS);
 	int cnt = 0;
+	sstr data; q.str(data);
 	while ( true ) {
-		reply = sendMessage( OM_RQ, q.str(), true );
+		reply = sendMessage( OM_RQ, data, true );
 		if ( ! strstr( reply.c_str(), "NOTFOUND") ) {
 			break;
 		}
@@ -197,9 +200,10 @@ sstr OmicroClient::reqPublicKey( int waitSeconds)
 	int WAIT_MS = 50;
 	int waitCnt = waitSeconds*(1000/WAIT_MS);
 	int cnt = 0;
-	sstr reply;
+	sstr cmd, reply;
+	q.strGetPublicKey( cmd );
 	while ( true ) {
-		reply = sendMessage( OM_RQ, q.strGetPublicKey(), true );
+		reply = sendMessage( OM_RQ, cmd, true );
 		if ( ! strstr( reply.c_str(), "NOTFOUND") ) {
 			break;
 		}

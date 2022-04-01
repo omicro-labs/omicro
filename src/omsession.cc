@@ -44,13 +44,13 @@ void omsession::do_read()
 				// do read data
 				OmMsgHdr mhdr(hdr_, OMHDR_SZ, false);
 				ulong dlen = mhdr.getLength();
-				char *data = (char*)malloc( dlen );
+				char *data = (char*)malloc( dlen+1 );
 				data[dlen] = '\0';
-				d("a63003 a91838 srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
+				//d("a63003 a91838 srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
 
 				bcode ec2;
 				int len2 =  boost::asio::read( socket_, boost::asio::buffer(data,dlen), ec2 );
-				d("a45023 boost::asio::read len2=%d dlen=%d", len2, dlen );
+				//d("a45023 boost::asio::read len2=%d dlen=%d", len2, dlen );
 				data[len2] = '\0';
 
 				char t = mhdr.getMsgType();
@@ -99,13 +99,21 @@ void omsession::reply( const sstr &str, tcp::socket &socket )
 
 void omsession::doTrxn(const char *msg, int msglen)
 {
-	//d("a71002 doTrxn msg.len=%d msg=[%s]", msg.size(), s(msg) );
+	//d("a71002 doTrxn msg.len=%d msg=[%s]", msglen, msg );
 	d("a71002 doTrxn msg.len=%d", msglen );
 	sstr id_ = serv_.id_;
 
 	OmicroTrxn t(msg);
+	/**
+	bool isInitTrxn1 = t.isInitTrxn();
+	d("a71002 isInitTrxn1=%d", isInitTrxn1 );
+	d("a71002 trxn.cipher=[%s]", s(t.cipher) );
+	d("a71002 trxn.signature=[%s]", s(t.signature) );
+	d("a028273 serv_.secKey_=[%s]", s(serv_.secKey_) );
+	***/
 
 	bool validTrxn = t.isValidClientTrxn( serv_.secKey_);
+
 	if ( ! validTrxn ) {
 		sstr m = sstr("BAD_INVALID_TRXN|") + id_;
 		reply(m, socket_);
@@ -162,7 +170,8 @@ void omsession::doTrxn(const char *msg, int msglen)
 					d("a31112 %s multicast XIT_j followers for vote expect reply ..", s(sid_));
 					pvec( followers );
 					t.srvport = serv_.srvport_;
-					omserver::multicast( followers, t.str(), true, replyVec );
+					sstr alld; t.allstr(alld);
+					serv_.multicast( followers, alld, true, replyVec );
 					d("a31112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(sid_), replyVec.size() );
 
 					// got replies from followers, state to C
@@ -180,7 +189,8 @@ void omsession::doTrxn(const char *msg, int msglen)
 							d("a31102 %s round-1 multicast XIT_l otherLeaders noreplyexpected ..", s(sid_));
 							pvec(otherLeaders);
 							// txn.setSrvPort( serv_.srvport_.c_str() );
-							omserver::multicast( otherLeaders, t.str(), false, replyVec );
+							sstr dat; t.allstr(dat);
+							serv_.multicast( otherLeaders, dat, false, replyVec );
 							d("a31102 %s round-1 multicast XIT_l otherLeaders done replyVec=%d\n", s(sid_), replyVec.size() );
 							// XIT_m should be in reply
 							// if there are enough replies, multicase XIT_n to followers
@@ -232,7 +242,7 @@ void omsession::doTrxn(const char *msg, int msglen)
 
 void omsession::doQuery(const char *msg, int msglen)
 {
-	d("a71002 doQuery msg.len=%d msg=[%s]", msglen, msg );
+	// d("a71002 doQuery msg.len=%d msg=[%s]", msglen, msg );
 	sstr id_ = serv_.id_;
 
 	OmStrSplit sp( msg, '|');
@@ -281,7 +291,8 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	d("a31181 multicast to ZoneLeaders expectReply=false ...");
 	pvec( hostVec );
 	txn.srvport = serv_.srvport_;
-	int connected = omserver::multicast( hostVec, txn.str(), false, replyVec );
+	sstr dat; txn.allstr(dat);
+	int connected = serv_.multicast( hostVec, dat, false, replyVec );
 	d("a31183 multicast to ZoneLeaders done connected=%d", connected);
 
 	uint twofp1 = twofplus1(hostVec.size());

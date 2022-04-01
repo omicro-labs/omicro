@@ -106,8 +106,8 @@ CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
             -I $(BASE85) \
             -I $(AES) \
             -I $(JSON)/include \
-			-g3 \
-			$(BOOST_DEFINE)
+			$(BOOST_DEFINE) \
+			-g
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)

@@ -33,10 +33,14 @@ class omserver
 
 	void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
 	void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
-	static int multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
+	int multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
+	void getPubkey( const sstr &srvport, sstr &pubkey );
+
 
 	std::unordered_map<sstr, std::vector<uint>> collectTrxn_;
 	std::unordered_map<sstr, ulong> totalVotes_;
+	std::unordered_map<sstr, sstr> srvport_pubkey_;
+
 	TrxnState trxnState_;
 	NodeList nodeList_;
 	int level_;
@@ -58,6 +62,7 @@ class omserver
 	void readID();
 	void readPubkey();
 	void readSeckey();
+	void readSrvportPubkey();
 	sstr getDataDir() const;
 	void tryRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
 				  const strvec &otherLeaders,  OmicroTrxn &t );
