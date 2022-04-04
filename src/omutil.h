@@ -3,10 +3,14 @@
 
 #include <time.h>
 #include <stdio.h>
+
+/**
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/error/en.h>
+**/
+
 #include "omicrodef.h"
 #include "omstrsplit.h"
 
@@ -53,5 +57,12 @@ ulong ipow(ulong num, int power);
 
 // similar to mkdir -p <fpath>
 void makedirPath( const sstr &fullpath );
+
+// get yyyy/mm/dd/hh gmtime
+sstr getYYYYMMDDHH();
+
+// get yyyy/mm/dd/hh microtimestamp
+sstr getYYYYMMDDHHFromTS( const sstr &timestamp);
+
 
 #endif

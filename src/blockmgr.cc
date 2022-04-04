@@ -1,7 +1,11 @@
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include "xxHash/xxhash.h"
 #include "blockmgr.h"
 #include "omutil.h"
-#include "xxHash/xxhash.h"
+#include "omstrsplit.h"
+#include "omaccount.h"
 EXTERN_LOGGING
 
 
@@ -20,29 +24,202 @@ BlockMgr::~BlockMgr()
 {
 }
 
-int BlockMgr::saveTrxn( OmicroTrxn &trxn)
+int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
+{
+	sstr yyyymmddhh = getYYYYMMDDHHFromTS(trxn.timestamp);
+	d("a65701 receiveTrxn ...");
+
+	FILE *fp1 = appendToBlockchain(trxn, trxn.sender, '-', yyyymmddhh);
+	if ( NULL == fp1 ) {
+		return -1;
+	}
+
+	FILE *fp2 = appendToBlockchain(trxn, trxn.receiver, '+', yyyymmddhh);
+	if ( NULL == fp2 ) {
+		fclose( fp1 );
+		rollbackFromBlockchain(trxn, trxn.sender, yyyymmddhh );
+		return -2;
+	}
+
+	int urc;
+	if ( trxn.trxntype == "P" ) {
+		urc = updateAcctBalances(trxn);
+	} else if ( trxn.trxntype == "A" ) {
+		urc = createAcct(trxn);
+	} else {
+		urc = -10;
+	}
+
+	if ( urc < 0 ) {
+		// mark log failure 'F'
+		fprintf(fp1, "F~");
+		fprintf(fp2, "F~");
+	} else {
+		// mark log success 'T'
+		fprintf(fp1, "T~");
+		fprintf(fp2, "T~");
+	}
+
+	fclose(fp1);
+	fclose(fp2);
+
+	return 0;
+}
+
+int BlockMgr::createAcct( OmicroTrxn &trxn)
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
-	auto itr = storeMap_.find( trxnId );
-	if ( itr == storeMap_.end() ) {
-		// omstore is created yet, create it and save trxn
-		sstr fpath = getStoreFilePath( trxnId );
-		OmstorePtr ptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
-		sstr ts; trxn.allstr(ts);
-		ptr->put( trxnId.c_str(), trxnId.size(), ts.c_str(), ts.size() );
-		storeMap_.emplace( trxnId, ptr );
+	sstr from = trxn.sender;
+	d("a32047 createAcct trxnId=[%s] from=[%s]", s(trxnId), s(from) );
+
+	OmstorePtr srcptr;
+	sstr fpath;
+	sstr ts; trxn.getTrxnData(ts);
+
+	auto itr1 = acctStoreMap_.find( from );
+	if ( itr1 == acctStoreMap_.end() ) {
+		fpath = getAcctStoreFilePath( from );
+		srcptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
+
+		OmAccount acct;
+		acct.balance = "0";
+		acct.pubkey = trxn.userPubkey;
+		sstr rec;
+		acct.str( rec );
+
+		srcptr->put( from.c_str(), from.size(), s(rec), rec.size() );
+		acctStoreMap_.emplace( from, srcptr );
+		i("I0023 added user account [%s]", s(from) );
 	} else {
-		sstr ts; trxn.allstr(ts);
-		itr->second->put( trxnId.c_str(), trxnId.size(),  ts.c_str(), ts.size() );
+		i("E50387 error from=[%s] acct already exist", s(from) );
+		return -10;
 	}
 
 	return 0;
 }
 
-void BlockMgr::queryTrxn( const sstr &trxnId, sstr &res )
+int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 {
-	auto itr = storeMap_.find( trxnId );
-	if ( itr == storeMap_.end() ) {
+	sstr trxnId; trxn.getTrxnID( trxnId );
+	sstr from = trxn.sender;
+	sstr to = trxn.receiver;
+	d("a32037 updateAcctBalances trxnId=[%s] from=[%s] to=[%s]", s(trxnId), s(from), s(to) );
+
+	OmstorePtr srcptr;
+	OmstorePtr dstptr;
+	sstr fpath;
+	sstr ts; trxn.getTrxnData(ts);
+	double amt = trxn.getAmountDouble();
+
+	int  fromstat = 0;
+	int  tostat = 0;
+
+	auto itr1 = acctStoreMap_.find( from );
+	if ( itr1 == acctStoreMap_.end() ) {
+		/***
+		fpath = getAcctStoreFilePath( from );
+		srcptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
+		fromstat = 1;
+		**/
+		fromstat = 1;
+		i("E22276 error user from=[%s] does not exist", s(from));
+		return -90;
+	} else {
+		srcptr = itr1->second;
+		fromstat = 2;
+	}
+
+	auto itr2 = acctStoreMap_.find( to );
+	if ( itr2 == acctStoreMap_.end() ) {
+		/**
+		fpath = getAcctStoreFilePath( to );
+		dstptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
+		tostat = 1;
+		***/
+		tostat = 1;
+		i("E23276 error user to=[%s] does not exist", s(to));
+		return -92;
+	} else {
+		dstptr = itr2->second;
+		tostat = 2;
+	}
+
+	char *fromrec = srcptr->get( from.c_str() );
+	char *torec = dstptr->get( to.c_str() );
+
+	if ( NULL != fromrec && NULL != torec ) {
+		/***
+		frombal = atof(fromrec);
+		tobal = atof(torec);
+		frombal -= amt;
+		tobal += amt;
+
+		sprintf(abuf, "%.6f", frombal);
+		srcptr->put( from.c_str(), from.size(), abuf, strlen(abuf) ); 
+
+		sprintf(abuf, "%.6f", tobal);
+		dstptr->put( to.c_str(), to.size(), abuf, strlen(abuf) ); 
+		***/
+		OmAccount fromAcct( fromrec );
+		OmAccount toAcct( torec );
+		double bal = fromAcct.addBalance( 0.0 - amt);
+		if ( bal < -1.0 ) {
+			i("E40313 error from=[%s] acct balance error [%f]", s(from), bal );
+			return -30;
+		}
+
+		toAcct.addBalance( amt );
+
+		sstr fromNew, toNew;
+		fromAcct.str( fromNew );
+		toAcct.str( toNew );
+
+		srcptr->put( from.c_str(), from.size(), fromNew.c_str(), fromNew.size() );
+		dstptr->put( to.c_str(), to.size(), toNew.c_str(), toNew.size() );
+
+		/***
+		if ( 1 == fromstat ) {
+			// add store pointer for the from user
+			acctStoreMap_.emplace( from, srcptr );
+			d("98272 from, srcptr added");
+		}
+
+		if ( 1 == tostat ) {
+			// add store pointer for the to user
+			acctStoreMap_.emplace( to, dstptr );
+			d("98272 to, dstptr added");
+		}
+		***/
+
+	} else {
+		if ( NULL == fromrec ) {
+			i("E40387 error from=[%s] acct does not exist", s(from) );
+			return -1;
+		}
+		if ( NULL == torec ) {
+			i("E40388 error to=[%s] acct does not exist", s(to) );
+			return -2;
+		}
+	}
+
+	return 0;
+}
+
+#if 0
+void BlockMgr::queryTrxn( const sstr &from, const sstr &to, const sstr &trxnId, const sstr &timestamp, sstr &res )
+{
+	// find in mempool first
+	sstr tid;
+	for ( auto& t: mempool_ ) {
+		t.getTrxnID( tid );
+		if ( tid == trxnId ) {
+			t.getTrxnData( res );
+			return;
+		}
+	}
+
+	auto itr = trxnStoreMap_.find( trxnId );
+	if ( itr == trxnStoreMap_.end() ) {
 		res = trxnId + "|NOTFOUND1";
 		return;
 	} else {
@@ -56,12 +233,208 @@ void BlockMgr::queryTrxn( const sstr &trxnId, sstr &res )
 		}
 	}
 }
+#endif
 
+void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &timestamp, sstr &res )
+{
+	std::vector<sstr> vec;
+	int rc = readTrxns( from, timestamp, trxnId, vec );
+	if ( rc < 0 || vec.size() < 1 ) {
+		i("E45208 error find [%s] rc=%d", s(trxnId), rc );
+		if ( rc < 0 ) {
+			i("E45228 error block data is corrupted. rc=%d", rc );
+		}
+
+		res = trxnId + "|NOTFOUND";
+		return;
+	}
+
+	res = vec[0];
+
+}
+
+// get a list of trxns of user from. If trxnId is not empty, get specific trxn
+int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &vec )
+{
+	d("a53001 readTrxns from=[%s] timestamp=[%s] trxnId=[%s]", s(from), s(timestamp), s(trxnId) );
+
+	sstr yyyymmddhh = getYYYYMMDDHHFromTS(timestamp);
+
+	sstr dir = dataDir_ + "/blocks/" + getUserPath(from) + "/" +  yyyymmddhh;
+	sstr fpath = dir + "/blocks.blk";
+	int fd = open( fpath.c_str(), O_RDONLY|O_NOATIME );
+	if ( fd < 0 ) {
+		i("E45508 error open from=[%s] [%s]", s(from), s(fpath) );
+		return -100;
+	}
+	long off = lseek(fd, 0, SEEK_SET );
+	d("a2329 readTrxns from=[%s] fpath=[%s] offset=%ld", s(from), s(fpath), off);
+
+	//fprintf(fp, "%ld~%c~%s~%ld~T~", tsize, ttype, tdata.c_str(), tsize );
+	char c;
+	int idx;
+	char dbuf[16];
+	int tsize, rdsize;
+	char *pt = NULL;
+	int rd;
+	sstr trxn_tid;
+
+	while ( true ) {
+
+		// read trxnlength
+		idx = 0;
+		memset(dbuf, 0, 16);
+		while ( 1==read(fd, &c, 1) ) {
+			if ( idx > 7 ) {
+				i("E12104 length field too long idx=%d dbuf=[%s]", idx, dbuf);
+				::close(fd);
+				return -1;
+			}
+			if ( ::isdigit(c) ) {
+				dbuf[idx] = c;
+				++idx;
+				d("a13104 idx=%d dbuf=[%s] c=[%c]", idx, dbuf, c);
+			} else {
+				break;
+			}
+		}
+		if ( idx < 1 ) {
+			::close(fd);
+			d("a33381 end of file");
+			break;
+		}
+		dbuf[idx] = '\0';
+		tsize = atoi(dbuf);
+		d("a11100 first dbuf=[%s] idx=%d", dbuf, idx );
+
+		// fprintf(fp, "%ld~%c~%s~%ld~F~", tsize, ttype, tdata.c_str(), tsize );
+		// c is '~' now
+		rd = read(fd, &c, 1); // read in - or +
+		if ( rd != 1 ) {
+			i("E12214 ts read -/+ error" );
+			::close(fd);
+			return -10;
+		}
+
+		rd = read(fd, &c, 1); // read in ~
+		if ( rd != 1 || c != '~' ) {
+			i("E12215 ts read ~ error" );
+			::close(fd);
+			return -20;
+		}
+
+		// read in trxn data
+		pt = (char*)malloc(tsize+1);
+		pt[tsize] = '\0';
+		rdsize = saferead(fd, pt, tsize);
+		if ( rdsize != tsize ) {
+			i("E12114 ts read size mismtach tsize=%d != rdsize=%d", tsize, rdsize);
+			::close(fd);
+			free(pt);
+			return -1;
+		}
+		d("a10234 tsize=%d", tsize );
+
+		rd = read(fd, &c, 1); // read in ~
+		if ( rd != 1 || c != '~' ) {
+			i("E12216 ts read ~ error" );
+			::close(fd);
+			free(pt);
+			return -30;
+		}
+
+		// read trxnlength again
+		idx = 0;
+		memset(dbuf, 0, 16);
+		while ( 1==read(fd, &c, 1) ) {
+			if ( idx > 7 ) {
+				i("E12113 second length field too long");
+				::close(fd);
+				free(pt);
+				return -40;
+			}
+			if ( isdigit(c) ) {
+				dbuf[idx] = c;
+				++idx;
+				d("a21087 second dbuf=[%s] idx=%d", dbuf, idx );
+			} else {
+				break;
+			}
+		}
+		if ( idx < 1 ) {
+			i("E12115 ts read size error" );
+			::close(fd);
+			free(pt);
+			return -50;
+		}
+		dbuf[idx] = '\0';
+		rdsize = atoi(dbuf);
+		if ( rdsize != tsize ) {
+			i("E12116 warning second tsize=%d != rdsize=%d", tsize, rdsize);
+		}
+		d("a11102 second dbuf=[%s] idx=%d", dbuf, idx );
+
+		// c is '~' now
+		rd = read(fd, &c, 1); // read in F/T
+		if ( rd != 1 ) {
+			i("E12215 ts read F/T error" );
+			::close(fd);
+			free(pt);
+			return -60;
+		}
+
+		if ( c != 'F' && c != 'T' ) {
+			i("E12245 ts read F/T error c=[%c]", c );
+			::close(fd);
+			free(pt);
+			return -64;
+		}
+
+		rd = read(fd, &c, 1); // read in ~
+		if ( rd != 1 || c != '~' ) {
+			i("E12216 ts read ~ error" );
+			::close(fd);
+			free(pt);
+			return -70;
+		}
+
+		// got trxndata
+		OmStrSplit sp( pt, '|');
+		if ( sp.length() < 10 ) {
+			i("E12218 ts format error len=%d", sp.length() );
+			::close(fd);
+			free(pt);
+			return -70;
+		}
+
+		if ( trxnId.size() > 0 ) {
+			//trxn_sender = sp[4];
+			//trxn_timestamp = sp[7];
+			trxn_tid = sp[7] + ":" + sp[4];
+			if ( trxn_tid == trxnId ) {
+				d("a5023 found trxn for tid=[%s]", s(trxnId) );
+				vec.push_back(pt);
+			}
+		} 
+
+		if ( pt ) {
+			free(pt);
+		}
+	}
+
+	::close(fd);
+	d("a56411 readTrxns from [%s] vec.size=%d", fpath.c_str(), vec.size() );
+	if ( vec.size() > 0 ) {
+		d("a19721 vec[0]=[%s]", s(vec[0]) );
+	}
+	return 0;
+}
 
 void BlockMgr::initDirs()
 {
 	makedirPath( dataDir_ );
 	d("a44427 mkdir [%s]", dataDir_.c_str() );
+	/***
 	sstr topd = dataDir_;
 	sstr is, js, d;
 
@@ -87,13 +460,63 @@ void BlockMgr::initDirs()
            	::mkdir( d.c_str(), 0700 );
         }
     }
+	***/
 }
 
-sstr BlockMgr::getStoreFilePath( const sstr &trxnId )
+sstr BlockMgr::getUserPath( const sstr &userid )
 {
-	XXH64_hash_t hash1 = XXH64( trxnId.c_str(), trxnId.size(), DIR_HASH_SEED1 ) % DIR_LEVEL1_NUM;
-	XXH64_hash_t hash2 = XXH64( trxnId.c_str(), trxnId.size(), DIR_HASH_SEED2 ) % DIR_LEVEL2_NUM;
+	XXH64_hash_t hash1 = XXH64( userid.c_str(), userid.size(), DIR_HASH_SEED1 ) % DIR_LEVEL1_NUM;
+	XXH64_hash_t hash2 = XXH64( userid.c_str(), userid.size(), DIR_HASH_SEED2 ) % DIR_LEVEL2_NUM;
+	sstr path = std::to_string(hash1) + "/" + std::to_string(hash2);
+	return path;
+}
 
-	sstr fpath = dataDir_ + "/" + std::to_string(hash1) + "/" + std::to_string(hash2) + "/omstore.hdb";
+sstr BlockMgr::getAcctStoreFilePath( const sstr &userid )
+{
+	sstr dir = dataDir_ + "/account/" + getUserPath(userid);
+	makedirPath(dir);
+	sstr fpath = dir + "/acctstore.hdb";
 	return fpath;
 }
+
+// ttype: -: debit/payout   +: credit/receive
+FILE *BlockMgr::appendToBlockchain( OmicroTrxn &t, const sstr &userid, char ttype, const sstr &yyyymmddhh )
+{
+	sstr dir = dataDir_ + "/blocks/" + getUserPath(userid) + "/" +  yyyymmddhh;
+	makedirPath( dir );
+	sstr fpath = dir + "/blocks.blk";
+	FILE *fp = fopen(fpath.c_str(), "a");
+	if ( ! fp ) {
+		i("E45508 appendToBlockchain error open [%s]", s(fpath) );
+		return NULL;
+	}
+
+	sstr tdata; t.getTrxnData( tdata );
+	long tsize = tdata.size();
+	// todo compress tdata, tsize would be compressed size
+	fprintf(fp, "%ld~%c~%s~%ld~", tsize, ttype, tdata.c_str(), tsize );
+	d("a56881 appended trxn to [%s]", fpath.c_str() );
+	return fp;
+}
+
+void BlockMgr::rollbackFromBlockchain( OmicroTrxn &t, const sstr &userid, const sstr &yyyymmddhh )
+{
+	sstr dir = dataDir_ + "/blocks/" + getUserPath(userid) + "/" +  yyyymmddhh;
+	sstr fpath = dir + "/blocks.blk";
+	/***
+	FILE *fp = fopen(fpath.c_str(), "a");
+	if ( ! fp ) {
+		i("E45508 error open [%s]", s(fpath) );
+		return -1;
+	}
+
+	long tsize;
+	sstr tdata; t.getTrxnData( tdata );
+	tsize = tdata.size();
+	// todo compress tdata, tsize would be compressed size
+	fprintf(fp, "%ld~%c%s~%ld", tsize, ttype, tdata.c_str(), tsize );
+	fclose(fp);
+	d("a52881 wrote blocks to [%s]", fpath.c_str() );
+	***/
+}
+

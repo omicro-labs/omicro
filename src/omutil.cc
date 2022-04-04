@@ -191,3 +191,27 @@ void makedirPath( const sstr &fullpath )
     }
 }
 
+sstr getYYYYMMDDHH()
+{
+    time_t rawtime;
+    struct tm * timeinfo;
+    struct tm  result;
+    char  buffer[64];
+
+    time (&rawtime);
+    timeinfo = gmtime_r ( &rawtime, &result );
+    strftime( buffer, 64, "%Y/%m/%d/%H", timeinfo);
+    return buffer;
+}
+
+// ts is sec+microseconds
+sstr getYYYYMMDDHHFromTS(const sstr &ts)
+{
+    time_t tsec = atoll(ts.c_str())/1000000;
+    struct tm result;
+    char tmstr[48];
+    gmtime_r( &tsec, &result );
+    strftime( tmstr, sizeof(tmstr), "%Y/%m/%d/%H", &result );
+    return tmstr;
+}
+

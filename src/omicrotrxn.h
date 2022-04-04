@@ -24,11 +24,11 @@ class OmicroTrxn
 	void setVoteInt( int votes );
 	void addVote(int vote);
 	void minusVote(int vote);
-	void makeSignature( const sstr &pubKey );
+	void makeNodeSignature( const sstr &nodePubKey );
 
 	void allstr( sstr &alldata );
 
-	void getTrxnID( sstr &id);
+	void  getTrxnID( sstr &id);
 	void  makeDummyTrxn( const sstr &pubkey );
 	void  print();
 	void  setInitTrxn();
@@ -49,7 +49,7 @@ class OmicroTrxn
 	sstr receiver; // 5
 	sstr amount;
 	sstr timestamp;
-	sstr trxntype;
+	sstr trxntype;  // P: payment  A: user account creation
 	sstr assettype;
 	sstr vote;    // 10
 	sstr pad1;    // 11
@@ -64,6 +64,8 @@ class OmicroTrxn
 	sstr pad10;   // 20
 	sstr cipher;  // 21
 	sstr signature;  // 22
+	sstr userPubkey;  // 23
+	sstr userSignature;  // 24
 
 };
 

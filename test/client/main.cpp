@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
 {
 	g_debug = true;
 	OmicroClient client( argv[1], atoi(argv[2]) );
-	d("a02029 OmicroClient done");
+	//d("a02029 OmicroClient done");
 	sstr pubkey = client.reqPublicKey( 3 );
 	d("clientproxy pubkey=[%s]", s(pubkey) );
 
@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
 	i("a000234 client.sendTrxn() ...");
 	sstr reply = client.sendTrxn( t );
 
-	i("reply=[%s]", s(reply));
+	i("confirmation=[%s]", s(reply));
 
 }
 

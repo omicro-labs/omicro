@@ -378,7 +378,7 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 
 			// i do commit too to state F
 			// block_.add( t );
-			blockMgr_.saveTrxn( t );
+			blockMgr_.receiveTrxn( t );
 			d("a9999 leader commit a TRXN %s ", s(trxnId));
 			trxnState_.goState( level_, trxnId, XIT_n );  // to ST_F
 			// reply back to client
@@ -418,7 +418,7 @@ int omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expect
 
 		getPubkey( srvport, pubkey );
 		OmicroTrxn t( trxnMsg.c_str() );
-		t.makeSignature(pubkey);
+		t.makeNodeSignature(pubkey);
 
 		t.allstr(thrdParam[i].trxn);
 		thrdParam[i].expectReply = expectReply;

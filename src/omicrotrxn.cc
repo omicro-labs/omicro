@@ -39,8 +39,13 @@ OmicroTrxn::OmicroTrxn( const char *str )
 	pad9 = sp[19];
 	pad10 = sp[20];
 
+	// node PKI
 	cipher = sp[21];
 	signature = sp[22];
+
+	// user account PKI
+	userPubkey = sp[23];
+	userSignature = sp[24];
 }
 
 OmicroTrxn::~OmicroTrxn()
@@ -147,23 +152,23 @@ void OmicroTrxn::minusVote(int vote)
 }
 
 
-void OmicroTrxn::makeSignature( const sstr &pubKey)
+void OmicroTrxn::makeNodeSignature( const sstr &nodePubKey)
 {
 	sstr data;
 	getTrxnData( data );
-	OmicroKey::sign( data, pubKey, cipher, signature );
+	OmicroNodeKey::sign( data, nodePubKey, cipher, signature );
 }
 
 void OmicroTrxn::allstr( sstr &alldata )
 {
 	sstr data;
 	getTrxnData( data );
-	alldata = data + "|" + cipher + "|" + signature;
+	alldata = data + "|" + cipher + "|" + signature + "|" + userPubkey + "|" + userSignature;
 }
 
 void OmicroTrxn::getTrxnID( sstr &id )
 {
-	id = sender + timestamp;
+	id = timestamp + ":" + sender;
 }
 
 bool OmicroTrxn::isValidClientTrxn( const sstr &secretKey)
@@ -179,7 +184,7 @@ bool OmicroTrxn::isValidClientTrxn( const sstr &secretKey)
 	// signature verification
 	sstr data;
 	getTrxnData( data );
-	bool rc = OmicroKey::verify(data, signature, cipher, secretKey);
+	bool rc = OmicroNodeKey::verify(data, signature, cipher, secretKey);
 	/**
 	d("a22208 trxndata=[%s] len=%d  rc=%d", s(data), data.size(), rc );
 	d("a22208 secretKey=[%s] len=%d", s(secretKey), secretKey.size() );
@@ -237,11 +242,11 @@ void  OmicroTrxn::makeDummyTrxn( const sstr &pubkey )
 
 	setNowTimeStamp();
 
-	trxntype = "AB";
+	trxntype = "P"; // payment
 
 	assettype = "XY";
 	setVoteInt(0);
 
-	makeSignature( pubkey );
+	makeNodeSignature( pubkey );
 }
 

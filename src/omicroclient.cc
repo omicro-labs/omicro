@@ -110,7 +110,7 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 		d("a4202 OmicroClient::sendMessage %s:%d write timeout empty hdr", s(srv_), port_);
 		return "";
 	}
-	d("a23373 client write hdr len1=%d",len1);
+	//d("a23373 client write hdr len1=%d",len1);
 
 	long len2 = safewrite(socket_, msg.c_str(), msg.size() );
 	if ( len2 <= 0 ) {
@@ -172,6 +172,8 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 
 	OmicroQuery q;
 	q.setTrxnId( trxnId );
+	q.setSender( t.sender );
+	q.setTimeStamp( t.timestamp );
 
 	int WAIT_MS = 50;
 	int waitCnt = waitSeconds*(1000/WAIT_MS);

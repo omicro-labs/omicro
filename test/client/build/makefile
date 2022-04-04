@@ -36,7 +36,13 @@ BASE85=../../../src/Web/base85
 AES=../../../src/Web/aes
 JSON=../../../src/Web/json/rapidjson
 HASH=../../../src/Web/hash
+DILITH=../../../src/Web/dilithium
 
+DILITH_LIBS=$(DILITH)/dilithium/ref/ref/libdilithium5_ref.a \
+            $(DILITH)/dilithium/ref/ref/libdilithium3_ref.a \
+            $(DILITH)/dilithium/ref/ref/libdilithium2_ref.a \
+            $(DILITH)/dilithium/ref/ref/libfips202_ref.a \
+            $(DILITH)/dilithium/ref/ref/libaes256ctr_ref.a
 
 PTHREADLIB=/lib64/libpthread.a
 RTLIB=/lib64/librt.a
@@ -47,6 +53,8 @@ CLIB=/lib64/libc.a
 MY_LIBS   = \
 			$(SRCBUILD)/libomicro.a \
 			$(SABER)/SABER/Reference_Implementation_KEM/libsaber.a \
+			$(DILITH_LIBS) \
+			$(SRCBUILD)/randombytes_dl.o\
 			$(BASE85)/ascii85/ascii85.o \
 			$(AES)/tiny-AES-c/aes.o \
 			$(HASH)/xxHash/libxxhash.a \
@@ -65,7 +73,9 @@ CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) \
 			-I $(BASE85) \
 			-I $(AES) \
 			-I $(JSON)/include  \
-			-g
+			-D DILITHIUM_MODE=5 \
+			-I $(DILITH)/include \
+			-O3
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)

@@ -74,11 +74,20 @@ SABER=../Web/saber
 BASE85=../Web/base85
 AES=../Web/aes
 JSON=../Web/json/rapidjson
+DILITH=../Web/dilithium
 
+DILITH_LIBS=$(DILITH)/dilithium/ref/ref/libdilithium5_ref.a \
+            $(DILITH)/dilithium/ref/ref/libdilithium3_ref.a \
+            $(DILITH)/dilithium/ref/ref/libdilithium2_ref.a \
+            $(DILITH)/dilithium/ref/ref/libfips202_ref.a \
+            $(DILITH)/dilithium/ref/ref/libaes256ctr_ref.a 
+
+            #randombytes_dl.o
 
 # The linker options.
 MY_LIBS = $(HASH)/xxHash/libxxhash.a \
 		  $(SABER)/SABER/Reference_Implementation_KEM/libsaber.a \
+		  $(DILITH_LIBS) \
 		  $(BASE85)/ascii85/ascii85.o \
 		  $(AES)/tiny-AES-c/aes.o \
           $(BOOST_LIB_PATH)/libboost_system.a \
@@ -107,6 +116,8 @@ CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
             -I $(AES) \
             -I $(JSON)/include \
 			$(BOOST_DEFINE) \
+			-D DILITHIUM_MODE=5 \
+			-I $(DILITH)/include \
 			-g
 
 # The options used in linking as well as in any direct use of ld.
@@ -243,8 +254,8 @@ ctags: $(HEADERS) $(SOURCES)
 # Rules for generating the executable.
 #-------------------------------------
 LIB_OBJS := $(filter-out .//main.o, $(OBJS))
-lib: $(LIB_OBJS)
-	ar cr libomicro.a  $(LIB_OBJS)
+lib: $(LIB_OBJS) randombytes_dl.o
+	ar cr libomicro.a  $(LIB_OBJS) randombytes_dl.o
 
 $(PROGRAM):$(OBJS)
 ifeq ($(SRC_CXX),)              # C program

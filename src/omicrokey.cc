@@ -5,32 +5,35 @@
 #include "xxHash/xxhash.h"
 EXTERN_LOGGING
 
-OmicroKey::OmicroKey()
+/************************** node key *************************
+*
+*************************************************************/
+OmicroNodeKey::OmicroNodeKey()
 {
 }
 
-OmicroKey::~OmicroKey()
+OmicroNodeKey::~OmicroNodeKey()
 {
 }
 
 
-void OmicroKey::createKeyPair(sstr &secretKey, sstr &publicKey )
+void OmicroNodeKey::createKeyPair(sstr &secretKey, sstr &publicKey )
 {
 	uint8_t pk[CRYPTO_PUBLICKEYBYTES];
 	uint8_t sk[CRYPTO_SECRETKEYBYTES];
+	/**
 	unsigned char entropy_input[48];
-
 	for (int i=0; i<48; i++) {
 		entropy_input[i] = i;
 	}
 	randombytes_init(entropy_input, NULL, 256);
-
+	**/
 	crypto_kem_keypair(pk, sk);
 	base85Encode( sk, CRYPTO_SECRETKEYBYTES, secretKey );
 	base85Encode( pk, CRYPTO_PUBLICKEYBYTES, publicKey );
 }
 
-void OmicroKey::encrypt( const sstr &msg, const sstr &publicKey, sstr &cipher, sstr &passwd, sstr &encMsg )
+void OmicroNodeKey::encrypt( const sstr &msg, const sstr &publicKey, sstr &cipher, sstr &passwd, sstr &encMsg )
 {
 	uint8_t ct[CRYPTO_CIPHERTEXTBYTES];
 	uint8_t ss[CRYPTO_BYTES];
@@ -43,7 +46,7 @@ void OmicroKey::encrypt( const sstr &msg, const sstr &publicKey, sstr &cipher, s
 	aesEncrypt( msg, passwd, encMsg );
 }
 
-void OmicroKey::decrypt( const sstr &encMsg, const sstr &secretKey, const sstr &cipher, sstr &plain )
+void OmicroNodeKey::decrypt( const sstr &encMsg, const sstr &secretKey, const sstr &cipher, sstr &plain )
 {
 	uint8_t ct[CRYPTO_CIPHERTEXTBYTES];
 	uint8_t ss[CRYPTO_BYTES];
@@ -58,7 +61,7 @@ void OmicroKey::decrypt( const sstr &encMsg, const sstr &secretKey, const sstr &
 }
 
 
-void OmicroKey::sign( const sstr &msg, const sstr &pubKey, sstr &cipher, sstr &signature )
+void OmicroNodeKey::sign( const sstr &msg, const sstr &pubKey, sstr &cipher, sstr &signature )
 {
 	XXH64_hash_t hash = XXH64(msg.c_str(), msg.size(), 0 );
 	char buf[32];
@@ -71,7 +74,7 @@ void OmicroKey::sign( const sstr &msg, const sstr &pubKey, sstr &cipher, sstr &s
 	encrypt( hs, pubKey, cipher, passwd, signature);
 }
 
-bool OmicroKey::verify(const sstr &msg, const sstr &signature, const sstr &cipher, const sstr &secretKey )
+bool OmicroNodeKey::verify(const sstr &msg, const sstr &signature, const sstr &cipher, const sstr &secretKey )
 {
 	XXH64_hash_t hash = XXH64(msg.c_str(), msg.size(), 0 );
 
@@ -91,3 +94,63 @@ bool OmicroKey::verify(const sstr &msg, const sstr &signature, const sstr &ciphe
 	}
 }
 
+/******************** user key *****************************************
+*
+************************************************************************/
+OmicroUserKey::OmicroUserKey()
+{
+}
+
+OmicroUserKey::~OmicroUserKey()
+{
+}
+
+
+void OmicroUserKey::createKeyPair(sstr &secretKey, sstr &publicKey )
+{
+	uint8_t pk[CRYPTO_PUBLICKEYBYTES_DL];
+	uint8_t sk[CRYPTO_SECRETKEYBYTES_DL];
+	crypto_sign_keypair(pk, sk);
+	base85Encode( sk, CRYPTO_SECRETKEYBYTES_DL, secretKey );
+	base85Encode( pk, CRYPTO_PUBLICKEYBYTES_DL, publicKey );
+}
+
+void OmicroUserKey::sign( const sstr &msg, const sstr &secretKey, sstr &snmsg )
+{
+	int MLEN = msg.size();
+	uint8_t m[MLEN + CRYPTO_BYTES_DL];
+	memcpy(m, msg.c_str(), MLEN);
+
+	uint8_t sm[MLEN + CRYPTO_BYTES_DL];
+	size_t smlen;
+
+	uint8_t sk[CRYPTO_SECRETKEYBYTES_DL];
+	base85Decode( secretKey, sk, CRYPTO_SECRETKEYBYTES_DL);
+	
+	crypto_sign(sm, &smlen, m, MLEN, sk);
+
+	//crypto_sign(sm, &smlen, (uint8_t*)msg.c_str(), MLEN, sk);
+	base85Encode( sm, smlen, snmsg );
+	printf("a22200 smlen=%ld MLEN=%d MLEN + CRYPTO_BYTES_DL=%ld\n", smlen, MLEN, MLEN + CRYPTO_BYTES_DL );
+}
+
+bool OmicroUserKey::verify(const sstr &snmsg, const sstr &pubKey )
+{
+	uint8_t pk[CRYPTO_PUBLICKEYBYTES_DL];
+	base85Decode( pubKey, pk, CRYPTO_PUBLICKEYBYTES_DL);
+
+	size_t MLEN = snmsg.size();
+	uint8_t sm[MLEN + CRYPTO_BYTES_DL];
+	int smlen = base85Decode( snmsg, sm, MLEN + CRYPTO_BYTES_DL );
+
+	uint8_t m2[MLEN + CRYPTO_BYTES_DL];
+	size_t mlen;
+
+	int ret = crypto_sign_open(m2, &mlen, sm, smlen, pk);
+	if ( ret ) {
+		printf("a20028 ret=%d false\n", ret );
+		return false;
+	} else {
+		return true;
+	}
+}

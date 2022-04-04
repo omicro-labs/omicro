@@ -12,6 +12,7 @@
 #include "ommsghdr.h"
 #include "omicroclient.h"
 #include "omstrsplit.h"
+//#include "dilith.h"
 
 EXTERN_LOGGING
 using namespace boost::asio::ip;
@@ -227,13 +228,15 @@ void omsession::doTrxn(const char *msg, int msglen)
 		} else if ( xit == XIT_n ) {
 			// follower gets a trxn commit message
 			d("a9999 follower commit a TRXN %s from [%s]", s(trxnId), s(pfrom));
-			serv_.blockMgr_.saveTrxn( t );
+			serv_.blockMgr_.receiveTrxn( t );
 		} else if ( xit == XIT_z ) {
+			/***
 			// query trxn status
 			sstr res;
-			serv_.blockMgr_.queryTrxn( trxnId, res );
+			serv_.blockMgr_.queryTrxn( t.sender, trxnId, t.timestamp, res );
 			reply( res, socket_ ); 
 			d("a40088 received XIT_z return res");
+			***/
 		}
     }
 
@@ -248,11 +251,13 @@ void omsession::doQuery(const char *msg, int msglen)
 	OmStrSplit sp( msg, '|');
 	sstr qtype = sp[0]; 
 	sstr trxnId = sp[1]; 
+	sstr sender = sp[2]; 
+	sstr ts = sp[3]; 
 
 	if ( qtype == "QT" ) {
 		// query trxn status
 		sstr res;
-		serv_.blockMgr_.queryTrxn( trxnId, res );
+		serv_.blockMgr_.queryTrxn( sender, trxnId, ts, res );
 		reply( res, socket_ ); 
 		d("a40088 received QT return res");
 	} else if ( qtype == "QP" ) {
