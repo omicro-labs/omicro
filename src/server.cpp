@@ -284,7 +284,7 @@ void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			t.setVoteInt( totalVotes_[trxnId] );
 			strvec nullvec;
 			pvec(otherLeaders);
-			t.srvport = srvport_; 
+			t.srvport_ = srvport_; 
 			sstr dat; t.allstr(dat);
 			//d("a33221 %s round-2 multicast otherLeaders trnmsg=[%s] ...", s(id_), s(dat) );
 			multicast( otherLeaders, dat, false, nullvec );
@@ -349,7 +349,7 @@ void omserver::tryRecvM( const sstr &beacon, const sstr &trxnId, const sstr &cli
 void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
 					    const strvec &otherLeaders, const strvec &followers, OmicroTrxn &t )
 {
-	t.srvport = srvport_;
+	t.srvport_ = srvport_;
 
 	collectTrxn_[trxnId].push_back(1);
 	totalVotes_[trxnId] += t.getVoteInt();
@@ -371,7 +371,7 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			strvec nullvec;
 			d("a33281 %s multicast XIT_n followers ...", s(id_));
 			pvec(followers);
-			t.srvport = srvport_;
+			t.srvport_ = srvport_;
 			sstr dat; t.allstr(dat);
 			omserver::multicast( followers, dat, false, nullvec );
 			d("a33281 %s multicast XIT_n followers done", s(id_));

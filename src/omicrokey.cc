@@ -129,9 +129,8 @@ void OmicroUserKey::sign( const sstr &msg, const sstr &secretKey, sstr &snmsg )
 	
 	crypto_sign(sm, &smlen, m, MLEN, sk);
 
-	//crypto_sign(sm, &smlen, (uint8_t*)msg.c_str(), MLEN, sk);
 	base85Encode( sm, smlen, snmsg );
-	printf("a22200 smlen=%ld MLEN=%d MLEN + CRYPTO_BYTES_DL=%ld\n", smlen, MLEN, MLEN + CRYPTO_BYTES_DL );
+	// printf("a22200 smlen=%ld MLEN=%d MLEN + CRYPTO_BYTES_DL=%ld\n", smlen, MLEN, MLEN + CRYPTO_BYTES_DL );
 }
 
 bool OmicroUserKey::verify(const sstr &snmsg, const sstr &pubKey )
@@ -148,9 +147,25 @@ bool OmicroUserKey::verify(const sstr &snmsg, const sstr &pubKey )
 
 	int ret = crypto_sign_open(m2, &mlen, sm, smlen, pk);
 	if ( ret ) {
-		printf("a20028 ret=%d false\n", ret );
+		d("a20028 OmicroUserKey::verify ret=%d false\n", ret );
+		//d("a20028 snmsg=[%s]", s(snmsg) );
+		//d("a20028 userpubKey=[%s]", s(pubKey) );
+		//d("a20028 smlen=[%d]", smlen );
 		return false;
 	} else {
 		return true;
 	}
 }
+
+void OmicroUserKey::getUserId( const sstr &publicKey, sstr &userId )
+{
+	// get 24 byte ID from publicKey 
+	int len = publicKey.size();
+	if ( len < 500 ) {
+		return;
+	}
+	userId = publicKey.substr(0, 6) + publicKey.substr(18, 6) 
+	         + publicKey.substr( len - 256, 6) + publicKey.substr( len - 54, 6); 
+
+}
+

@@ -32,6 +32,7 @@ class omsession : public std::enable_shared_from_this<omsession>
 	void doQuery(const char *msg, int len);
 	bool initTrxn( OmicroTrxn &txn );
 	void makeSessionID();
+	bool validateTrxn( OmicroTrxn &txn );
   
 	boost::asio::io_context& io_context_;
 	omserver &serv_;
@@ -44,4 +45,4 @@ class omsession : public std::enable_shared_from_this<omsession>
 	sstr  sid_;
 };
 
-#endif // _SERVER_HPP
+#endif

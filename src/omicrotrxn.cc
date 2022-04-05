@@ -10,42 +10,46 @@ EXTERN_LOGGING
 
 OmicroTrxn::OmicroTrxn()
 {
-	hdr = "TT"; // plaintext, trxn
+	hdr_ = "TT"; // plaintext, trxn
 }
 
 OmicroTrxn::OmicroTrxn( const char *str )
 {
 	OmStrSplit sp(str, '|');
-	hdr = sp[0];
-	id = sp[1];
-	beacon = sp[2];
-	srvport = sp[3];
-	sender = sp[4];
-	receiver = sp[5];
-	amount = sp[6];
-	timestamp = sp[7];
-	trxntype = sp[8];
-	assettype = sp[9];
-	vote = sp[10];
+	hdr_ = sp[0];
+	id_ = sp[1];
+	beacon_ = sp[2];
+	srvport_ = sp[3];
+	sender_ = sp[4];
+	receiver_ = sp[5];
+	amount_ = sp[6];
+	timestamp_ = sp[7];
+	trxntype_ = sp[8];
+	assettype_ = sp[9];
+	//vote_ = sp[10];
 
-	pad1 = sp[11];
-	pad2 = sp[12];
-	pad3 = sp[13];
-	pad4 = sp[14];
-	pad5 = sp[15];
-	pad6 = sp[16];
-	pad7 = sp[17];
-	pad8 = sp[18];
-	pad9 = sp[19];
-	pad10 = sp[20];
+	pad1_ = sp[10];
+	pad2_ = sp[11];
+	pad3_ = sp[12];
+	pad4_ = sp[13];
+	pad5_ = sp[14];
+	pad6_ = sp[15];
+	pad7_ = sp[16];
+	pad8_ = sp[17];
+	pad9_ = sp[18];
+	pad10_ = sp[19];
+
+	//d("a33098 trxn str ctor pad9=[%s] pad10=[%s]", s(pad9_), s(pad10_) );
 
 	// node PKI
-	cipher = sp[21];
-	signature = sp[22];
+	cipher_ = sp[20];
+	signature_ = sp[21];
 
 	// user account PKI
-	userPubkey = sp[23];
-	userSignature = sp[24];
+	userPubkey_ = sp[22];
+	userSignature_ = sp[23];
+
+	vote_ = sp[24];
 }
 
 OmicroTrxn::~OmicroTrxn()
@@ -54,17 +58,17 @@ OmicroTrxn::~OmicroTrxn()
 
 void OmicroTrxn::setInitTrxn()
 {
-	hdr[TRXN_HEADER_START] = 'I'; 
+	hdr_[TRXN_HEADER_START] = 'I'; 
 }
 
 void OmicroTrxn::setNotInitTrxn()
 {
-	hdr[TRXN_HEADER_START] = 'N'; 
+	hdr_[TRXN_HEADER_START] = 'N'; 
 }
 
 bool OmicroTrxn::isInitTrxn()
 {
-	if ( 'I' == hdr[TRXN_HEADER_START] ) {
+	if ( 'I' == hdr_[TRXN_HEADER_START] ) {
 		return true;
 	} else {
 		return false;
@@ -78,18 +82,18 @@ void OmicroTrxn::setID()
     std::mt19937_64   engine(std::random_device{}());
     uint64_t r1 = distribution(engine);
     sprintf(s, "%lx", r1 );
-    id = s;
+    id_ = s;
 }
 
 //2nd byte
 void  OmicroTrxn::setXit( Byte xit)
 {
-	hdr[TRXN_HEADER_START+1] = xit;
+	hdr_[TRXN_HEADER_START+1] = xit;
 }
 
 Byte OmicroTrxn::getXit()
 {
-	return hdr[TRXN_HEADER_START+1];
+	return hdr_[TRXN_HEADER_START+1];
 }
 
 void OmicroTrxn::setBeacon()
@@ -97,13 +101,13 @@ void OmicroTrxn::setBeacon()
 	char s[7+1];
     ulong pm = ipow(10, 7);
     sprintf(s, "%*d", 7, int(time(NULL)%pm) );
-	beacon = s;
+	beacon_ = s;
 }
 
 
 double OmicroTrxn::getAmountDouble()
 {
-	double f = atof(amount.c_str());
+	double f = atof(amount_.c_str());
 	return f;
 }
 
@@ -114,18 +118,18 @@ void OmicroTrxn::setNowTimeStamp()
     gettimeofday( &now, NULL );
     ulong tot = now.tv_sec*1000000 + now.tv_usec;
     sprintf(tb, "%lu", tot );
-	timestamp = tb;
+	timestamp_ = tb;
 }
 
 ulong OmicroTrxn::getTimeStampUS()
 {
-	return atol(timestamp.c_str());
+	return atol(timestamp_.c_str());
 	// microseconds since epoch
 }
 
 int OmicroTrxn::getVoteInt()
 {
-	int num = atoi(vote.c_str());
+	int num = atoi(vote_.c_str());
 	return num;
 }
 
@@ -133,7 +137,7 @@ void OmicroTrxn::setVoteInt( int votes )
 {
 	char v[16];
 	sprintf(v, "%d", votes );
-	vote = v;
+	vote_ = v;
 }
 
 void OmicroTrxn::addVote(int vote)
@@ -156,68 +160,100 @@ void OmicroTrxn::makeNodeSignature( const sstr &nodePubKey)
 {
 	sstr data;
 	getTrxnData( data );
-	OmicroNodeKey::sign( data, nodePubKey, cipher, signature );
+	OmicroNodeKey::sign( data, nodePubKey, cipher_, signature_ );
+	/**
+	// debug
+	d("a222128 makeNodeSignature trxndata=[%s]", s(data) );
+	d("a222128 makeNodeSignature cipher=[%s]", s(cipher_) );
+	d("a222128 makeNodeSignature signature=[%s]", s(signature_) );
+	d("done makeNodeSignature\n");
+	**/
 }
 
 void OmicroTrxn::allstr( sstr &alldata )
 {
 	sstr data;
 	getTrxnData( data );
-	alldata = data + "|" + cipher + "|" + signature + "|" + userPubkey + "|" + userSignature;
+	alldata = data + "|" + cipher_ + "|" + signature_ + "|" 
+	          + userPubkey_ + "|" + userSignature_ + "|" + vote_;
 }
 
 void OmicroTrxn::getTrxnID( sstr &id )
 {
-	id = timestamp + ":" + sender;
+	id = timestamp_ + ":" + sender_;
 }
 
-bool OmicroTrxn::isValidClientTrxn( const sstr &secretKey)
+bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 {
 	ulong trxnTime = getTimeStampUS();
 	unsigned long nowt = getNowTimeUS();
 	if ( nowt - trxnTime > 60000000 ) {
 		// lag of 60 seconds
-		i("a303376 warn isValidClientTrxn() nowt=%ld trxnTime=%ld more than 60 seconds", nowt, trxnTime);
+		i("a303376 warn validateTrxn() nowt=%ld trxnTime=%ld more than 60 seconds", nowt, trxnTime);
 		return false;
 	}
 
 	// signature verification
 	sstr data;
 	getTrxnData( data );
-	bool rc = OmicroNodeKey::verify(data, signature, cipher, secretKey);
+	bool rc = OmicroNodeKey::verify(data, signature_, cipher_, secretKey);
+	if ( ! rc ) {
+		d("a34408 nodekey verify false");
+		return false;
+	}
 	/**
 	d("a22208 trxndata=[%s] len=%d  rc=%d", s(data), data.size(), rc );
 	d("a22208 secretKey=[%s] len=%d", s(secretKey), secretKey.size() );
 	d("a22208 cipher=[%s] len=%d", s(cipher), cipher.size() );
 	d("a22208 signature=[%s] len=%d", s(signature), signature.size() );
 	**/
-	return rc;
+
+	rc = OmicroUserKey::verify(userSignature_, userPubkey_ );
+	if ( ! rc ) {
+		d("a34438 userkey verify false");
+		return false;
+	}
+	/***
+	d("a327639 OmicroUserKey::verify userSignature_=[%s]", s(userSignature_));
+	d("a327639 OmicroUserKey::verify userPubkey_=[%s] rc=%d", s(userPubkey_), rc);
+	***/
+
+	if ( trxntype_ == OM_PAYMENT ) {
+		double amt = getAmountDouble();
+		if ( amt <= 0.0001 ) {
+			d("a31538 amt=%.6f too small", amt );
+			return false;
+		}
+	}
+
+	return true;
 }
 
 void OmicroTrxn::getTrxnData( sstr &data )
 {
-	data = hdr +
-	      + "|" + id 
-	      + "|" + beacon 
-	      + "|" + srvport 
-	      + "|" + sender 
-	      + "|" + receiver 
-	      + "|" + amount 
-	      + "|" + timestamp 
-	      + "|" + trxntype 
-	      + "|" + assettype 
-	      + "|" + vote 
-	      + "|" + pad1 
-	      + "|" + pad2 
-	      + "|" + pad3 
-	      + "|" + pad4 
-	      + "|" + pad5 
-	      + "|" + pad6 
-	      + "|" + pad7 
-	      + "|" + pad8 
-	      + "|" + pad9 
-	      + "|" + pad10
+	data = hdr_ +
+	      + "|" + id_ 
+	      + "|" + beacon_ 
+	      + "|" + srvport_ 
+	      + "|" + sender_ 
+	      + "|" + receiver_ 
+	      + "|" + amount_ 
+	      + "|" + timestamp_ 
+	      + "|" + trxntype_ 
+	      + "|" + assettype_ 
+	      + "|" + pad1_ 
+	      + "|" + pad2_ 
+	      + "|" + pad3_ 
+	      + "|" + pad4_ 
+	      + "|" + pad5_ 
+	      + "|" + pad6_ 
+	      + "|" + pad7_ 
+	      + "|" + pad8_ 
+	      + "|" + pad9_ 
+	      + "|" + pad10_
 		  ;
+
+	//d("a3330 getTrxnData pad9_=[%s] pad10_=[%s]", s(pad9_), s(pad10_) );
 }
 
 void OmicroTrxn::print()
@@ -226,27 +262,74 @@ void OmicroTrxn::print()
 }
 
 // for testing only
-void  OmicroTrxn::makeDummyTrxn( const sstr &pubkey )
+void  OmicroTrxn::makeSimpleTrxn( const sstr &nodePubkey, 
+		const sstr &userSecretKey, const sstr &userPublicKey,
+		const sstr &from, const sstr &to, const sstr &amt)
 {
-	hdr = "IT";
+	hdr_ = "IT";
 
-	beacon = "12345678";
+	beacon_ = "12345678";
 	//setBeacon();
-	srvport = "127.0.0.1:client";
+	srvport_ = "127.0.0.1:client";
 
-	sender = "0xAdhfgOkfuetOjr";
+	sender_ = from;
+	receiver_ = to;
 
-	receiver = "0xBIhwvGkBj8";
-
-	amount = "123456789.999999";
+	amount_ = amt;
 
 	setNowTimeStamp();
 
-	trxntype = "P"; // payment
+	trxntype_ = OM_PAYMENT; // payment
 
-	assettype = "XY";
+	assettype_ = "OC";
 	setVoteInt(0);
 
-	makeNodeSignature( pubkey );
+	makeNodeSignature( nodePubkey );
+	makeUserSignature( userSecretKey, userPublicKey );
+}
+
+void OmicroTrxn::makeNewAcctTrxn( const sstr &nodePubkey, 
+			const sstr &userSecretKey, const sstr &userPublicKey ) 
+{
+	sstr userId;
+	OmicroUserKey::getUserId( userPublicKey, userId );
+
+	hdr_ = "IT";
+
+	beacon_ = "12345678";
+	//setBeacon();
+	srvport_ = "127.0.0.1:client";
+
+	sender_ = userId;
+
+	receiver_ = "NA";
+	amount_ = "0";
+	setNowTimeStamp();
+
+	trxntype_ = OM_NEWACCT; // create acct
+	assettype_ = "";
+	setVoteInt(0);
+
+	makeNodeSignature( nodePubkey );
+	makeUserSignature( userSecretKey, userPublicKey );
+}
+
+void OmicroTrxn::makeUserSignature( const sstr &userSecretKey, const sstr &usrPubkey )
+{
+	d("a222101 makeUserSignature ...");
+	sstr data;
+	getTrxnData( data );
+	OmicroUserKey::sign( data, userSecretKey, userSignature_);
+	userPubkey_ = usrPubkey;
+
+	// debug
+	/***
+	bool rc = OmicroUserKey::verify( userSignature_, usrPubkey );
+	d("a222207 makeUserSignature verify rc=%d 0 is false", rc );
+	d("a222207 usrPubkey=[%s]", s(usrPubkey) );
+	d("a222207 userSecretKey=[%s]", s(userSecretKey) );
+	d("a222207 userSignature_=[%s]", s(userSignature_) );
+	d("a222207 trxndata=[%s]", s(data) );
+	***/
 }
 

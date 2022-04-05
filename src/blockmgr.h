@@ -19,6 +19,7 @@ class BlockMgr
 	int receiveTrxn( OmicroTrxn &trxn);
 	//void queryTrxn( const sstr &trxnid, sstr &res );
 	void queryTrxn( const sstr &from, const sstr &trxnId, const sstr &timestamp, sstr &res );
+	double getBalance( const sstr &from ) const;
 
 
   protected:
@@ -29,13 +30,8 @@ class BlockMgr
 	int updateAcctBalances( OmicroTrxn &trxn);
 	int createAcct( OmicroTrxn &trxn);
 	void markBlockchain(FILE *fp, OmicroTrxn &t, const sstr &userid, char stat );
-	int readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &rec );
+	int readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &rec, char &tstat, sstr &err );
 
-	/**
-	sstr getTrxnStoreFilePath( const sstr &trxnId );
-	sstr getFromStoreFilePath( const sstr &trxnId );
-	sstr getToStoreFilePath( const sstr &trxnId );
-	**/
 	sstr getUserPath( const sstr &userid );
 	sstr getAcctStoreFilePath( const sstr &userid);
 
@@ -44,8 +40,6 @@ class BlockMgr
   	const int DIR_LEVEL2_NUM = 1019; // do not change this
   	const int DIR_HASH_SEED1 = 1579; // do not change this
   	const int DIR_HASH_SEED2 = 2593; // do not change this
-	//std::vector<OmicroTrxn> mempool_;
-	//std::map<sstr, OmicroTrxn> mempool_;
 	std::unordered_map<sstr, OmstorePtr> trxnStoreMap_;
 	std::unordered_map<sstr, OmstorePtr> acctStoreMap_;
 

@@ -12,7 +12,6 @@
 #include "ommsghdr.h"
 #include "omicroclient.h"
 #include "omstrsplit.h"
-//#include "dilith.h"
 
 EXTERN_LOGGING
 using namespace boost::asio::ip;
@@ -113,10 +112,12 @@ void omsession::doTrxn(const char *msg, int msglen)
 	d("a028273 serv_.secKey_=[%s]", s(serv_.secKey_) );
 	***/
 
-	bool validTrxn = t.isValidClientTrxn( serv_.secKey_);
+	//bool validTrxn = t.validateTrxn( serv_.secKey_, serv_.blockMgr_ );
+	bool validTrxn = validateTrxn( t );
 
 	if ( ! validTrxn ) {
-		sstr m = sstr("BAD_INVALID_TRXN|") + id_;
+		//sstr m = sstr("BAD_INVALID_TRXN|") + id_;
+		sstr m = sstr("INVALID_TRXN|") + id_;
 		reply(m, socket_);
 		i("E40282 BAD_INVALID_TRXN ignore" );
 		return;
@@ -125,7 +126,7 @@ void omsession::doTrxn(const char *msg, int msglen)
 	sstr trxnId; 
 	bool isInitTrxn = t.isInitTrxn();
 	bool rc;
-	sstr pfrom = t.srvport;
+	sstr pfrom = t.srvport_;
 
 	if ( isInitTrxn ) {
 		t.setID();
@@ -148,7 +149,7 @@ void omsession::doTrxn(const char *msg, int msglen)
 		t.getTrxnID( trxnId );
 		d("a43714 exist trxnId=[%s]", s(trxnId) );
 		Byte xit = t.getXit();
-		sstr beacon = t.beacon;
+		sstr beacon = t.beacon_;
 		if ( xit == XIT_i ) {
 
 			d("a82208 %s recved XIT_i", s(sid_));
@@ -170,7 +171,7 @@ void omsession::doTrxn(const char *msg, int msglen)
 					strvec replyVec;
 					d("a31112 %s multicast XIT_j followers for vote expect reply ..", s(sid_));
 					pvec( followers );
-					t.srvport = serv_.srvport_;
+					t.srvport_ = serv_.srvport_;
 					sstr alld; t.allstr(alld);
 					serv_.multicast( followers, alld, true, replyVec );
 					d("a31112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(sid_), replyVec.size() );
@@ -274,7 +275,7 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 {
 	// find zone leaders and ask them to collect votes from members
 	// serv_.nodeList_ is std::vector<string>
-	sstr beacon = txn.beacon;
+	sstr beacon = txn.beacon_;
 	sstr trxnid; txn.getTrxnID( trxnid );
 	d("a80123 initTrxn() threadid=%ld beacon=[%s] trxnid=[%s]", pthread_self(), s(beacon), s(trxnid) );
 
@@ -295,7 +296,7 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	strvec replyVec;
 	d("a31181 multicast to ZoneLeaders expectReply=false ...");
 	pvec( hostVec );
-	txn.srvport = serv_.srvport_;
+	txn.srvport_ = serv_.srvport_;
 	sstr dat; txn.allstr(dat);
 	int connected = serv_.multicast( hostVec, dat, false, replyVec );
 	d("a31183 multicast to ZoneLeaders done connected=%d", connected);
@@ -319,3 +320,23 @@ void omsession::makeSessionID()
 	sid_ = buf;
 }
 
+bool omsession::validateTrxn( OmicroTrxn &txn )
+{
+	bool validTrxn = txn.validateTrxn( serv_.secKey_ );
+	if ( ! validTrxn ) {
+		i("E30290 trxn is not valid");
+		return false;
+	}
+
+	if ( txn.trxntype_ == OM_PAYMENT ) {
+    	double amt = txn.getAmountDouble();
+        double bal = serv_.blockMgr_.getBalance( txn.sender_ );
+        d("a44502 from=[%s] balance=[%.6f]", s(txn.sender_), bal );
+        if ( (bal - amt) < 0.0001 ) {
+            d("a30138 from=[%s] balance=%.6f not enough to pay %.6f", s(txn.sender_), bal, amt );
+            return false;
+        }
+	}
+
+	return true;
+}

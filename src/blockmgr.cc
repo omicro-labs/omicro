@@ -26,25 +26,25 @@ BlockMgr::~BlockMgr()
 
 int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 {
-	sstr yyyymmddhh = getYYYYMMDDHHFromTS(trxn.timestamp);
+	sstr yyyymmddhh = getYYYYMMDDHHFromTS(trxn.timestamp_);
 	d("a65701 receiveTrxn ...");
 
-	FILE *fp1 = appendToBlockchain(trxn, trxn.sender, '-', yyyymmddhh);
+	FILE *fp1 = appendToBlockchain(trxn, trxn.sender_, '-', yyyymmddhh);
 	if ( NULL == fp1 ) {
 		return -1;
 	}
 
-	FILE *fp2 = appendToBlockchain(trxn, trxn.receiver, '+', yyyymmddhh);
+	FILE *fp2 = appendToBlockchain(trxn, trxn.receiver_, '+', yyyymmddhh);
 	if ( NULL == fp2 ) {
 		fclose( fp1 );
-		rollbackFromBlockchain(trxn, trxn.sender, yyyymmddhh );
+		rollbackFromBlockchain(trxn, trxn.sender_, yyyymmddhh );
 		return -2;
 	}
 
 	int urc;
-	if ( trxn.trxntype == "P" ) {
+	if ( trxn.trxntype_ == OM_PAYMENT ) {
 		urc = updateAcctBalances(trxn);
-	} else if ( trxn.trxntype == "A" ) {
+	} else if ( trxn.trxntype_ == OM_NEWACCT ) {
 		urc = createAcct(trxn);
 	} else {
 		urc = -10;
@@ -69,7 +69,7 @@ int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 int BlockMgr::createAcct( OmicroTrxn &trxn)
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
-	sstr from = trxn.sender;
+	sstr from = trxn.sender_;
 	d("a32047 createAcct trxnId=[%s] from=[%s]", s(trxnId), s(from) );
 
 	OmstorePtr srcptr;
@@ -82,8 +82,8 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 		srcptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
 
 		OmAccount acct;
-		acct.balance = "0";
-		acct.pubkey = trxn.userPubkey;
+		acct.balance_ = "0";
+		acct.pubkey_ = trxn.userPubkey_;
 		sstr rec;
 		acct.str( rec );
 
@@ -101,8 +101,8 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
-	sstr from = trxn.sender;
-	sstr to = trxn.receiver;
+	sstr from = trxn.sender_;
+	sstr to = trxn.receiver_;
 	d("a32037 updateAcctBalances trxnId=[%s] from=[%s] to=[%s]", s(trxnId), s(from), s(to) );
 
 	OmstorePtr srcptr;
@@ -111,8 +111,8 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 	sstr ts; trxn.getTrxnData(ts);
 	double amt = trxn.getAmountDouble();
 
-	int  fromstat = 0;
-	int  tostat = 0;
+	//int  fromstat = 0;
+	//int  tostat = 0;
 
 	auto itr1 = acctStoreMap_.find( from );
 	if ( itr1 == acctStoreMap_.end() ) {
@@ -121,12 +121,11 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 		srcptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
 		fromstat = 1;
 		**/
-		fromstat = 1;
 		i("E22276 error user from=[%s] does not exist", s(from));
 		return -90;
 	} else {
 		srcptr = itr1->second;
-		fromstat = 2;
+		//fromstat = 2;
 	}
 
 	auto itr2 = acctStoreMap_.find( to );
@@ -136,12 +135,11 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 		dstptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
 		tostat = 1;
 		***/
-		tostat = 1;
 		i("E23276 error user to=[%s] does not exist", s(to));
 		return -92;
 	} else {
 		dstptr = itr2->second;
-		tostat = 2;
+		//tostat = 2;
 	}
 
 	char *fromrec = srcptr->get( from.c_str() );
@@ -238,13 +236,22 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &to, const sstr &trxnId, 
 void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &timestamp, sstr &res )
 {
 	std::vector<sstr> vec;
-	int rc = readTrxns( from, timestamp, trxnId, vec );
-	if ( rc < 0 || vec.size() < 1 ) {
-		i("E45208 error find [%s] rc=%d", s(trxnId), rc );
-		if ( rc < 0 ) {
-			i("E45228 error block data is corrupted. rc=%d", rc );
-		}
+	char tstat = '0';
+	sstr err;
+	int rc = readTrxns( from, timestamp, trxnId, vec, tstat, err );
 
+	if ( rc < 0 || tstat == 'F' ) {
+		if ( rc < 0 ) {
+			res = trxnId + "|FAILED|" + err;
+		} else {
+			res = trxnId + "|FAILED|TrxnError";
+		}
+		i("E30298 %s", err.c_str() );
+		return;
+	}
+
+	if ( vec.size() < 1 ) {
+		//may be OK, just late
 		res = trxnId + "|NOTFOUND";
 		return;
 	}
@@ -254,9 +261,9 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 }
 
 // get a list of trxns of user from. If trxnId is not empty, get specific trxn
-int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &vec )
+int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &vec, char &tstat, sstr &err )
 {
-	d("a53001 readTrxns from=[%s] timestamp=[%s] trxnId=[%s]", s(from), s(timestamp), s(trxnId) );
+	//d("a53001 readTrxns from=[%s] timestamp=[%s] trxnId=[%s]", s(from), s(timestamp), s(trxnId) );
 
 	sstr yyyymmddhh = getYYYYMMDDHHFromTS(timestamp);
 
@@ -265,10 +272,11 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 	int fd = open( fpath.c_str(), O_RDONLY|O_NOATIME );
 	if ( fd < 0 ) {
 		i("E45508 error open from=[%s] [%s]", s(from), s(fpath) );
+		err = "System error: unable to find user data";
 		return -100;
 	}
-	long off = lseek(fd, 0, SEEK_SET );
-	d("a2329 readTrxns from=[%s] fpath=[%s] offset=%ld", s(from), s(fpath), off);
+	lseek(fd, 0, SEEK_SET );
+	//d("a2329 readTrxns from=[%s] fpath=[%s] offset=%ld", s(from), s(fpath), off);
 
 	//fprintf(fp, "%ld~%c~%s~%ld~T~", tsize, ttype, tdata.c_str(), tsize );
 	char c;
@@ -280,38 +288,39 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 	sstr trxn_tid;
 
 	while ( true ) {
-
 		// read trxnlength
 		idx = 0;
 		memset(dbuf, 0, 16);
 		while ( 1==read(fd, &c, 1) ) {
 			if ( idx > 7 ) {
 				i("E12104 length field too long idx=%d dbuf=[%s]", idx, dbuf);
+				err = "System error: E12104";
 				::close(fd);
 				return -1;
 			}
 			if ( ::isdigit(c) ) {
 				dbuf[idx] = c;
 				++idx;
-				d("a13104 idx=%d dbuf=[%s] c=[%c]", idx, dbuf, c);
+				//d("a13104 idx=%d dbuf=[%s] c=[%c]", idx, dbuf, c);
 			} else {
 				break;
 			}
 		}
 		if ( idx < 1 ) {
 			::close(fd);
-			d("a33381 end of file");
+			//d("a33381 end of file");
 			break;
 		}
 		dbuf[idx] = '\0';
 		tsize = atoi(dbuf);
-		d("a11100 first dbuf=[%s] idx=%d", dbuf, idx );
+		//d("a11100 first dbuf=[%s] idx=%d", dbuf, idx );
 
 		// fprintf(fp, "%ld~%c~%s~%ld~F~", tsize, ttype, tdata.c_str(), tsize );
 		// c is '~' now
 		rd = read(fd, &c, 1); // read in - or +
 		if ( rd != 1 ) {
 			i("E12214 ts read -/+ error" );
+			err = "System error: E12214";
 			::close(fd);
 			return -10;
 		}
@@ -319,6 +328,7 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 		rd = read(fd, &c, 1); // read in ~
 		if ( rd != 1 || c != '~' ) {
 			i("E12215 ts read ~ error" );
+			err = "System error: E12215";
 			::close(fd);
 			return -20;
 		}
@@ -329,15 +339,17 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 		rdsize = saferead(fd, pt, tsize);
 		if ( rdsize != tsize ) {
 			i("E12114 ts read size mismtach tsize=%d != rdsize=%d", tsize, rdsize);
+			err = "System error: E12114";
 			::close(fd);
 			free(pt);
 			return -1;
 		}
-		d("a10234 tsize=%d", tsize );
+		//d("a10234 tsize=%d", tsize );
 
 		rd = read(fd, &c, 1); // read in ~
 		if ( rd != 1 || c != '~' ) {
 			i("E12216 ts read ~ error" );
+			err = "System error: E12216";
 			::close(fd);
 			free(pt);
 			return -30;
@@ -349,6 +361,7 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 		while ( 1==read(fd, &c, 1) ) {
 			if ( idx > 7 ) {
 				i("E12113 second length field too long");
+				err = "System error: E12113";
 				::close(fd);
 				free(pt);
 				return -40;
@@ -356,13 +369,14 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 			if ( isdigit(c) ) {
 				dbuf[idx] = c;
 				++idx;
-				d("a21087 second dbuf=[%s] idx=%d", dbuf, idx );
+				//d("a21087 second dbuf=[%s] idx=%d", dbuf, idx );
 			} else {
 				break;
 			}
 		}
 		if ( idx < 1 ) {
 			i("E12115 ts read size error" );
+			err = "System error: E12115";
 			::close(fd);
 			free(pt);
 			return -50;
@@ -372,19 +386,22 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 		if ( rdsize != tsize ) {
 			i("E12116 warning second tsize=%d != rdsize=%d", tsize, rdsize);
 		}
-		d("a11102 second dbuf=[%s] idx=%d", dbuf, idx );
+		//d("a11102 second dbuf=[%s] idx=%d", dbuf, idx );
 
 		// c is '~' now
 		rd = read(fd, &c, 1); // read in F/T
 		if ( rd != 1 ) {
 			i("E12215 ts read F/T error" );
+			err = "System error: E12215";
 			::close(fd);
 			free(pt);
 			return -60;
 		}
+		tstat = c;
 
 		if ( c != 'F' && c != 'T' ) {
 			i("E12245 ts read F/T error c=[%c]", c );
+			err = "System error: E12245";
 			::close(fd);
 			free(pt);
 			return -64;
@@ -393,6 +410,7 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 		rd = read(fd, &c, 1); // read in ~
 		if ( rd != 1 || c != '~' ) {
 			i("E12216 ts read ~ error" );
+			err = "System error: E12216";
 			::close(fd);
 			free(pt);
 			return -70;
@@ -402,6 +420,7 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 		OmStrSplit sp( pt, '|');
 		if ( sp.length() < 10 ) {
 			i("E12218 ts format error len=%d", sp.length() );
+			err = "System error: E12218";
 			::close(fd);
 			free(pt);
 			return -70;
@@ -412,7 +431,7 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 			//trxn_timestamp = sp[7];
 			trxn_tid = sp[7] + ":" + sp[4];
 			if ( trxn_tid == trxnId ) {
-				d("a5023 found trxn for tid=[%s]", s(trxnId) );
+				//d("a5023 found trxn for tid=[%s]", s(trxnId) );
 				vec.push_back(pt);
 			}
 		} 
@@ -423,10 +442,12 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 	}
 
 	::close(fd);
-	d("a56411 readTrxns from [%s] vec.size=%d", fpath.c_str(), vec.size() );
+	//d("a56411 readTrxns from [%s] vec.size=%d", fpath.c_str(), vec.size() );
+	/***
 	if ( vec.size() > 0 ) {
 		d("a19721 vec[0]=[%s]", s(vec[0]) );
 	}
+	***/
 	return 0;
 }
 
@@ -519,4 +540,25 @@ void BlockMgr::rollbackFromBlockchain( OmicroTrxn &t, const sstr &userid, const 
 	d("a52881 wrote blocks to [%s]", fpath.c_str() );
 	***/
 }
+
+double BlockMgr::getBalance( const sstr &from ) const
+{
+	OmstorePtr srcptr;
+
+	auto itr = acctStoreMap_.find( from );
+	if ( itr == acctStoreMap_.end() ) {
+		return -999.0;
+	}
+
+	srcptr = itr->second;
+
+	char *fromrec = srcptr->get( from.c_str() );
+	if ( NULL == fromrec ) {
+		return -9999.0;
+	}
+
+	OmAccount fromAcct( fromrec );
+	return fromAcct.getBalance();
+}
+
 

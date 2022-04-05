@@ -28,6 +28,7 @@ class OmicroUserKey
   	~OmicroUserKey();
 
 	static void createKeyPair( sstr &secretKey, sstr &publicKey );
+	static void getUserId( const sstr &publicKey, sstr &userId );
 
 	static void sign( const sstr &msg, const sstr &secretKey, sstr &snmsg );
 	static bool verify(const sstr &sm, const sstr &pubKey );

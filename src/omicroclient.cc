@@ -165,15 +165,15 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 	sstr trxnId = sp[2];
 	d("a42228 sendTrxn reply=[%s]\n", s(reply));
 
-	if ( strstr( stat.c_str(), "BAD" ) ) {
-		d("a32208 got BAD from server [%s]", stat.c_str() );
+	if ( strstr( stat.c_str(), "BAD" ) || strstr( stat.c_str(), "INVALID" ) ) {
+		d("a32208 got BAD/INVALID from server [%s]", stat.c_str() );
 		return stat;
 	}
 
 	OmicroQuery q;
 	q.setTrxnId( trxnId );
-	q.setSender( t.sender );
-	q.setTimeStamp( t.timestamp );
+	q.setSender( t.sender_ );
+	q.setTimeStamp( t.timestamp_ );
 
 	int WAIT_MS = 50;
 	int waitCnt = waitSeconds*(1000/WAIT_MS);
@@ -181,6 +181,9 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 	sstr data; q.str(data);
 	while ( true ) {
 		reply = sendMessage( OM_RQ, data, true );
+		if ( strstr( reply.c_str(), "FAILED") ) {
+			break;
+		}
 		if ( ! strstr( reply.c_str(), "NOTFOUND") ) {
 			break;
 		}
