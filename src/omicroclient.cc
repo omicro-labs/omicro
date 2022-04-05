@@ -82,7 +82,7 @@ OmicroClient::OmicroClient( const char *srv, int port )
 OmicroClient::~OmicroClient()
 {
 	if ( connectOK_ ) {
-		d("a72231 dtor of OmicroClient client_.stop()");
+		//d("a72231 dtor of OmicroClient client_.stop()");
 		::close( socket_);
 	}
 }

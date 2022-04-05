@@ -23,8 +23,22 @@ void readUserKey( sstr num, sstr &secKey, sstr &pubKey );
 int main(int argc, char* argv[])
 {
 	g_debug = true;
+
+	if ( argc < 2 ) {
+		printf("Usage: %s  key\n", argv[0]);
+		printf("Usage: %s  <serverIP>  <serverPort>  <acct/pay>\n", argv[0]);
+		exit(1);
+	}
+
+	if ( 0 == strcmp(argv[1], "key" ) ) {
+		createUserKey("user1");
+		createUserKey("user2");
+		return 0;
+	}
+
 	if ( argc < 4 ) {
-		printf("Usage: %s  <serverIP>  <serverPort>  <key/acct/pay>\n", argv[0]);
+		printf("Usage: %s  key\n", argv[0]);
+		printf("Usage: %s  <serverIP>  <serverPort>  <acct/pay>\n", argv[0]);
 		exit(1);
 	}
 
