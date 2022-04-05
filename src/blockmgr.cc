@@ -52,12 +52,12 @@ int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 
 	if ( urc < 0 ) {
 		// mark log failure 'F'
-		fprintf(fp1, "F~");
-		fprintf(fp2, "F~");
+		fprintf(fp1, "F}");
+		fprintf(fp2, "F}");
 	} else {
 		// mark log success 'T'
-		fprintf(fp1, "T~");
-		fprintf(fp2, "T~");
+		fprintf(fp1, "T}");
+		fprintf(fp2, "T}");
 	}
 
 	fclose(fp1);
@@ -408,8 +408,8 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 		}
 
 		rd = read(fd, &c, 1); // read in ~
-		if ( rd != 1 || c != '~' ) {
-			i("E12216 ts read ~ error" );
+		if ( rd != 1 || c != '}' ) {
+			i("E12216 ts read } error" );
 			err = "System error: E12216";
 			::close(fd);
 			free(pt);
