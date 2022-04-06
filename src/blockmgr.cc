@@ -100,6 +100,8 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 		OmAccount acct;
 		acct.balance_ = "0";
 		acct.pubkey_ = trxn.userPubkey_;
+		acct.fence_ = "0";
+
 		sstr rec;
 		acct.str( rec );
 
@@ -162,18 +164,6 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 	char *torec = dstptr->get( to.c_str() );
 
 	if ( NULL != fromrec && NULL != torec ) {
-		/***
-		frombal = atof(fromrec);
-		tobal = atof(torec);
-		frombal -= amt;
-		tobal += amt;
-
-		sprintf(abuf, "%.6f", frombal);
-		srcptr->put( from.c_str(), from.size(), abuf, strlen(abuf) ); 
-
-		sprintf(abuf, "%.6f", tobal);
-		dstptr->put( to.c_str(), to.size(), abuf, strlen(abuf) ); 
-		***/
 		OmAccount fromAcct( fromrec );
 		OmAccount toAcct( torec );
 		double bal = fromAcct.addBalance( 0.0 - amt);
@@ -181,6 +171,8 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 			i("E40313 error from=[%s] acct balance error [%f]", s(from), bal );
 			return -30;
 		}
+		
+		fromAcct.incrementFence();
 
 		toAcct.addBalance( amt );
 
@@ -189,21 +181,8 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 		toAcct.str( toNew );
 
 		srcptr->put( from.c_str(), from.size(), fromNew.c_str(), fromNew.size() );
+
 		dstptr->put( to.c_str(), to.size(), toNew.c_str(), toNew.size() );
-
-		/***
-		if ( 1 == fromstat ) {
-			// add store pointer for the from user
-			acctStoreMap_.emplace( from, srcptr );
-			d("98272 from, srcptr added");
-		}
-
-		if ( 1 == tostat ) {
-			// add store pointer for the to user
-			acctStoreMap_.emplace( to, dstptr );
-			d("98272 to, dstptr added");
-		}
-		***/
 
 	} else {
 		if ( NULL == fromrec ) {
@@ -219,36 +198,6 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 	return 0;
 }
 
-#if 0
-void BlockMgr::queryTrxn( const sstr &from, const sstr &to, const sstr &trxnId, const sstr &timestamp, sstr &res )
-{
-	// find in mempool first
-	sstr tid;
-	for ( auto& t: mempool_ ) {
-		t.getTrxnID( tid );
-		if ( tid == trxnId ) {
-			t.getTrxnData( res );
-			return;
-		}
-	}
-
-	auto itr = trxnStoreMap_.find( trxnId );
-	if ( itr == trxnStoreMap_.end() ) {
-		res = trxnId + "|NOTFOUND1";
-		return;
-	} else {
-		char *p = itr->second->get( trxnId.c_str() ); 
-		if ( NULL == p ) {
-			res = trxnId + "|NOTFOUND2";
-			return; 
-		} else {
-			res = sstr(p);
-			return;
-		}
-	}
-}
-#endif
-
 void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &timestamp, sstr &res )
 {
 	std::vector<sstr> vec;
@@ -260,7 +209,7 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 		if ( rc < 0 ) {
 			res = trxnId + "|FAILED|" + err;
 		} else {
-			res = trxnId + "|FAILED|TrxnError";
+			res = trxnId + "|FAILED|TRXNERROR";
 		}
 		i("E30298 %s", err.c_str() );
 		return;
@@ -577,4 +526,43 @@ double BlockMgr::getBalance( const sstr &from ) const
 	return fromAcct.getBalance();
 }
 
+int BlockMgr::getBalanceAndPubkey( const sstr &from, double &bal, sstr &pubkey ) const
+{
+	OmstorePtr srcptr;
+	auto itr = acctStoreMap_.find( from );
+	if ( itr == acctStoreMap_.end() ) {
+		return -99;
+	}
+
+	srcptr = itr->second;
+
+	char *fromrec = srcptr->get( from.c_str() );
+	if ( NULL == fromrec ) {
+		return -999;
+	}
+
+	OmAccount fromAcct( fromrec );
+	bal = fromAcct.getBalance();
+	pubkey = fromAcct.pubkey_;
+	return 0;
+}
+
+void BlockMgr::getFence( const sstr &from, sstr &fence )
+{
+	OmstorePtr srcptr;
+	auto itr = acctStoreMap_.find( from );
+	if ( itr == acctStoreMap_.end() ) {
+		return;
+	}
+
+	srcptr = itr->second;
+
+	char *fromrec = srcptr->get( from.c_str() );
+	if ( NULL == fromrec ) {
+		return;
+	}
+
+	OmAccount fromAcct( fromrec );
+	fence = fromAcct.fence_;
+}
 

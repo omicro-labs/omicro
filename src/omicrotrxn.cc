@@ -66,6 +66,7 @@ OmicroTrxn::OmicroTrxn( const char *str )
 	userSignature_ = sp[23];
 
 	vote_ = sp[24];
+	fence_ = sp[25];
 }
 
 OmicroTrxn::~OmicroTrxn()
@@ -191,7 +192,7 @@ void OmicroTrxn::allstr( sstr &alldata )
 	sstr data;
 	getTrxnData( data );
 	alldata = data + "|" + cipher_ + "|" + signature_ + "|" 
-	          + userPubkey_ + "|" + userSignature_ + "|" + vote_;
+	          + userPubkey_ + "|" + userSignature_ + "|" + vote_ + "|" + fence_;
 }
 
 void OmicroTrxn::getTrxnID( sstr &id )

@@ -13,9 +13,15 @@ class OmAccount
 	void str( sstr &res );
 	double addBalance(double amt);
 	double getBalance(); 
+	ulong  getFence();
+	void   incrementFence();
 
   	sstr balance_;
   	sstr pubkey_;
+  	sstr fence_;
+  	sstr pad1_;
+  	sstr pad2_;
+  	sstr pad3_;
     
 };
 

@@ -25,6 +25,12 @@
 #include "omutil.h"
 #include "omstrsplit.h"
 
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/error/en.h>
+
+
 EXTERN_LOGGING
 
 unsigned int onefplus1( int N )

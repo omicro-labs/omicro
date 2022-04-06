@@ -128,9 +128,11 @@ void omsession::doTrxn(const char *msg, int msglen)
 	d("a028273 serv_.secKey_=[%s]", s(serv_.secKey_) );
 	***/
 
-	//bool validTrxn = t.validateTrxn( serv_.secKey_, serv_.blockMgr_ );
-	bool validTrxn = validateTrxn( t );
 
+	sstr trxnId; 
+	bool isInitTrxn = t.isInitTrxn();
+
+	bool validTrxn = validateTrxn( t, isInitTrxn );
 	if ( ! validTrxn ) {
 		//sstr m = sstr("BAD_INVALID_TRXN|") + id_;
 		sstr m = sstr("INVALID_TRXN|") + id_;
@@ -139,8 +141,6 @@ void omsession::doTrxn(const char *msg, int msglen)
 		return;
 	}
 
-	sstr trxnId; 
-	bool isInitTrxn = t.isInitTrxn();
 	bool rc;
 	sstr pfrom = t.srvport_;
 
@@ -148,10 +148,13 @@ void omsession::doTrxn(const char *msg, int msglen)
 		t.setID();
 		t.getTrxnID( trxnId );
 		d("a43713 init trxnId=[%s]", s(trxnId) );
-		sstr m;
 		d("a333301  i am clientnode, launching initTrxn ..." );
+		// add fence_ of sender
+		sstr fence;
+		serv_.blockMgr_.getFence( t.sender_, fence );
 		rc = initTrxn( t );
 		d("a333301  i am clientnode, launched initTrxn rc=%d", rc );
+		sstr m;
 		if ( rc ) {
 			m = sstr("GOOD_TRXN|initTrxn|") +trxnId + "|" + sid_;
 		} else {
@@ -336,7 +339,7 @@ void omsession::makeSessionID()
 	sid_ = buf;
 }
 
-bool omsession::validateTrxn( OmicroTrxn &txn )
+bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn )
 {
 	bool validTrxn = txn.validateTrxn( serv_.secKey_ );
 	if ( ! validTrxn ) {
@@ -345,13 +348,37 @@ bool omsession::validateTrxn( OmicroTrxn &txn )
 	}
 
 	if ( txn.trxntype_ == OM_PAYMENT ) {
+		double bal;
+		sstr pubkey;
+		int rc = serv_.blockMgr_.getBalanceAndPubkey( txn.sender_, bal, pubkey );
+		if ( rc < 0 ) {
+            i("E32018 from=[%s] invalid rc=%d", s(txn.sender_), rc );
+            return false;
+		}
+
+		if ( pubkey != txn.userPubkey_ ) {
+            i("E32016 from=[%s] pubkey ", s(txn.sender_) );
+            i("E32016 txn.pubkey=[%s]", s(txn.userPubkey_) );
+            i("E32016 acct.pubkey=[%s]", s(pubkey) );
+            return false;
+		}
+
     	double amt = txn.getAmountDouble();
-        double bal = serv_.blockMgr_.getBalance( txn.sender_ );
         d("a44502 from=[%s] balance=[%.6f]", s(txn.sender_), bal );
         if ( (bal - amt) < 0.0001 ) {
             d("a30138 from=[%s] balance=%.6f not enough to pay %.6f", s(txn.sender_), bal, amt );
             return false;
         }
+
+		if ( ! isInitTrxn ) {
+			sstr fromFence;
+			serv_.blockMgr_.getFence( txn.sender_, fromFence);
+			if ( txn.fence_ != fromFence ) {
+            	i("E32012 from=[%s] txn.fence_=[%s] != fromFence=[%s]", s(txn.sender_), s(txn.fence_), s(fromFence) );
+				return false;
+			}
+
+		}
 	}
 
 	return true;

@@ -17,9 +17,10 @@ class BlockMgr
     ~BlockMgr();
 
 	int receiveTrxn( OmicroTrxn &trxn);
-	//void queryTrxn( const sstr &trxnid, sstr &res );
 	void queryTrxn( const sstr &from, const sstr &trxnId, const sstr &timestamp, sstr &res );
 	double getBalance( const sstr &from ) const;
+	int    getBalanceAndPubkey( const sstr &from, double &bal, sstr &pubkey ) const;
+	void   getFence( const sstr &from, sstr &fence );
 
 
   protected:
