@@ -22,6 +22,8 @@
 #include "omutil.h"
 #include "omstrsplit.h"
 #include "omicrokey.h"
+#include "omquery.h"
+#include "omlog.h"
 EXTERN_LOGGING
 
 OmicroTrxn::OmicroTrxn()
@@ -31,42 +33,44 @@ OmicroTrxn::OmicroTrxn()
 
 OmicroTrxn::OmicroTrxn( const char *str )
 {
+	int i=0;
 	OmStrSplit sp(str, '|');
-	hdr_ = sp[0];
-	id_ = sp[1];
-	beacon_ = sp[2];
-	srvport_ = sp[3];
-	sender_ = sp[4];
-	receiver_ = sp[5];
-	amount_ = sp[6];
-	timestamp_ = sp[7];
-	trxntype_ = sp[8];
-	assettype_ = sp[9];
-	//vote_ = sp[10];
+	hdr_ = sp[i++]; 
+	id_ = sp[i++];
+	beacon_ = sp[i++];
+	srvport_ = sp[i++];
+	sender_ = sp[i++];
+	receiver_ = sp[i++];
+	amount_ = sp[i++];
+	timestamp_ = sp[i++];
+	trxntype_ = sp[i++];
+	assettype_ = sp[i++];
+	request_ = sp[i++];
 
-	pad1_ = sp[10];
-	pad2_ = sp[11];
-	pad3_ = sp[12];
-	pad4_ = sp[13];
-	pad5_ = sp[14];
-	pad6_ = sp[15];
-	pad7_ = sp[16];
-	pad8_ = sp[17];
-	pad9_ = sp[18];
-	pad10_ = sp[19];
+	pad1_ = sp[i++];
+	pad2_ = sp[i++];
+	pad3_ = sp[i++];
+	pad4_ = sp[i++];
+	pad5_ = sp[i++];
+	pad6_ = sp[i++];
+	pad7_ = sp[i++];
+	pad8_ = sp[i++];
+	pad9_ = sp[i++];
+	pad10_ = sp[i++];
 
 	//d("a33098 trxn str ctor pad9=[%s] pad10=[%s]", s(pad9_), s(pad10_) );
 
 	// node PKI
-	cipher_ = sp[20];
-	signature_ = sp[21];
+	cipher_ = sp[i++];
+	signature_ = sp[i++];
 
 	// user account PKI
-	userPubkey_ = sp[22];
-	userSignature_ = sp[23];
+	userPubkey_ = sp[i++];
+	userSignature_ = sp[i++];
 
-	vote_ = sp[24];
-	fence_ = sp[25];
+	vote_ = sp[i++];
+	fence_ = sp[i++];
+	response_ = sp[i++];
 }
 
 OmicroTrxn::~OmicroTrxn()
@@ -177,7 +181,7 @@ void OmicroTrxn::makeNodeSignature( const sstr &nodePubKey)
 {
 	sstr data;
 	getTrxnData( data );
-	OmicroNodeKey::sign( data, nodePubKey, cipher_, signature_ );
+	OmicroNodeKey::signSB3( data, nodePubKey, cipher_, signature_ );
 	/**
 	// debug
 	d("a222128 makeNodeSignature trxndata=[%s]", s(data) );
@@ -192,7 +196,8 @@ void OmicroTrxn::allstr( sstr &alldata )
 	sstr data;
 	getTrxnData( data );
 	alldata = data + "|" + cipher_ + "|" + signature_ + "|" 
-	          + userPubkey_ + "|" + userSignature_ + "|" + vote_ + "|" + fence_;
+	          + userPubkey_ + "|" + userSignature_ + "|" + vote_ + "|" + fence_
+			  + "|" + response_;
 }
 
 void OmicroTrxn::getTrxnID( sstr &id )
@@ -213,7 +218,7 @@ bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 	// signature verification
 	sstr data;
 	getTrxnData( data );
-	bool rc = OmicroNodeKey::verify(data, signature_, cipher_, secretKey);
+	bool rc = OmicroNodeKey::verifySB3(data, signature_, cipher_, secretKey);
 	if ( ! rc ) {
 		d("a34408 nodekey verify false");
 		return false;
@@ -225,7 +230,7 @@ bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 	d("a22208 signature=[%s] len=%d", s(signature), signature.size() );
 	**/
 
-	rc = OmicroUserKey::verify(userSignature_, userPubkey_ );
+	rc = OmicroUserKey::verifyDL5(userSignature_, userPubkey_ );
 	if ( ! rc ) {
 		d("a34438 userkey verify false");
 		return false;
@@ -258,6 +263,7 @@ void OmicroTrxn::getTrxnData( sstr &data )
 	      + "|" + timestamp_ 
 	      + "|" + trxntype_ 
 	      + "|" + assettype_ 
+	      + "|" + request_ 
 	      + "|" + pad1_ 
 	      + "|" + pad2_ 
 	      + "|" + pad3_ 
@@ -336,7 +342,7 @@ void OmicroTrxn::makeUserSignature( const sstr &userSecretKey, const sstr &usrPu
 	d("a222101 makeUserSignature ...");
 	sstr data;
 	getTrxnData( data );
-	OmicroUserKey::sign( data, userSecretKey, userSignature_);
+	OmicroUserKey::signDL5( data, userSecretKey, userSignature_);
 	userPubkey_ = usrPubkey;
 
 	// debug
@@ -348,5 +354,31 @@ void OmicroTrxn::makeUserSignature( const sstr &userSecretKey, const sstr &usrPu
 	d("a222207 userSignature_=[%s]", s(userSignature_) );
 	d("a222207 trxndata=[%s]", s(data) );
 	***/
+}
+
+void OmicroTrxn::makeAcctQuery( const sstr &nodePubkey, const sstr &secretKey, 
+								const sstr &publicKey, const sstr &fromId )
+{
+	hdr_ = "IT";
+	setBeacon();
+	srvport_ = "127.0.0.1:client";
+
+	sender_ = fromId;
+	setNowTimeStamp();
+	trxntype_ = OM_QUERY; 
+
+	OmQuery q;
+	q.addField("balance");
+	q.addField("out");
+	q.addField("in");
+	q.addField("tokentype");
+	q.addField("keytype");
+	sstr qstr;
+	q.str( qstr );
+	request_ = qstr;
+
+	setVoteInt(0);
+	makeNodeSignature( nodePubkey );
+	makeUserSignature( secretKey, publicKey );
 }
 

@@ -12,7 +12,8 @@
 
 // msg type: query or trxn 
 #define OM_RQ          'Q'
-#define OM_RX          'T'
+#define OM_TXN         'T'  // OM_RX
+#define OM_XNQ         'X'
 
 // query type
 #define  OM_RQ_PK    'P'

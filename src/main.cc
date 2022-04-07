@@ -16,6 +16,7 @@
  */
 #include <string>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <boost/asio.hpp>
 #include "server.hpp"

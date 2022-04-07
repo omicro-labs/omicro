@@ -31,6 +31,7 @@
 
 EXTERN_LOGGING
 using namespace boost::asio::ip;
+using bcode = boost::system::error_code;
 
 omsession::omsession(boost::asio::io_context& io_context, omserver &srv, tcp::socket socket)
         : io_context_(io_context), serv_(srv), socket_(std::move(socket))
@@ -62,26 +63,29 @@ void omsession::do_read()
 				ulong dlen = mhdr.getLength();
 				char *data = (char*)malloc( dlen+1 );
 				data[dlen] = '\0';
-				//d("a63003 a91838 srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
+				d("a63003 a91838 srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
 
 				bcode ec2;
 				int len2 =  boost::asio::read( socket_, boost::asio::buffer(data,dlen), ec2 );
-				//d("a45023 boost::asio::read len2=%d dlen=%d", len2, dlen );
+				d("a45023 boost::asio::read len2=%d dlen=%d", len2, dlen );
 				data[len2] = '\0';
 
-				char t = mhdr.getMsgType();
-				if ( t == OM_RX ) {
-					doTrxn( data, len2 );
-				} else if ( t == OM_RQ ) {
-					doQuery( data, len2 );
+				char tp = mhdr.getMsgType();
+				d("a10287 mhdr.getMsgType tp=[%c]", tp );
+				if ( tp == OM_TXN ) {
+					doTrxnL2( data, len2 );
+				} else if ( tp == OM_RQ ) {
+					doSimpleQuery( data, len2 );
+				} else if ( tp == OM_XNQ ) {
+					doQueryL2( data, len2 );
 				} else {
-					d("E30292 error invalid msgtype [%c]", t );
+					d("E30292 error invalid msgtype [%c]", tp );
 				}
 
 				free(data);
     			do_read();
             } else {
-                d("a82838 srv do read read no data");
+                d("a82838 srv do read read no data error=[%s]", ec.message().c_str());
 			}
     });
 }
@@ -97,7 +101,7 @@ void omsession::reply( const sstr &str, tcp::socket &socket )
     boost::asio::async_write(socket, boost::asio::buffer(hdr_, OMHDR_SZ),
           [this, self, str, &socket](bcode ec, std::size_t len)
           {
-            d("a51550 111 in omsession::reply str=[%s] len=%d", s(str), str.size() );
+            //d("a51550 111 in omsession::reply str=[%s] len=%d", s(str), str.size() );
             if (!ec)  // no error, OK
             {
 				d("a43390 reply send async_write hdrmsg OK");
@@ -113,7 +117,7 @@ void omsession::reply( const sstr &str, tcp::socket &socket )
     });
 }
 
-void omsession::doTrxn(const char *msg, int msglen)
+void omsession::doTrxnL2(const char *msg, int msglen)
 {
 	//d("a71002 doTrxn msg.len=%d msg=[%s]", msglen, msg );
 	d("a71002 doTrxn msg.len=%d", msglen );
@@ -128,16 +132,14 @@ void omsession::doTrxn(const char *msg, int msglen)
 	d("a028273 serv_.secKey_=[%s]", s(serv_.secKey_) );
 	***/
 
-
 	sstr trxnId; 
 	bool isInitTrxn = t.isInitTrxn();
 
 	bool validTrxn = validateTrxn( t, isInitTrxn );
 	if ( ! validTrxn ) {
-		//sstr m = sstr("BAD_INVALID_TRXN|") + id_;
 		sstr m = sstr("INVALID_TRXN|") + id_;
 		reply(m, socket_);
-		i("E40282 BAD_INVALID_TRXN ignore" );
+		i("E40282 INVALID_TRXN ignore isInitTrxn=%d", isInitTrxn );
 		return;
 	}
 
@@ -148,17 +150,18 @@ void omsession::doTrxn(const char *msg, int msglen)
 		t.setID();
 		t.getTrxnID( trxnId );
 		d("a43713 init trxnId=[%s]", s(trxnId) );
-		d("a333301  i am clientnode, launching initTrxn ..." );
+		d("a333301  i am clientproxy, launching initTrxn ..." );
 		// add fence_ of sender
 		sstr fence;
 		serv_.blockMgr_.getFence( t.sender_, fence );
+		t.fence_ = fence;
 		rc = initTrxn( t );
-		d("a333301  i am clientnode, launched initTrxn rc=%d", rc );
+		d("a333301  i am clientproxy, launched initTrxn rc=%d", rc );
 		sstr m;
 		if ( rc ) {
-			m = sstr("GOOD_TRXN|initTrxn|") +trxnId + "|" + sid_;
+			m = sstr("GOOD_TRXN|initTrxn|") +trxnId + "|t33093|" + sid_;
 		} else {
-			m = sstr("BAD_TRXN|initTrxn|") +trxnId + "|" + sid_;
+			m = sstr("BAD_TRXN|initTrxn|") +trxnId + "|t531019|" + sid_;
 		}
 
 		d("a333301 reply to endclient %s", s(m) );
@@ -192,7 +195,7 @@ void omsession::doTrxn(const char *msg, int msglen)
 					pvec( followers );
 					t.srvport_ = serv_.srvport_;
 					sstr alld; t.allstr(alld);
-					serv_.multicast( followers, alld, true, replyVec );
+					serv_.multicast( OM_TXN,  followers, alld, true, replyVec );
 					d("a31112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(sid_), replyVec.size() );
 
 					// got replies from followers, state to C
@@ -211,7 +214,7 @@ void omsession::doTrxn(const char *msg, int msglen)
 							pvec(otherLeaders);
 							// txn.setSrvPort( serv_.srvport_.c_str() );
 							sstr dat; t.allstr(dat);
-							serv_.multicast( otherLeaders, dat, false, replyVec );
+							serv_.multicast( OM_TXN, otherLeaders, dat, false, replyVec );
 							d("a31102 %s round-1 multicast XIT_l otherLeaders done replyVec=%d\n", s(sid_), replyVec.size() );
 							// XIT_m should be in reply
 							// if there are enough replies, multicase XIT_n to followers
@@ -260,12 +263,12 @@ void omsession::doTrxn(const char *msg, int msglen)
 		}
     }
 
-	d("a555023 doTrxn done clientIP_=[%s]", s(clientIP_));
+	d("a555023 doTrxnL2 done clientIP_=[%s]", s(clientIP_));
 }
 
-void omsession::doQuery(const char *msg, int msglen)
+void omsession::doSimpleQuery(const char *msg, int msglen)
 {
-	// d("a71002 doQuery msg.len=%d msg=[%s]", msglen, msg );
+	// d("a71002 doSimpleQuery msg.len=%d msg=[%s]", msglen, msg );
 	sstr id_ = serv_.id_;
 
 	OmStrSplit sp( msg, '|');
@@ -283,11 +286,34 @@ void omsession::doQuery(const char *msg, int msglen)
 	} else if ( qtype == "QP" ) {
 		// request public key
 		reply( serv_.pubKey_, socket_ ); 
+	} else if ( qtype == "QQ" ) {
+		d("a2939 QQ");
+		// request last query result
+		// todo check server queryVote_ for trxnId
+		uint nodeLen = serv_.nodeList_.size();
+		int votes;
+		serv_.getQueryVote( trxnId, votes );
+		d("a32209 nodeLen=%d votes=%d", nodeLen, votes );
+		/***
+		if ( uint(votes) < (2*nodeLen/3) ) {
+			sstr m = trxnId + "|NOTFOUND";
+			reply( m, socket_ ); 
+		} else {
+			sstr lastResult;
+			getResult( trxnId, lastResult );
+			reply( lastResult, socket_ ); 
+		}
+		***/
+			sstr lastResult;
+			getResult( trxnId, lastResult );
+			d("a43207 lastResult=[%s] reply...", s(lastResult) );
+			reply( lastResult, socket_ ); 
+			d("a43207 lastResult=[%s] sent done", s(lastResult) );
 	} else {
 		reply( sstr(msg) + "|BADREQUEST", socket_ ); 
 	}
 
-	d("a535023 doQuery done clientIP_=[%s]", s(clientIP_));
+	d("a535023 doSimpleQuery done clientIP_=[%s]", s(clientIP_));
 }
 
 bool omsession::initTrxn( OmicroTrxn &txn )
@@ -317,7 +343,7 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	pvec( hostVec );
 	txn.srvport_ = serv_.srvport_;
 	sstr dat; txn.allstr(dat);
-	int connected = serv_.multicast( hostVec, dat, false, replyVec );
+	int connected = serv_.multicast( OM_TXN, hostVec, dat, false, replyVec );
 	d("a31183 multicast to ZoneLeaders done connected=%d", connected);
 
 	uint twofp1 = twofplus1(hostVec.size());
@@ -383,3 +409,223 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn )
 
 	return true;
 }
+
+bool omsession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitTrxn )
+{
+	bool validTrxn = txn.validateTrxn( serv_.secKey_ );
+	if ( ! validTrxn ) {
+		i("E20290 query is not valid");
+		return false;
+	}
+
+	// perform query get result
+	sstr res;
+	int rc = serv_.blockMgr_.runQuery(txn, res);
+	if  ( rc < 0 ) {
+		i("E40021 runQuery error rc=%d  request=[%s]", rc, s(txn.request_) );
+		return false;
+	}
+
+	if ( isInitTrxn ) {
+		txn.response_ = res;
+		d("a38800 after runQuery OK");
+		return true;
+	}
+
+	if ( txn.response_ != res ) {
+		d("a31800 after runQuery  txn.response_ != res ");
+		return false;
+	} else {
+		d("a31400 after runQuery  txn.response_ == res OK ");
+		serv_.result_[trxnId] = res;
+		d("a31400 after runQuery sid_=[%s]  trxnId=[%s] res=[%s]", s(sid_),  s(trxnId), s(res) );
+		return true;
+	}
+
+}
+
+void omsession::doQueryL2(const char *msg, int msglen)
+{
+	d("a71003 doQueryL2 msg.len=%d", msglen );
+	sstr id_ = serv_.id_;
+
+	OmicroTrxn t(msg);
+	/**
+	bool isInitTrxn1 = t.isInitTrxn();
+	d("a71002 isInitTrxn1=%d", isInitTrxn1 );
+	d("a71002 trxn.cipher=[%s]", s(t.cipher) );
+	d("a71002 trxn.signature=[%s]", s(t.signature) );
+	d("a028273 serv_.secKey_=[%s]", s(serv_.secKey_) );
+	***/
+
+	sstr trxnId; 
+	bool isInitTrxn = t.isInitTrxn();
+	t.trxntype_ = OM_QUERY;
+
+	t.getTrxnID( trxnId );
+
+	bool validTrxn = validateQuery( t, trxnId, isInitTrxn );
+	if ( ! validTrxn ) {
+		sstr m = sstr("INVALID_QUERY|") + id_;
+		reply(m, socket_);
+		i("E40202 INVALID_TRXN query ignore" );
+		return;
+	}
+
+	bool rc;
+	sstr pfrom = t.srvport_;
+	sstr m;
+
+	if ( isInitTrxn ) {
+		t.setID();
+		// t.getTrxnID( trxnId );
+		d("a41713 initquery trxnId=[%s]", s(trxnId) );
+		rc = initQuery( t );
+		if ( rc ) {
+			m = sstr("GOOD_QUERY|initQuery|") +trxnId + "|" + sid_;
+		} else {
+			m = sstr("BAD_QUERY|initQuery|") +trxnId + "|" + sid_;
+		}
+
+		d("a323301 reply to endclient %s", s(m) );
+		reply(m, socket_);
+		d("a323301 reply to endclient %s done", s(m) );
+	} else {
+		// t.getTrxnID( trxnId );
+		Byte xit = t.getXit();
+		d("a43712 exist trxnId=[%s] xit=[%c]", s(trxnId), xit );
+		sstr beacon = t.beacon_;
+		if ( xit == XIT_i ) {
+
+			d("a84213 %s recved XIT_i", s(sid_));
+			// I got 'i', I must be a leader
+			DynamicCircuit circ( serv_.nodeList_);
+			strvec followers;
+			bool iAmLeader = circ.isLeader( beacon, id_, true, followers );
+			if ( iAmLeader ) {
+				// state to A
+				bool toAgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_i );
+				if ( toAgood ) {
+					d("a01233 XIT_i toAgood true");
+
+					// send XIT_j to all followers in this leader zone
+					bool toBgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_j );
+					d("a22200 iAmLeader XIT_j  toBgood=%d", toBgood );
+
+					t.setXit( XIT_j );
+					strvec replyVec;
+					d("a32112 %s multicast XIT_j followers for vote expect reply ..", s(sid_));
+					pvec( followers );
+					t.srvport_ = serv_.srvport_;
+					sstr alld; t.allstr(alld);
+					serv_.multicast( OM_XNQ, followers, alld, true, replyVec );
+					//serv_.multicast( OM_XNQ, followers, alld, false, replyVec );
+					d("a32112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(sid_), replyVec.size() );
+
+					int votes = replyVec.size(); // how many replied
+					t.setVoteInt( votes );
+					m = sstr("GOOD_QUERY|Query|") +trxnId + "|a20802|" + sid_;
+					serv_.addQueryVote( trxnId, votes );
+				} else {
+					d("a3306 XIT_i to state A toAgood is false");
+					m = sstr("BAD_QUERY|Query|") +trxnId + "|a20281|" + sid_;
+				}
+			} else {
+				// bad
+				d("a3308 i [%s] am not leader, ignore XIT_i", s(sid_));
+				m = sstr("BAD_QUERY|Query|") +trxnId + "|22272|" + sid_;
+			}
+			/***
+			// else i am not leader, igore 'i' xit
+			d("a51102 leader at C sendback msg to origleader ...");
+			reply(m, socket_);
+			d("a51102 leader at C sendback msg to origleader done");
+			***/
+		} else if ( xit == XIT_j ) {
+			// I am follower, give my vote to leader
+			d("a5502 received XIT_j from [%s] reply back good", s(pfrom));
+			sstr m = sstr("GOOD_TRXN|XIT_j|")+id_ + "|" + sid_;;
+			reply(m, socket_);
+			d("a55150 GOOD_TRXN|XIT_j m=[%s]", m.c_str() );
+
+			/***
+			bool toBgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_j );
+			d("a55150 received T_j  toBgood=%d, reply back xtrn T_k ...", toBgood );
+			t.setXit( XIT_k );
+			t.srvport_ = serv_.srvport_;
+			sstr alld; t.allstr(alld);
+			reply(alld, socket_);
+			***/
+		} else if ( xit == XIT_k ) {
+			//qwer
+			// need rendezvous for all followers to ge to state 'C'
+			//serv_.onRecvK( beacon, trxnId, clientIP_, sid_, t );
+			// send to clientproxy client message GOOD
+		}
+    }
+
+	d("a555023 doQueryL2 done clientIP_=[%s]", s(clientIP_));
+}
+
+bool omsession::initQuery( OmicroTrxn &txn )
+{
+	// find zone leaders and ask them to collect votes from members
+	// serv_.nodeList_ is std::vector<string>
+	sstr beacon = txn.beacon_;
+	sstr trxnid; txn.getTrxnID( trxnid );
+	d("a80120 tQueryinitTrxn() threadid=%ld beacon=[%s] trxnid=[%s]", pthread_self(), s(beacon), s(trxnid) );
+
+	// for each zone leader
+	//   send leader msg: trxn, with tranit XIT_i
+	// self node maybe one of the zone leaders
+	DynamicCircuit circ(serv_.nodeList_);
+	strvec hostVec;
+	circ.getZoneLeaders( beacon, hostVec );
+
+	for ( auto &id: hostVec ) {
+		d("a20122 initTrxn send XIT_i to leader [%s]", s(id) );
+	}
+
+	txn.setNotInitTrxn();
+	txn.setXit( XIT_i );
+
+	strvec replyVec;
+	d("a31182 multicast to ZoneLeaders expectReply=false ...");
+	pvec( hostVec );
+	txn.srvport_ = serv_.srvport_;
+	sstr dat; txn.allstr(dat);
+
+	int connected;
+	uint twofp1;
+	bool expectReply = false;
+
+	connected = serv_.multicast( OM_XNQ, hostVec, dat, expectReply, replyVec );
+	if ( expectReply ) {
+		twofp1 = twofplus1(replyVec.size());
+	} else {
+		twofp1 = twofplus1(hostVec.size());
+	}
+
+	d("a31174 multicast to ZoneLeaders done connected=%d", connected);
+
+	if ( uint(connected) >= twofp1 ) {
+		d("a4321 connected=%u >= onefp1=%u true", uint(connected), twofp1 );
+		return true;
+	} else {
+		d("a4322 connected=%u < onefp1=%u false", uint(connected), twofp1 );
+		return false;
+	}
+}
+
+void omsession::getResult( const sstr &trxnId, sstr &res )
+{
+	auto itr = serv_.result_.find( trxnId );
+	if ( itr == serv_.result_.end() ) {
+		res = trxnId + "|NOTFOUND";
+		d("a23309  sid_=[%s]  trxnId=[%s] not found", s(sid_), s(trxnId) );
+		return;
+	}
+
+	res = itr->second;
+}
+

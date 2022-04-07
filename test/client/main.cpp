@@ -1,32 +1,43 @@
+#include <string.h>
 #include <string>
-#include "omutil.h"
+#include <sys/stat.h>
 #include "omicroclient.h"
 #include "omicrotrxn.h"
-#include "trxnstate.h"
-#include "omstrsplit.h"
-#include "ommsghdr.h"
 #include "omicroquery.h"
 #include "omicrokey.h"
+#include "omlog.h"
+INIT_LOGGING
 
 /******************************************************************
 **
-**   This is example code for client to interact with Omicro
+**  This is example code for client to interact with Omicro
+**
+**	Usage: omclient  key    (This will create private and public keys
+**         omclient  <serverIP>  <serverPort>  <acct/req>
+**                                              acct:  to create an account
+**                                              req:  to query account status
+**
+**         omclient  <serverIP>  <serverPort>  pay  <amt>
 **
 ******************************************************************/
-INIT_LOGGING
 
-void createUserKey( const sstr &num);
-void createAcct( const char *srv, int port, sstr num);
-void makePayment( const char *srv, int port, const sstr &from, const sstr &to, const sstr &amt );
-void readUserKey( sstr num, sstr &secKey, sstr &pubKey );
+void createUserKey( const std::string &num);
+void createAcct( const char *srv, int port, std::string num);
+void makePayment( const char *srv, int port, const std::string &from, const std::string &to, const std::string &amt );
+void query( const char *srv, int port, const std::string &from );
+void readUserKey( std::string num, std::string &secKey, std::string &pubKey );
+
+void help( const char *prog)
+{
+	printf("Usage: %s  key\n", prog);
+	printf("Usage: %s  <serverIP>  <serverPort>  <acct/req>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  pay <amount>\n", prog );
+}
 
 int main(int argc, char* argv[])
 {
-	g_debug = true;
-
 	if ( argc < 2 ) {
-		printf("Usage: %s  key\n", argv[0]);
-		printf("Usage: %s  <serverIP>  <serverPort>  <acct/pay>\n", argv[0]);
+		help(argv[0]);
 		exit(1);
 	}
 
@@ -37,8 +48,7 @@ int main(int argc, char* argv[])
 	}
 
 	if ( argc < 4 ) {
-		printf("Usage: %s  key\n", argv[0]);
-		printf("Usage: %s  <serverIP>  <serverPort>  <acct/pay>\n", argv[0]);
+		help(argv[0]);
 		exit(1);
 	}
 
@@ -52,7 +62,14 @@ int main(int argc, char* argv[])
 		createAcct( srv, port, "user1" );
 		createAcct( srv, port, "user2" );
 	} else if ( 0 == strcmp(argv[3], "pay" ) ) {
-	    makePayment( srv, port, "user1", "user2", "99.23" );
+		if ( argc < 5 ) {
+			help(argv[0]);
+			exit(1);
+		} else {
+	    	makePayment( srv, port, "user1", "user2", argv[4] );
+		}
+	} else if ( 0 == strcmp(argv[3], "req" ) ) {
+	    query( srv, port, "user1" );
 	} else {
 		printf("Usage: %s  <serverIP>  <serverPort>  <key/acct/pay>\n", argv[0]);
 		exit(1);
@@ -60,13 +77,16 @@ int main(int argc, char* argv[])
 
 }
 
-void createUserKey( const sstr &num )
+void createUserKey( const std::string &num )
 {
-	sstr f1 = sstr("/tmp/mysecretKey") + num;
-	sstr f2 = sstr("/tmp/mypublicKey") + num;
+	char *home = getenv("HOME");
+	std::string dir = std::string(home) + "/.omicro";
+	::mkdir(dir.c_str(), 0700);
+	std::string f1 = dir + "/mysecretKey" + num;
+	std::string f2 = dir + "/mypublicKey" + num;
 
-	sstr secretKey, publicKey;
-	OmicroUserKey::createKeyPair( secretKey, publicKey );
+	std::string secretKey, publicKey;
+	OmicroUserKey::createKeyPairDL5( secretKey, publicKey );
 	FILE *fp = fopen( f1.c_str(), "w");
 	fprintf(fp, "%s", secretKey.c_str());
 	fclose(fp);
@@ -79,70 +99,98 @@ void createUserKey( const sstr &num )
 
 	// debug
 	/***
-	sstr msg = "hihihihihihiend";
-	sstr snmsg;
+	std::string msg = "hihihihihihiend";
+	std::string snmsg;
 	OmicroUserKey::sign( msg, secretKey, snmsg );
 	bool rc = OmicroUserKey::verify( snmsg, publicKey );
-	d("a30223 original keys verify rc=%d", rc );
+	printf("a30223 original keys verify rc=%d\n", rc );
 
-	sstr secretKey2, publicKey2;
+	std::string secretKey2, publicKey2;
 	readUserKey( num, secretKey2, publicKey2 );
 
 	OmicroUserKey::sign( msg, secretKey, snmsg );
 	rc = OmicroUserKey::verify( snmsg, publicKey );
-	d("a30224 readkeys verify rc=%d", rc );
+	printf("a30224 readkeys verify rc=%d", rc );
 	***/
 }
 
 
-void createAcct( const char *srv, int port, sstr num)
+void createAcct( const char *srv, int port, std::string num)
 {
-	sstr secretKey, publicKey;
+	std::string secretKey, publicKey;
 	readUserKey( num, secretKey, publicKey );
 
 	OmicroClient client( srv, port );
-	sstr nodePubkey = client.reqPublicKey( 3 );
-	d("clientproxy pubkey=[%s]", s(nodePubkey) );
+	std::string nodePubkey = client.reqPublicKey( 3 );
+	printf("clientproxy pubkey=[%s]\n", nodePubkey.c_str() );
 
 	OmicroTrxn t;
 	t.makeNewAcctTrxn(nodePubkey, secretKey, publicKey );
 
-	i("a000234 client.sendTrxn() ...");
-	sstr reply = client.sendTrxn( t );
+	printf("a000234 client.sendTrxn() ...\n");
+	std::string reply = client.sendTrxn( t );
 
-	i("confirmation=[%s]", s(reply));
+	printf("confirmation=[%s]\n", reply.c_str());
 }
 
-void makePayment( const char * srv, int port, const sstr &from, const sstr &to, const sstr &amt )
+void makePayment( const char * srv, int port, const std::string &from, const std::string &to, const std::string &amt )
 {
 	OmicroClient client( srv, port );
-	sstr nodePubkey = client.reqPublicKey( 3 );
-	d("clientproxy nodepubkey=[%s]", s(nodePubkey) );
+	std::string nodePubkey = client.reqPublicKey( 3 );
+	// printf("clientproxy nodepubkey=[%s]\n", nodePubkey.c_str() );
 
-	sstr secretKey, publicKey, fromId;
+	std::string secretKey, publicKey, fromId;
 	readUserKey( from, secretKey, publicKey );
 	OmicroUserKey::getUserId( publicKey, fromId );
 
-	sstr secretKey2, publicKey2, toId;
+	std::string secretKey2, publicKey2, toId;
 	readUserKey( to, secretKey2, publicKey2 );
 	OmicroUserKey::getUserId( publicKey2, toId );
 
 	OmicroTrxn t;
 	t.makeSimpleTrxn( nodePubkey, secretKey, publicKey, fromId, toId, amt );
 
-	sstr data; t.getTrxnData( data );
-	i("a2220 trxndata=[%s]", s(data) );
+	std::string data; t.getTrxnData( data );
+	printf("a2220 trxndata=[%s]\n", data.c_str() );
 
-	i("a000234 client.sendTrxn() ...");
-	sstr reply = client.sendTrxn( t );
+	printf("a000234 client.sendTrxn() ...\n");
+	std::string reply = client.sendTrxn( t );
 
-	i("confirmation=[%s]", s(reply));
+	printf("confirmation=[%s]\n", reply.c_str());
 }
 
-void readUserKey( sstr num, sstr &secKey, sstr &pubKey )
+void query( const char * srv, int port, const std::string &from )
 {
-	sstr f1 = sstr("/tmp/mysecretKey") + num;
-	sstr f2 = sstr("/tmp/mypublicKey") + num;
+	OmicroClient client( srv, port );
+	std::string nodePubkey = client.reqPublicKey( 3 );
+	// printf("clientproxy nodepubkey=[%s]\n", nodePubkey.c_str() );
+
+	std::string secretKey, publicKey, fromId;
+	readUserKey( from, secretKey, publicKey );
+	printf("user from=[%s] pubkey=[%s]\n", from.c_str(), publicKey.c_str() );
+	OmicroUserKey::getUserId( publicKey, fromId );
+	printf("user id=[%s]\n", fromId.c_str() );
+
+	OmicroTrxn t;
+	t.makeAcctQuery( nodePubkey, secretKey, publicKey, fromId );
+
+	std::string data; t.getTrxnData( data );
+	printf("a2220 trxndata=[%s]\n", data.c_str() );
+
+	printf("a000235 client.sendQuery() ...\n");
+	std::string reply = client.sendQuery( t );
+
+	printf("confirmation=[%s]\n", reply.c_str());
+}
+
+void readUserKey( std::string num, std::string &secKey, std::string &pubKey )
+{
+	char *home = getenv("HOME");
+	std::string dir = std::string(home) + "/.omicro";
+	::mkdir(dir.c_str(), 0700);
+	std::string f1 = dir + "/mysecretKey" + num;
+	std::string f2 = dir + "/mypublicKey" + num;
+
 	char buf[20000];
 
 	FILE *fp = fopen(f1.c_str(), "r");

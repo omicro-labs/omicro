@@ -14,6 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with the LICENSE file. If not, see <http://www.gnu.org/licenses/>.
  */
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -22,6 +23,11 @@
 #include "omutil.h"
 #include "omstrsplit.h"
 #include "omaccount.h"
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/error/en.h>
+
 EXTERN_LOGGING
 
 
@@ -98,9 +104,13 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 		srcptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
 
 		OmAccount acct;
-		acct.balance_ = "0";
+		//acct.balance_ = "0";
+		acct.balance_ = "1000000"; // todo use 0
+		acct.tokentype_ = "O";   // omicro
 		acct.pubkey_ = trxn.userPubkey_;
-		acct.fence_ = "0";
+		acct.keytype_ = "DL5";
+		acct.out_ = "0";
+		acct.in_ = "0";
 
 		sstr rec;
 		acct.str( rec );
@@ -132,68 +142,38 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 	//int  fromstat = 0;
 	//int  tostat = 0;
 
-	auto itr1 = acctStoreMap_.find( from );
-	if ( itr1 == acctStoreMap_.end() ) {
-		/***
-		fpath = getAcctStoreFilePath( from );
-		srcptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
-		fromstat = 1;
-		**/
+	char *fromrec = findSaveStore( from, srcptr );
+	if ( ! fromrec ) {
 		i("E22276 error user from=[%s] does not exist", s(from));
 		return -90;
-	} else {
-		srcptr = itr1->second;
-		//fromstat = 2;
 	}
 
-	auto itr2 = acctStoreMap_.find( to );
-	if ( itr2 == acctStoreMap_.end() ) {
-		/**
-		fpath = getAcctStoreFilePath( to );
-		dstptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
-		tostat = 1;
-		***/
+	char *torec = findSaveStore( to, dstptr );
+	if ( ! torec ) {
 		i("E23276 error user to=[%s] does not exist", s(to));
 		return -92;
-	} else {
-		dstptr = itr2->second;
-		//tostat = 2;
 	}
 
-	char *fromrec = srcptr->get( from.c_str() );
-	char *torec = dstptr->get( to.c_str() );
-
-	if ( NULL != fromrec && NULL != torec ) {
-		OmAccount fromAcct( fromrec );
-		OmAccount toAcct( torec );
-		double bal = fromAcct.addBalance( 0.0 - amt);
-		if ( bal < -1.0 ) {
-			i("E40313 error from=[%s] acct balance error [%f]", s(from), bal );
-			return -30;
-		}
-		
-		fromAcct.incrementFence();
-
-		toAcct.addBalance( amt );
-
-		sstr fromNew, toNew;
-		fromAcct.str( fromNew );
-		toAcct.str( toNew );
-
-		srcptr->put( from.c_str(), from.size(), fromNew.c_str(), fromNew.size() );
-
-		dstptr->put( to.c_str(), to.size(), toNew.c_str(), toNew.size() );
-
-	} else {
-		if ( NULL == fromrec ) {
-			i("E40387 error from=[%s] acct does not exist", s(from) );
-			return -1;
-		}
-		if ( NULL == torec ) {
-			i("E40388 error to=[%s] acct does not exist", s(to) );
-			return -2;
-		}
+	OmAccount fromAcct( fromrec );
+	OmAccount toAcct( torec );
+	double bal = fromAcct.addBalance( 0.0 - amt);
+	if ( bal < -1.0 ) {
+		i("E40313 error from=[%s] acct balance error [%f]", s(from), bal );
+		return -30;
 	}
+	
+	fromAcct.incrementFence();
+
+	toAcct.addBalance( amt );
+	toAcct.incrementIn();
+
+	sstr fromNew, toNew;
+	fromAcct.str( fromNew );
+	toAcct.str( toNew );
+
+	srcptr->put( from.c_str(), from.size(), fromNew.c_str(), fromNew.size() );
+
+	dstptr->put( to.c_str(), to.size(), toNew.c_str(), toNew.size() );
 
 	return 0;
 }
@@ -462,6 +442,7 @@ sstr BlockMgr::getAcctStoreFilePath( const sstr &userid )
 	sstr dir = dataDir_ + "/account/" + getUserPath(userid);
 	makedirPath(dir);
 	sstr fpath = dir + "/acctstore.hdb";
+	d("a42061 getAcctStoreFilePath userid=[%s] fpath=[%s]", s(userid), s(fpath) );
 	return fpath;
 }
 
@@ -506,39 +487,26 @@ void BlockMgr::rollbackFromBlockchain( OmicroTrxn &t, const sstr &userid, const 
 	***/
 }
 
-double BlockMgr::getBalance( const sstr &from ) const
+double BlockMgr::getBalance( const sstr &from ) 
 {
 	OmstorePtr srcptr;
-
-	auto itr = acctStoreMap_.find( from );
-	if ( itr == acctStoreMap_.end() ) {
-		return -999.0;
-	}
-
-	srcptr = itr->second;
-
-	char *fromrec = srcptr->get( from.c_str() );
-	if ( NULL == fromrec ) {
-		return -9999.0;
+	char *fromrec = findSaveStore( from, srcptr );
+	if ( ! fromrec ) {
+		i("E22276 error user from=[%s] does not exist", s(from));
+		return -90;
 	}
 
 	OmAccount fromAcct( fromrec );
 	return fromAcct.getBalance();
 }
 
-int BlockMgr::getBalanceAndPubkey( const sstr &from, double &bal, sstr &pubkey ) const
+int BlockMgr::getBalanceAndPubkey( const sstr &from, double &bal, sstr &pubkey )
 {
 	OmstorePtr srcptr;
-	auto itr = acctStoreMap_.find( from );
-	if ( itr == acctStoreMap_.end() ) {
-		return -99;
-	}
-
-	srcptr = itr->second;
-
-	char *fromrec = srcptr->get( from.c_str() );
-	if ( NULL == fromrec ) {
-		return -999;
+	char *fromrec = findSaveStore( from, srcptr );
+	if ( ! fromrec ) {
+		i("E22216 error user from=[%s] does not exist", s(from));
+		return -90;
 	}
 
 	OmAccount fromAcct( fromrec );
@@ -550,19 +518,98 @@ int BlockMgr::getBalanceAndPubkey( const sstr &from, double &bal, sstr &pubkey )
 void BlockMgr::getFence( const sstr &from, sstr &fence )
 {
 	OmstorePtr srcptr;
-	auto itr = acctStoreMap_.find( from );
-	if ( itr == acctStoreMap_.end() ) {
-		return;
-	}
-
-	srcptr = itr->second;
-
-	char *fromrec = srcptr->get( from.c_str() );
-	if ( NULL == fromrec ) {
+	char *fromrec = findSaveStore( from, srcptr );
+	if ( ! fromrec ) {
+		i("E21216 error user from=[%s] does not exist", s(from));
 		return;
 	}
 
 	OmAccount fromAcct( fromrec );
-	fence = fromAcct.fence_;
+	fence = fromAcct.out_;
 }
 
+int BlockMgr::runQuery( OmicroTrxn &trxn, sstr &res )
+{
+	sstr from = trxn.sender_;
+
+	OmstorePtr srcptr;
+	char *fromrec = findSaveStore( from, srcptr );
+	if ( ! fromrec ) {
+		i("E15216 error user from=[%s] does not exist", s(from));
+		return -90;
+	}
+
+	rapidjson::Document dom;
+	dom.Parse( trxn.request_.c_str() );
+	if ( dom.HasParseError() ) {
+		d("a30280 from=[%s] dom.HasParseError", s(from) );
+        return -30;
+    }
+
+	//const rapidjson::Value& pred = dom["predicate"];
+	const rapidjson::Value& fields = dom["fields"];
+	if ( ! fields.IsArray() ) {
+		d("a30280 from=[%s] fields not array", s(from) );
+        return -40;
+	}
+
+	OmAccount fromAcct( fromrec );
+	const char *p;
+	rapidjson::StringBuffer sbuf;
+	rapidjson::Writer<rapidjson::StringBuffer> writer(sbuf);
+	writer.StartObject();
+
+	for ( rapidjson::SizeType  i = 0; i < fields.Size(); i++) {
+		const rapidjson::Value &v = fields[i];
+		if ( ! v.IsString() ) {
+			continue;
+		}
+
+		p = v.GetString();
+		if ( 0 == strcmp(p, "balance") ) {
+			writer.Key(p);
+			writer.String(fromAcct.balance_.c_str());
+		} else if ( 0 == strcmp(p, "out") ) {
+			writer.Key(p);
+			writer.String(fromAcct.out_.c_str());
+		} else if ( 0 == strcmp(p, "in") ) {
+			writer.Key(p);
+			writer.String(fromAcct.in_.c_str());
+		} else if ( 0 == strcmp(p, "tokentype") ) {
+			writer.Key(p);
+			writer.String(fromAcct.tokentype_.c_str());
+		}
+	}
+
+	writer.EndObject();
+	res =  sbuf.GetString();
+	return 0;
+}
+
+// FInd and save user store if users exists. If not exists, return false
+char *BlockMgr::findSaveStore( const sstr &userId, OmstorePtr &ptr )
+{
+	sstr fpath;
+	auto itr = acctStoreMap_.find( userId );
+	if ( itr == acctStoreMap_.end() ) {
+		fpath = getAcctStoreFilePath( userId );
+		ptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
+		char *rec = ptr->get( userId.c_str() );
+		if ( rec ) {
+			acctStoreMap_.emplace( userId, ptr );
+			return rec; 
+		} else {
+			delete ptr;
+			ptr = NULL;
+			return NULL; 
+		}
+	} else {
+		ptr = itr->second;
+		char *rec = ptr->get( userId.c_str() );
+		if ( rec ) {
+			return rec; 
+		} else {
+			return NULL; 
+		}
+	}
+}

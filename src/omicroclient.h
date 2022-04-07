@@ -2,10 +2,6 @@
 #define _omicro_client_h_
 
 #include <string>
-#include <cstdlib>
-#include <cstring>
-#include "omicrodef.h"
-
 
 class OmicroTrxn;
 
@@ -15,16 +11,17 @@ class OmicroClient
   	OmicroClient( const char *host, int port );
   	~OmicroClient();
 
-	sstr sendTrxn( OmicroTrxn &t, int waitSeconds=10 );
-	sstr sendMessage( char mtype, const sstr &msg, bool expectReply );
-	sstr reqPublicKey( int waitSeconds);
+	std::string sendTrxn( OmicroTrxn &t, int waitSeconds=10 );
+	std::string sendQuery( OmicroTrxn &t, int waitSeconds=10 );
+	std::string sendMessage( char mtype, const std::string &msg, bool expectReply );
+	std::string reqPublicKey( int waitSeconds);
 
 	bool connectOK() const { return connectOK_; }
 
   protected:
 	bool connectOK_;
 	int  socket_;
-	sstr srv_;
+	std::string srv_;
 	int  port_;
 };
 

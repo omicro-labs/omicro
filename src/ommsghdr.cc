@@ -1,10 +1,14 @@
-#include <assert.h>
+#include <string.h>
 #include "omutil.h"
 #include "ommsghdr.h"
 
 OmMsgHdr::OmMsgHdr( const char *str, int len, bool init)
 {
-	assert( len == OMHDR_SZ );
+	if ( len != OMHDR_SZ ) {
+		printf("E302837 Dev Error, exit\n");
+		exit(1);
+	}
+
 	buf_ = (char*)str;
 
 	if ( init ) {

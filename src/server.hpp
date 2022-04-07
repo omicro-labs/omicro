@@ -12,6 +12,7 @@
 #include "blockmgr.h"
 
 using boost::asio::ip::tcp;
+using btimer = boost::asio::steady_timer;
 
 struct ThreadParam
 {
@@ -19,6 +20,7 @@ struct ThreadParam
     int port;
     sstr trxn;
     sstr reply;
+	char msgType;
     bool expectReply;
 };
 void *threadSendMsg(void *arg);
@@ -33,13 +35,18 @@ class omserver
 
 	void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
 	void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
-	int multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
+	//void onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
+	int multicast( char msgType, const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
 	void getPubkey( const sstr &srvport, sstr &pubkey );
+	void addQueryVote( const sstr &trxnId, int votes );
+	void getQueryVote( const sstr &trxnId, int &votes );
 
 
 	std::unordered_map<sstr, std::vector<uint>> collectTrxn_;
 	std::unordered_map<sstr, ulong> totalVotes_;
 	std::unordered_map<sstr, sstr> srvport_pubkey_;
+	std::unordered_map<sstr, ulong> queryVote_;
+	std::unordered_map<sstr, sstr> result_;
 
 	TrxnState trxnState_;
 	NodeList nodeList_;
@@ -50,6 +57,7 @@ class omserver
 	sstr srvport_;
 	int  waitCCount_;
 	int  waitDCount_;
+	int  waitQCount_;
 	// debug only
 
 	BlockMgr  blockMgr_;
@@ -79,6 +87,7 @@ class omserver
 	sstr address_, port_;
 	btimer *timer1_; // ST_C
 	btimer *timer2_; // ST_D
+	btimer *timer3_; // query
 
 
 };

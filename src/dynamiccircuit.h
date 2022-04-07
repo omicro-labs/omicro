@@ -3,6 +3,8 @@
 
 #include "omicrodef.h"
 
+using strvec = std::vector<std::string>;
+
 class NodeList;
 
 class DynamicCircuit

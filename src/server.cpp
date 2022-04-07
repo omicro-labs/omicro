@@ -32,9 +32,12 @@
 #include "ommsghdr.h"
 #include "omsync.h"
 #include "omsession.h"
+#include "omstrsplit.h"
 
 EXTERN_LOGGING
 using namespace boost::asio::ip;
+using bcode = boost::system::error_code;
+
 
 omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, const sstr &port)
       : io_context_(io_context),
@@ -57,8 +60,10 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
 
 	timer1_ = new btimer( io_context_ );
 	timer2_ = new btimer( io_context_ );
+	timer3_ = new btimer( io_context_ );
 	waitCCount_ = 0;
 	waitDCount_ = 0;
+	waitQCount_ = 0;
 
     do_accept();
 	i("omserver is ready");
@@ -303,7 +308,7 @@ void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			t.srvport_ = srvport_; 
 			sstr dat; t.allstr(dat);
 			//d("a33221 %s round-2 multicast otherLeaders trnmsg=[%s] ...", s(id_), s(dat) );
-			multicast( otherLeaders, dat, false, nullvec );
+			multicast( OM_TXN, otherLeaders, dat, false, nullvec );
 			d("a33221 %s round-2 multicast otherLeaders done", s(id_));
 		} else {
 			d("a4457 %s XIT_l toDgood is false", s(id_));
@@ -389,7 +394,7 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			pvec(followers);
 			t.srvport_ = srvport_;
 			sstr dat; t.allstr(dat);
-			omserver::multicast( followers, dat, false, nullvec );
+			omserver::multicast( OM_TXN, followers, dat, false, nullvec );
 			d("a33281 %s multicast XIT_n followers done", s(id_));
 
 			// i do commit too to state F
@@ -411,7 +416,7 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 
 }
 
-int omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec )
+int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec )
 {
 	sstr id, ip, port;
 	int len = hostVec.size();
@@ -430,6 +435,7 @@ int omserver::multicast( const strvec &hostVec, const sstr &trxnMsg, bool expect
 		NodeList::getData( hostVec[i], id, ip, port);
 		thrdParam[i].srv = ip;
 		thrdParam[i].port = atoi(port.c_str());
+		thrdParam[i].msgType = msgType;
 		srvport = ip + ":" + port;
 
 		getPubkey( srvport, pubkey );
@@ -473,8 +479,94 @@ void *threadSendMsg(void *arg)
 	}
 
 	d("a30114 cli.sendMessage ... " );
-    p->reply = cli.sendMessage( OM_RX,  p->trxn.c_str(), p->expectReply );
+    //p->reply = cli.sendMessage( OM_RX,  p->trxn.c_str(), p->expectReply );
+    p->reply = cli.sendMessage( p->msgType,  p->trxn.c_str(), p->expectReply );
 	d("a30114 cli.sendMessage returned p->expectReply=%d p->reply=[%s]", p->expectReply, s(p->reply) );
     return NULL;
 }
 
+/***
+void omserver::onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t )
+{
+	strvec followers;
+	DynamicCircuit circ( nodeList_);
+	//bool iAmLeader = circ.getOtherLeaders( beacon, id_, otherLeaders );
+	bool iAmLeader = circ.isLeader( beacon, id_, true, followers );
+	if ( ! iAmLeader ) {
+		d("a24034 %s got XIT_l, i am not leader", s(id_) );
+		return;
+	}
+	d("a30028 onRecvK() i am leader client=[%s] sid=[%s] tryRecvK ...", s(clientIP), s(sid));
+
+	tryRecvK( beacon, trxnId, clientIP, sid, followers, t);
+}
+
+void omserver::tryRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
+					    const strvec &followers,  OmicroTrxn &t )
+{
+
+	doRecvK( beacon, trxnId, clientIP, sid, followers, t );
+
+	// recursive: terminating condition
+	Byte curState = ST_0;
+	bool rc = trxnState_.getState(trxnId, curState);
+	if ( rc && curState >= ST_C ) {
+		// later comers
+		d("a70412 tryRecvK T_l curState=%c at or passed ST_C already, late msg, ignored", curState);
+		return;
+	}
+
+	// debug only
+	++waitQCount_;
+	if ( waitQCount_ > 100 ) {
+		d("a9207 error waitCCount_ > 100 give up wait");
+		waitQCount_ = 0;
+		return;
+	}
+
+	d("a81516 curState != ST_B (curstte=%c) wait 100 millisecs then tryRecvL ...", curState );
+	d("a81316 curState != ST_B sid=[%s] trxnid=[%s]", s(sid), trxnId.substr(0,50).c_str() );
+	timer3_->expires_at(timer3_->expiry() + boost::asio::chrono::milliseconds(100));
+	timer3_->async_wait(boost::bind(&omserver::tryRecvK, this, beacon, trxnId, clientIP, sid, followers, boost::ref(t) ));
+}
+
+void omserver::doRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
+					    const strvec &followers,  OmicroTrxn &t )
+{
+
+
+	d("a5549381 onRecvK check that server is in ST_B, go ahead");
+	collectTrxn_[trxnId].push_back(1);
+	totalVotes_[trxnId] += t.getVoteInt();
+	d("a3733 got XIT_k am leader increment collectTrxn[trxnId]");
+		
+	uint twofp1 = twofplus1( followers.size() + 1);
+	d("a53098 twofp1=%d followers.len=%d", twofp1, followers.size() );
+	uint recvcnt = collectTrxn_[trxnId].size();
+	if ( recvcnt >= twofp1 ) { 
+		d("a2234 %s got XIT_l, a leader,  rcvcnt=%d >= twofp1=%d", s(id_), recvcnt, twofp1 );
+		// state to C
+		bool toCgood = trxnState_.goState( level_, trxnId, XIT_k );
+		if ( toCgood ) {
+			d("a33128 from XIT_k to toCgood true");
+		} else {
+			d("a44572 %s XIT_l toCgood is false", s(id_));
+		}
+		collectTrxn_.erase(trxnId);
+		totalVotes_.erase(trxnId);
+	} else {
+		d("a22234 %s got XIT_k, a leader, but rcvcnt=%d < twofp1=%d", s(id_), recvcnt, twofp1 );
+	}
+}
+***/
+
+void omserver::addQueryVote( const sstr &trxnId, int votes )
+{
+	// todo cleanup of queryVote_
+	queryVote_[trxnId] += votes;
+}
+
+void omserver::getQueryVote( const sstr &trxnId, int &votes )
+{
+	votes = queryVote_[trxnId];
+}

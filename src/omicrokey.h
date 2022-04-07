@@ -1,9 +1,7 @@
 #ifndef _omicro_nodekey_h_
 #define _omicro_nodekey_h_
 
-#include "omicrodef.h"
-#include "saber.h"
-#include "dilith.h"
+#include <string>
 
 class OmicroNodeKey
 {
@@ -11,13 +9,17 @@ class OmicroNodeKey
   	OmicroNodeKey();
   	~OmicroNodeKey();
 
-	static void createKeyPair( sstr &secretKey, sstr &publicKey );
+	static void createKeyPairSB3( std::string &secretKey, std::string &publicKey );
 
-	static void encrypt( const sstr &msg, const sstr &publicKey, sstr &cipher, sstr &passwd, sstr &encMsg );
-	static void decrypt( const sstr &encMsg, const sstr &secretKey, const sstr &cipher, sstr &plain );
+	static void encryptSB3( const std::string &msg, const std::string &publicKey, std::string &cipher,
+	                     std::string &passwd, std::string &encMsg );
+	static void decryptSB3( const std::string &encMsg, const std::string &secretKey, 
+						 const std::string &cipher, std::string &plain );
 
-	static void sign( const sstr &msg, const sstr &pubKey, sstr &cipher, sstr &signature );
-	static bool verify(const sstr &msg, const sstr &signature, const sstr &cipher, const sstr &secretKey);
+	static void signSB3( const std::string &msg, const std::string &pubKey, 
+					  std::string &cipher, std::string &signature );
+	static bool verifySB3(const std::string &msg, const std::string &signature, 
+					   const std::string &cipher, const std::string &secretKey);
 
 };
 
@@ -27,11 +29,11 @@ class OmicroUserKey
   	OmicroUserKey();
   	~OmicroUserKey();
 
-	static void createKeyPair( sstr &secretKey, sstr &publicKey );
-	static void getUserId( const sstr &publicKey, sstr &userId );
+	static void createKeyPairDL5( std::string &secretKey, std::string &publicKey );
+	static void getUserId( const std::string &publicKey, std::string &userId );
 
-	static void sign( const sstr &msg, const sstr &secretKey, sstr &snmsg );
-	static bool verify(const sstr &sm, const sstr &pubKey );
+	static void signDL5( const std::string &msg, const std::string &secretKey, std::string &snmsg );
+	static bool verifyDL5(const std::string &sm, const std::string &pubKey );
 
 };
 

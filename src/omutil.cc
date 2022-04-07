@@ -15,6 +15,7 @@
  * along with the LICENSE file. If not, see <http://www.gnu.org/licenses/>.
  */
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -24,6 +25,7 @@
 #include <unistd.h>
 #include "omutil.h"
 #include "omstrsplit.h"
+#include "omlog.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>

@@ -19,6 +19,7 @@
 #include "dynamiccircuit.h"
 #include "xxHash/xxhash.h"
 #include "omutil.h"
+#include "omlog.h"
 EXTERN_LOGGING
 
 

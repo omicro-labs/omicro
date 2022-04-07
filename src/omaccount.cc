@@ -1,3 +1,4 @@
+#include <math.h>
 #include "omaccount.h"
 #include "omstrsplit.h"
 
@@ -7,13 +8,18 @@ OmAccount::OmAccount()
 
 OmAccount::OmAccount( const char *rec )
 {
+	int i = 0;
 	OmStrSplit sp(rec, '|');
-	balance_ = sp[0];
-	pubkey_ = sp[1];
-	fence_ = sp[2];
-	pad1_ = sp[3];
-	pad2_ = sp[4];
-	pad3_ = sp[5];
+	balance_ = sp[i++];
+	tokentype_ = sp[i++];
+	pubkey_ = sp[i++];
+	keytype_ = sp[i++];
+	//fence_ = sp[i++];
+	out_ = sp[i++];
+	in_ = sp[i++];
+	pad1_ = sp[i++];
+	pad2_ = sp[i++];
+	pad3_ = sp[i++];
 }
 
 OmAccount::~OmAccount()
@@ -22,7 +28,12 @@ OmAccount::~OmAccount()
 
 void OmAccount::str( sstr &res)
 {
-	res = balance_ + "|" + pubkey_ + "|" + fence_ 
+	res = balance_ 
+	      + "|" + tokentype_ 
+	      + "|" + pubkey_ 
+	      + "|" + keytype_ 
+		  + "|" + out_ 
+		  + "|" + in_ 
 	      + "|" + pad1_
 	      + "|" + pad2_
 	      + "|" + pad3_
@@ -53,14 +64,20 @@ double OmAccount::getBalance()
 
 ulong OmAccount::getFence()
 {
-	return atoll(fence_.c_str());
+	return atoll(out_.c_str());
 }
 
 void OmAccount::incrementFence()
 {
-	ulong cnt = atoll(fence_.c_str());
+	ulong cnt = atoll(out_.c_str());
 	++cnt;
-	fence_ = std::to_string(cnt);
+	out_ = std::to_string(cnt);
 }
 
+void OmAccount::incrementIn()
+{
+	ulong cnt = atoll(in_.c_str());
+	++cnt;
+	in_ = std::to_string(cnt);
+}
 

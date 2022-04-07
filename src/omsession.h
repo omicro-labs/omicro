@@ -28,11 +28,15 @@ class omsession : public std::enable_shared_from_this<omsession>
     void do_read();
     void do_write(std::size_t length);
 	void reply( const sstr &str, tcp::socket &sock );
-	void doTrxn(const char *msg, int len);
-	void doQuery(const char *msg, int len);
+	void doTrxnL2(const char *msg, int len);
+	void doSimpleQuery(const char *msg, int len);
+	void doQueryL2(const char *msg, int len);
 	bool initTrxn( OmicroTrxn &txn );
+	bool initQuery( OmicroTrxn &txn );
 	void makeSessionID();
 	bool validateTrxn( OmicroTrxn &txn, bool isInitTrxn );
+	bool validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitTrxn );
+	void getResult( const sstr &trxnId, sstr &res );
   
 	boost::asio::io_context& io_context_;
 	omserver &serv_;
@@ -43,6 +47,7 @@ class omsession : public std::enable_shared_from_this<omsession>
 	sstr clientIP_;
 
 	sstr  sid_;
+
 };
 
 #endif

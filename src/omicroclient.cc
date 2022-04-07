@@ -15,6 +15,7 @@
 #include "ommsghdr.h"
 #include "omstrsplit.h"
 #include "omicrodef.h" 
+#include "omlog.h" 
 
 EXTERN_LOGGING
 
@@ -70,19 +71,12 @@ OmicroClient::OmicroClient( const char *srv, int port )
 
 	d("a70231 OmicroClient ctor connectOK_ srv=%s port=%d", srv, port);
 	connectOK_ = true;
-
-	/***
-	timer_ = new btimer( io_context_ );
-	boost::asio::io_context::work worker(io_context_);
-	io_context_.run();
-	**/
-
 }
 
 OmicroClient::~OmicroClient()
 {
 	if ( connectOK_ ) {
-		//d("a72231 dtor of OmicroClient client_.stop()");
+		d("a72231 dtor of OmicroClient client_.stop() srv=%s port=%d", s(srv_), port_ );
 		::close( socket_);
 	}
 }
@@ -159,7 +153,7 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 {
 	t.setInitTrxn();
 	sstr alldata; t.allstr(alldata);
-	sstr reply = sendMessage( OM_RX, alldata, true );
+	sstr reply = sendMessage( OM_TXN, alldata, true );
 	OmStrSplit sp(reply, '|');
 	sstr stat = sp[0];
 	sstr trxnId = sp[2];
@@ -178,7 +172,54 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 	int WAIT_MS = 50;
 	int waitCnt = waitSeconds*(1000/WAIT_MS);
 	int cnt = 0;
-	sstr data; q.str(data);
+
+	sstr data; q.str("QT", data);
+
+	while ( true ) {
+		reply = sendMessage( OM_RQ, data, true );
+		if ( strstr( reply.c_str(), "FAILED") ) {
+			break;
+		}
+		if ( ! strstr( reply.c_str(), "NOTFOUND") ) {
+			break;
+		}
+		usleep(1000*WAIT_MS);
+		++cnt;
+		if ( cnt > waitCnt ) {
+			break;
+		}
+	}
+
+	return reply;
+}
+
+sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
+{
+	t.setInitTrxn();
+	sstr alldata; t.allstr(alldata);
+	sstr reply = sendMessage( OM_XNQ, alldata, true );
+	OmStrSplit sp(reply, '|');
+	sstr stat = sp[0];
+	sstr trxnId = sp[2];
+	d("a42228 sendTrxn reply=[%s]\n", s(reply));
+
+	if ( strstr( stat.c_str(), "BAD" ) || strstr( stat.c_str(), "INVALID" ) ) {
+		d("a32208 got BAD/INVALID from server [%s]", stat.c_str() );
+		return stat;
+	}
+
+
+	OmicroQuery q;
+	q.setTrxnId( trxnId );
+	q.setSender( t.sender_ );
+	q.setTimeStamp( t.timestamp_ );
+
+	int WAIT_MS = 50;
+	int waitCnt = waitSeconds*(1000/WAIT_MS);
+	int cnt = 0;
+
+	sstr data; q.str("QQ", data);
+
 	while ( true ) {
 		reply = sendMessage( OM_RQ, data, true );
 		if ( strstr( reply.c_str(), "FAILED") ) {
@@ -206,7 +247,9 @@ sstr OmicroClient::reqPublicKey( int waitSeconds)
 	int waitCnt = waitSeconds*(1000/WAIT_MS);
 	int cnt = 0;
 	sstr cmd, reply;
+
 	q.strGetPublicKey( cmd );
+
 	while ( true ) {
 		reply = sendMessage( OM_RQ, cmd, true );
 		if ( ! strstr( reply.c_str(), "NOTFOUND") ) {

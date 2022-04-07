@@ -24,11 +24,6 @@ LC_OS_NAME = $(shell echo $(OS_NAME) | tr '[A-Z]' '[a-z]')
 # The pre-processor and compiler options.
 MY_CFLAGS =
 
-BOOST_INC_PATH=/usr/local/include
-BOOST_LIB_PATH=/usr/local/lib
-BOOST_LIB_PATH=/usr/local/boost_1.78.0/lib
-BOOST_INC_PATH=/usr/local/boost_1.78.0/include
-
 SRCINC=../../../src
 SRCBUILD=../../../src/build
 SABER=../../../src/Web/saber
@@ -44,11 +39,6 @@ DILITH_LIBS=$(DILITH)/dilithium/ref/ref/libdilithium5_ref.a \
             $(DILITH)/dilithium/ref/ref/libfips202_ref.a \
             $(DILITH)/dilithium/ref/ref/libaes256ctr_ref.a
 
-PTHREADLIB=/lib64/libpthread.a
-RTLIB=/lib64/librt.a
-DLLIB=/lib64/libdl.a
-CLIB=/lib64/libc.a
-
 # The linker options.
 MY_LIBS   = \
 			$(SRCBUILD)/libomicro.a \
@@ -58,31 +48,16 @@ MY_LIBS   = \
 			$(BASE85)/ascii85/ascii85.o \
 			$(AES)/tiny-AES-c/aes.o \
 			$(HASH)/xxHash/libxxhash.a \
-            $(BOOST_LIB_PATH)/libboost_system.a $(BOOST_LIB_PATH)/libboost_filesystem.a \
-            $(BOOST_LIB_PATH)/libboost_thread.a $(BOOST_LIB_PATH)/libboost_date_time.a \
-			-l crypto -lz -lbz2
-
+			-l crypto 
 
 # The pre-processor options used by the cpp (man cpp for more).
-#CPPFLAGS  = -Wall -I essential -I ddlib -O2
-
-#CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -g3 -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
-CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) \
+CPPFLAGS  = -Wall \
             -I $(SRCINC) \
-			-I $(SABER) \
-			-I $(BASE85) \
-			-I $(AES) \
 			-I $(JSON)/include  \
-			-D DILITHIUM_MODE=5 \
-			-I $(DILITH)/include \
 			-O3
 
 # The options used in linking as well as in any direct use of ld.
-ifeq ($(LC_OS_NAME), darwin)
-  LDFLAGS   = -L/opt/local/lib -pthread
-else
-  LDFLAGS   = -L/opt/local/lib -pthread -lrt
-endif
+LDFLAGS   = 
 
 # The directories in which source files reside.
 # If not specified, only the current directory will be serached.
@@ -163,7 +138,7 @@ DEPEND      = $(CC)  $(DEP_OPT)  $(MY_CFLAGS) $(CFLAGS) $(CPPFLAGS)
 COMPILE.c   = $(CC)  $(MY_CFLAGS) $(CFLAGS)   $(CPPFLAGS) -c
 COMPILE.cxx = $(CXX) $(MY_CFLAGS) $(CXXFLAGS) $(CPPFLAGS) -c
 LINK.c      = $(CC)  $(MY_CFLAGS) $(CFLAGS)   $(CPPFLAGS) $(LDFLAGS)
-LINK.cxx    = $(CXX) $(MY_CFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS)
+LINK.cxx    = $(CXX) $(LDFLAGS)
 
 .PHONY: all objs tags ctags clean distclean help show
 

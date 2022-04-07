@@ -14,11 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with the LICENSE file. If not, see <http://www.gnu.org/licenses/>.
  */
+#include <string.h>
 #include "omicrokey.h"
 #include "ombase85.h"
 #include "omaes.h"
 #include "omutil.h"
 #include "xxHash/xxhash.h"
+#include "saber.h"
+#include "dilith.h"
+#include "omlog.h"
+
 EXTERN_LOGGING
 
 /************************** node key *************************
@@ -33,23 +38,16 @@ OmicroNodeKey::~OmicroNodeKey()
 }
 
 
-void OmicroNodeKey::createKeyPair(sstr &secretKey, sstr &publicKey )
+void OmicroNodeKey::createKeyPairSB3(sstr &secretKey, sstr &publicKey )
 {
 	uint8_t pk[CRYPTO_PUBLICKEYBYTES];
 	uint8_t sk[CRYPTO_SECRETKEYBYTES];
-	/**
-	unsigned char entropy_input[48];
-	for (int i=0; i<48; i++) {
-		entropy_input[i] = i;
-	}
-	randombytes_init(entropy_input, NULL, 256);
-	**/
 	crypto_kem_keypair(pk, sk);
 	base85Encode( sk, CRYPTO_SECRETKEYBYTES, secretKey );
 	base85Encode( pk, CRYPTO_PUBLICKEYBYTES, publicKey );
 }
 
-void OmicroNodeKey::encrypt( const sstr &msg, const sstr &publicKey, sstr &cipher, sstr &passwd, sstr &encMsg )
+void OmicroNodeKey::encryptSB3( const sstr &msg, const sstr &publicKey, sstr &cipher, sstr &passwd, sstr &encMsg )
 {
 	uint8_t ct[CRYPTO_CIPHERTEXTBYTES];
 	uint8_t ss[CRYPTO_BYTES];
@@ -62,7 +60,7 @@ void OmicroNodeKey::encrypt( const sstr &msg, const sstr &publicKey, sstr &ciphe
 	aesEncrypt( msg, passwd, encMsg );
 }
 
-void OmicroNodeKey::decrypt( const sstr &encMsg, const sstr &secretKey, const sstr &cipher, sstr &plain )
+void OmicroNodeKey::decryptSB3( const sstr &encMsg, const sstr &secretKey, const sstr &cipher, sstr &plain )
 {
 	uint8_t ct[CRYPTO_CIPHERTEXTBYTES];
 	uint8_t ss[CRYPTO_BYTES];
@@ -77,7 +75,7 @@ void OmicroNodeKey::decrypt( const sstr &encMsg, const sstr &secretKey, const ss
 }
 
 
-void OmicroNodeKey::sign( const sstr &msg, const sstr &pubKey, sstr &cipher, sstr &signature )
+void OmicroNodeKey::signSB3( const sstr &msg, const sstr &pubKey, sstr &cipher, sstr &signature )
 {
 	XXH64_hash_t hash = XXH64(msg.c_str(), msg.size(), 0 );
 	char buf[32];
@@ -87,10 +85,10 @@ void OmicroNodeKey::sign( const sstr &msg, const sstr &pubKey, sstr &cipher, sst
 	//d("a22330 sign hash=%lu hash str=[%s]", hash, s(hs) );
 
 	sstr passwd;
-	encrypt( hs, pubKey, cipher, passwd, signature);
+	encryptSB3( hs, pubKey, cipher, passwd, signature);
 }
 
-bool OmicroNodeKey::verify(const sstr &msg, const sstr &signature, const sstr &cipher, const sstr &secretKey )
+bool OmicroNodeKey::verifySB3(const sstr &msg, const sstr &signature, const sstr &cipher, const sstr &secretKey )
 {
 	XXH64_hash_t hash = XXH64(msg.c_str(), msg.size(), 0 );
 
@@ -98,7 +96,7 @@ bool OmicroNodeKey::verify(const sstr &msg, const sstr &signature, const sstr &c
 	//d("a00288 ciper.len=%ld  seckeylen=%ld  signature.len=%ld\n", cipher.size(), secretKey.size(), signature.size() );
 	
 	sstr hashPlain;
-	decrypt( signature, secretKey, cipher, hashPlain);
+	decryptSB3( signature, secretKey, cipher, hashPlain);
 	char *ptr;
 	unsigned long hashv = strtoul(hashPlain.c_str(), &ptr, 10);
 
@@ -122,7 +120,7 @@ OmicroUserKey::~OmicroUserKey()
 }
 
 
-void OmicroUserKey::createKeyPair(sstr &secretKey, sstr &publicKey )
+void OmicroUserKey::createKeyPairDL5(sstr &secretKey, sstr &publicKey )
 {
 	uint8_t pk[CRYPTO_PUBLICKEYBYTES_DL];
 	uint8_t sk[CRYPTO_SECRETKEYBYTES_DL];
@@ -131,7 +129,7 @@ void OmicroUserKey::createKeyPair(sstr &secretKey, sstr &publicKey )
 	base85Encode( pk, CRYPTO_PUBLICKEYBYTES_DL, publicKey );
 }
 
-void OmicroUserKey::sign( const sstr &msg, const sstr &secretKey, sstr &snmsg )
+void OmicroUserKey::signDL5( const sstr &msg, const sstr &secretKey, sstr &snmsg )
 {
 	int MLEN = msg.size();
 	uint8_t m[MLEN + CRYPTO_BYTES_DL];
@@ -149,7 +147,7 @@ void OmicroUserKey::sign( const sstr &msg, const sstr &secretKey, sstr &snmsg )
 	// printf("a22200 smlen=%ld MLEN=%d MLEN + CRYPTO_BYTES_DL=%ld\n", smlen, MLEN, MLEN + CRYPTO_BYTES_DL );
 }
 
-bool OmicroUserKey::verify(const sstr &snmsg, const sstr &pubKey )
+bool OmicroUserKey::verifyDL5(const sstr &snmsg, const sstr &pubKey )
 {
 	uint8_t pk[CRYPTO_PUBLICKEYBYTES_DL];
 	base85Decode( pubKey, pk, CRYPTO_PUBLICKEYBYTES_DL);

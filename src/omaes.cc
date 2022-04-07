@@ -1,3 +1,4 @@
+#include <string.h>
 #include "omicrodef.h"
 #include "omaes.h"
 #include "ombase85.h"

@@ -40,9 +40,10 @@ void OmicroQuery::setTimeStamp( const sstr &ts)
 }
 
 
-void OmicroQuery::str(sstr &data)
+void OmicroQuery::str( const sstr &qtype, sstr &data)
 {
-	data = sstr("QT|") + trnxId_ + "|" + sender + "|" + timestamp;
+	//data = sstr("QT|") + trnxId_ + "|" + sender + "|" + timestamp;
+	data = qtype + "|" + trnxId_ + "|" + sender + "|" + timestamp;
 }
 
 void OmicroQuery::strGetPublicKey( sstr &pk )

@@ -15,10 +15,14 @@ class OmAccount
 	double getBalance(); 
 	ulong  getFence();
 	void   incrementFence();
+	void   incrementIn();
 
   	sstr balance_;
+	sstr tokentype_;
   	sstr pubkey_;
-  	sstr fence_;
+  	sstr keytype_;
+  	sstr out_;
+  	sstr in_;
   	sstr pad1_;
   	sstr pad2_;
   	sstr pad3_;

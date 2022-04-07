@@ -3,6 +3,7 @@
 
 #include <tchdb.h>
 #include "omicrodef.h"
+#include "omlog.h"
 
 #define OM_DB_WRITE ( HDBOWRITER|HDBOCREAT )
 #define OM_DB_READ  (HDBOREADER )

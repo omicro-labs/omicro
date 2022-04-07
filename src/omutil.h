@@ -3,8 +3,11 @@
 
 #include <time.h>
 #include <stdio.h>
+#include <vector>
 #include "omicrodef.h"
-#include "omstrsplit.h"
+//#include "omstrsplit.h"
+
+using strvec = std::vector<std::string>;
 
 
 // f+1
