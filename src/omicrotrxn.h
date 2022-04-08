@@ -36,8 +36,10 @@ class OmicroTrxn
 	void  getTrxnID( std::string &id);
 	void  makeSimpleTrxn( const std::string &nodePubkey, const std::string &userSecretKey, const std::string &userPublicKey, 
 						  const std::string &fromId, const std::string &toId, const std::string &amt );
-	void  makeNewAcctTrxn( const std::string &nodePubkey, const std::string &userSecKey, const std::string &userPubkey );
-	void  makeAcctQuery( const std::string &nodePubkey, const std::string &secretKey, const std::string &publicKey, const std::string &fromId );
+	void  makeNewAcctTrxn( const std::string &nodePubkey, const std::string &userSecKey, 
+						   const std::string &userPubkey, const std::string &userId );
+	void  makeAcctQuery( const std::string &nodePubkey, const std::string &secretKey, 
+						 const std::string &publicKey, const std::string &fromId );
 
 	void  print();
 	void  setInitTrxn();

@@ -32,7 +32,7 @@ ulong OmMsgHdr::getLength() const
 	buf_[OM_HDR_LEN_SZ] = '\0';
 	ulong e = atol(buf_);
 	buf_[OM_HDR_LEN_SZ] = v;
-	d("a33400 OmMsgHdr::getLength() hdrlen=%d", e);
+	//d("a33400 OmMsgHdr::getLength() hdrlen=%d", e);
 	if ( e < 2 ) {
 		abort();
 	}

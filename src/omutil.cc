@@ -27,10 +27,12 @@
 #include "omstrsplit.h"
 #include "omlog.h"
 
+/***
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/error/en.h>
+**/
 
 
 EXTERN_LOGGING

@@ -479,7 +479,6 @@ void *threadSendMsg(void *arg)
 	}
 
 	d("a30114 cli.sendMessage ... " );
-    //p->reply = cli.sendMessage( OM_RX,  p->trxn.c_str(), p->expectReply );
     p->reply = cli.sendMessage( p->msgType,  p->trxn.c_str(), p->expectReply );
 	d("a30114 cli.sendMessage returned p->expectReply=%d p->reply=[%s]", p->expectReply, s(p->reply) );
     return NULL;

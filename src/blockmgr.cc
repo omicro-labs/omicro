@@ -27,6 +27,7 @@
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/error/en.h>
+#include "omresponse.h"
 
 EXTERN_LOGGING
 
@@ -185,24 +186,36 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 	sstr err;
 	int rc = readTrxns( from, timestamp, trxnId, vec, tstat, err );
 
+	OmResponse resp;
+	resp.TID_ = trxnId;
+	resp.UID_ = from;
+	
 	if ( rc < 0 || tstat == 'F' ) {
+		resp.STT_ = OM_RESP_ERR;
+		resp.RSN_ = "FAILED";
 		if ( rc < 0 ) {
-			res = trxnId + "|FAILED|" + err;
+			//res = trxnId + "|FAILED|" + err;
+			resp.DAT_ = err;
 		} else {
-			res = trxnId + "|FAILED|TRXNERROR";
+			//res = trxnId + "|FAILED|TRXNERROR";
+			resp.DAT_ = "TRXNERROR";
 		}
+		resp.json( res );
 		i("E30298 %s", err.c_str() );
 		return;
 	}
 
 	if ( vec.size() < 1 ) {
 		//may be OK, just late
-		res = trxnId + "|NOTFOUND";
+		resp.STT_ = OM_RESP_ERR;
+		resp.RSN_ = "NOTFOUND";
+		// res = trxnId + "|NOTFOUND";
+		resp.json( res );
 		return;
 	}
 
-	res = vec[0];
-
+	resp.STT_ = OM_RESP_OK;
+	resp.json( res );
 }
 
 // get a list of trxns of user from. If trxnId is not empty, get specific trxn

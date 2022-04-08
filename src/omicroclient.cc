@@ -13,9 +13,9 @@
 #include "omicroquery.h"
 #include "omutil.h"
 #include "ommsghdr.h"
-#include "omstrsplit.h"
 #include "omicrodef.h" 
 #include "omlog.h" 
+#include "omresponse.h" 
 
 EXTERN_LOGGING
 
@@ -153,18 +153,20 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 {
 	t.setInitTrxn();
 	sstr alldata; t.allstr(alldata);
-	sstr reply = sendMessage( OM_TXN, alldata, true );
-	OmStrSplit sp(reply, '|');
-	sstr stat = sp[0];
-	sstr trxnId = sp[2];
-	d("a42228 sendTrxn reply=[%s]\n", s(reply));
 
-	if ( strstr( stat.c_str(), "BAD" ) || strstr( stat.c_str(), "INVALID" ) ) {
-		d("a32208 got BAD/INVALID from server [%s]", stat.c_str() );
-		return stat;
+	sstr reply = sendMessage( OM_TXN, alldata, true );
+	d("14073 sendTrxn sendMessage reply=[%s]", s(reply));
+
+	OmResponse resp( reply.c_str() );
+	d("a42128 sendTrxn reply=[%s]\n", s(reply));
+	sstr trxnId = resp.TID_;
+
+	if ( resp.STT_ == OM_RESP_ERR ) {
+		d("a32208 got INVALID from server [%s]", reply.c_str() );
+		return reply;
 	}
 
-	OmicroQuery q;
+	OmicroSimpleQuery q;
 	q.setTrxnId( trxnId );
 	q.setSender( t.sender_ );
 	q.setTimeStamp( t.timestamp_ );
@@ -177,12 +179,16 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 
 	while ( true ) {
 		reply = sendMessage( OM_RQ, data, true );
-		if ( strstr( reply.c_str(), "FAILED") ) {
+		OmResponse resp( reply.c_str() );
+		d("a423376 sendMessage OM_RQ reply=[%s]", s(reply) );
+		if ( resp.RSN_ == "FAILED" ) {
 			break;
 		}
-		if ( ! strstr( reply.c_str(), "NOTFOUND") ) {
+
+		if ( resp.RSN_ != "NOTFOUND" ) {
 			break;
 		}
+
 		usleep(1000*WAIT_MS);
 		++cnt;
 		if ( cnt > waitCnt ) {
@@ -198,18 +204,16 @@ sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
 	t.setInitTrxn();
 	sstr alldata; t.allstr(alldata);
 	sstr reply = sendMessage( OM_XNQ, alldata, true );
-	OmStrSplit sp(reply, '|');
-	sstr stat = sp[0];
-	sstr trxnId = sp[2];
-	d("a42228 sendTrxn reply=[%s]\n", s(reply));
+	d("a344409 sendQuery sendMessage reply=[%s]", reply.c_str() );
 
-	if ( strstr( stat.c_str(), "BAD" ) || strstr( stat.c_str(), "INVALID" ) ) {
-		d("a32208 got BAD/INVALID from server [%s]", stat.c_str() );
-		return stat;
+	OmResponse resp( reply.c_str() );
+	sstr trxnId = resp.TID_;
+	if ( resp.STT_ == OM_RESP_ERR ) {
+		d("a32208 got INVALID from server [%s]", resp.RSN_.c_str() );
+		return resp.RSN_;
 	}
 
-
-	OmicroQuery q;
+	OmicroSimpleQuery q;
 	q.setTrxnId( trxnId );
 	q.setSender( t.sender_ );
 	q.setTimeStamp( t.timestamp_ );
@@ -217,17 +221,21 @@ sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
 	int WAIT_MS = 50;
 	int waitCnt = waitSeconds*(1000/WAIT_MS);
 	int cnt = 0;
-
 	sstr data; q.str("QQ", data);
 
 	while ( true ) {
 		reply = sendMessage( OM_RQ, data, true );
-		if ( strstr( reply.c_str(), "FAILED") ) {
+		d("a73714 sendMessage got reply=[%s] ", reply.c_str() );
+
+		OmResponse resp( reply.c_str() );
+		if ( resp.RSN_ == "FAILED" ) {
 			break;
 		}
-		if ( ! strstr( reply.c_str(), "NOTFOUND") ) {
+
+		if ( resp.RSN_ != "NOTFOUND" ) {
 			break;
 		}
+
 		usleep(1000*WAIT_MS);
 		++cnt;
 		if ( cnt > waitCnt ) {
@@ -240,7 +248,7 @@ sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
 
 sstr OmicroClient::reqPublicKey( int waitSeconds)
 {
-	OmicroQuery q;
+	OmicroSimpleQuery q;
 	q.setTrxnId( "1" );
 
 	int WAIT_MS = 50;
@@ -252,9 +260,12 @@ sstr OmicroClient::reqPublicKey( int waitSeconds)
 
 	while ( true ) {
 		reply = sendMessage( OM_RQ, cmd, true );
-		if ( ! strstr( reply.c_str(), "NOTFOUND") ) {
-			break;
+		OmResponse resp( reply.c_str() );
+		if ( resp.STT_ == OM_RESP_OK ) {
+			// d("a32038 recved pubkey=[%s]", s(resp.DAT_) );
+			return resp.DAT_;
 		}
+
 		usleep(1000*WAIT_MS);
 		++cnt;
 		if ( cnt > waitCnt ) {
@@ -262,5 +273,5 @@ sstr OmicroClient::reqPublicKey( int waitSeconds)
 		}
 	}
 
-	return reply;
+	return "INVALID248";
 }

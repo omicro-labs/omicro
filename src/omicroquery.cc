@@ -16,37 +16,76 @@
  */
 #include "omicrodef.h"
 #include "omicroquery.h"
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/error/en.h>
 
-OmicroQuery::OmicroQuery()
+OmicroSimpleQuery::OmicroSimpleQuery()
 {
 }
-OmicroQuery::~OmicroQuery()
+OmicroSimpleQuery::~OmicroSimpleQuery()
 {
 }
 
-void OmicroQuery::setTrxnId( const sstr &id )
+void OmicroSimpleQuery::setTrxnId( const sstr &id )
 {
 	trnxId_ = id;
 }
 
-void OmicroQuery::setSender( const sstr &from)
+void OmicroSimpleQuery::setSender( const sstr &from)
 {
 	sender = from;
 }
 
-void OmicroQuery::setTimeStamp( const sstr &ts)
+void OmicroSimpleQuery::setTimeStamp( const sstr &ts)
 {
 	timestamp = ts;
 }
 
 
-void OmicroQuery::str( const sstr &qtype, sstr &data)
+void OmicroSimpleQuery::str( const sstr &qtype, sstr &data)
 {
-	//data = sstr("QT|") + trnxId_ + "|" + sender + "|" + timestamp;
-	data = qtype + "|" + trnxId_ + "|" + sender + "|" + timestamp;
+	//data = qtype + "|" + trnxId_ + "|" + sender + "|" + timestamp;
+ 	rapidjson::StringBuffer sbuf;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(sbuf);
+    writer.StartObject();
+
+    writer.Key("QT");
+    writer.String( qtype.c_str() );
+
+    writer.Key("TID");
+    writer.String( trnxId_.c_str() );
+
+    writer.Key("FRM");
+    writer.String( sender.c_str() );
+
+    writer.Key("TS");
+    writer.String( timestamp.c_str() );
+
+    writer.EndObject();
+	data = sbuf.GetString();
 }
 
-void OmicroQuery::strGetPublicKey( sstr &pk )
+void OmicroSimpleQuery::strGetPublicKey( sstr &pk )
 {
-	pk = sstr("QP|") + trnxId_;
+	// pk = sstr("QP|") + trnxId_;
+ 	rapidjson::StringBuffer sbuf;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(sbuf);
+    writer.StartObject();
+
+    writer.Key("QT");
+    writer.String("QP");
+
+    writer.Key("TID");
+    writer.String( trnxId_.c_str() );
+
+    writer.Key("FRM");
+    writer.String( sender.c_str() );
+
+    writer.Key("TS");
+    writer.String( timestamp.c_str() );
+
+    writer.EndObject();
+	pk = sbuf.GetString();
 }

@@ -3,11 +3,11 @@
 
 #include <string>
 
-class OmicroQuery
+class OmicroSimpleQuery
 {
   public:
-  	OmicroQuery();
-  	~OmicroQuery();
+  	OmicroSimpleQuery();
+  	~OmicroSimpleQuery();
 
 	void setTrxnId( const std::string &id);
 	void setSender( const std::string &from);

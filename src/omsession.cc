@@ -27,7 +27,11 @@
 #include "omutil.h"
 #include "ommsghdr.h"
 #include "omicroclient.h"
-#include "omstrsplit.h"
+#include "omresponse.h"
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/error/en.h>
 
 EXTERN_LOGGING
 using namespace boost::asio::ip;
@@ -134,10 +138,14 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 
 	sstr trxnId; 
 	bool isInitTrxn = t.isInitTrxn();
+	t.getTrxnID( trxnId );
 
-	bool validTrxn = validateTrxn( t, isInitTrxn );
+	sstr err;
+	bool validTrxn = validateTrxn( t, isInitTrxn, err );
 	if ( ! validTrxn ) {
-		sstr m = sstr("INVALID_TRXN|") + id_;
+		// sstr m = sstr("INVALID_TRXN|") + id_ + "|" + err;
+		sstr m;
+		errResponse( trxnId, "INVALID_TRXN", id_ + " " + err, m );
 		reply(m, socket_);
 		i("E40282 INVALID_TRXN ignore isInitTrxn=%d", isInitTrxn );
 		return;
@@ -148,7 +156,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 
 	if ( isInitTrxn ) {
 		t.setID();
-		t.getTrxnID( trxnId );
+		// t.getTrxnID( trxnId );
 		d("a43713 init trxnId=[%s]", s(trxnId) );
 		d("a333301  i am clientproxy, launching initTrxn ..." );
 		// add fence_ of sender
@@ -159,16 +167,18 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 		d("a333301  i am clientproxy, launched initTrxn rc=%d", rc );
 		sstr m;
 		if ( rc ) {
-			m = sstr("GOOD_TRXN|initTrxn|") +trxnId + "|t33093|" + sid_;
+			//m = sstr("GOOD_TRXN|initTrxn|") +trxnId + "|t33093|" + sid_;
+			okResponse( trxnId, "initTrxn", m );
 		} else {
-			m = sstr("BAD_TRXN|initTrxn|") +trxnId + "|t531019|" + sid_;
+			//m = sstr("INVALID_TRXN|initTrxn|") +trxnId + "|t531019|" + sid_;
+			errResponse( trxnId, "INVALID_TRXN", "initTrxn", m );
 		}
 
 		d("a333301 reply to endclient %s", s(m) );
 		reply(m, socket_);
 		d("a333301 reply to endclient %s done", s(m) );
 	} else {
-		t.getTrxnID( trxnId );
+		//t.getTrxnID( trxnId );
 		d("a43714 exist trxnId=[%s]", s(trxnId) );
 		Byte xit = t.getXit();
 		sstr beacon = t.beacon_;
@@ -238,8 +248,10 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 		} else if ( xit == XIT_j ) {
 			// I am follower, give my vote to leader
 			d("a5501 received XIT_j from [%s] reply back good", s(pfrom));
-			sstr m = sstr("GOOD_TRXN|XIT_j|")+id_ + "|" + sid_;;
-			d("a555550 GOOD_TRXN|XIT_j m=[%s]", m.c_str() );
+			// sstr m = sstr("GOOD_TRXN|XIT_j|")+id_ + "|" + sid_;;
+			sstr m;
+			okResponse(trxnId, "XIT_j", m );
+			d("a555550 ok m=[%s]", m.c_str() );
 			reply(m, socket_);
 		} else if ( xit == XIT_l ) {
 			d("a92822 %s received XIT_l from [%s] ...", s(sid_), s(pfrom) );
@@ -271,21 +283,32 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 	// d("a71002 doSimpleQuery msg.len=%d msg=[%s]", msglen, msg );
 	sstr id_ = serv_.id_;
 
-	OmStrSplit sp( msg, '|');
-	sstr qtype = sp[0]; 
-	sstr trxnId = sp[1]; 
-	sstr sender = sp[2]; 
-	sstr ts = sp[3]; 
+    rapidjson::Document dom;
+    dom.Parse( msg );
+    if ( dom.HasParseError() ) {
+        printf("E43337 dom.HasParseError msg=[%s]\n", msg );
+		sstr m;
+		errResponse( "unknowTrxnId", "INVALID_QUERY", msg, m );
+		reply( m, socket_ ); 
+        return;
+    }
+
+    sstr qtype = dom["QT"].GetString();
+    sstr trxnId = dom["TID"].GetString();
+    sstr sender = dom["FRM"].GetString();
+    sstr ts = dom["TS"].GetString();
 
 	if ( qtype == "QT" ) {
 		// query trxn status
-		sstr res;
-		serv_.blockMgr_.queryTrxn( sender, trxnId, ts, res );
-		reply( res, socket_ ); 
+		sstr json;
+		serv_.blockMgr_.queryTrxn( sender, trxnId, ts, json );
+		reply( json, socket_ ); 
 		d("a40088 received QT return res");
 	} else if ( qtype == "QP" ) {
 		// request public key
-		reply( serv_.pubKey_, socket_ ); 
+		sstr json;
+		okResponse( trxnId, serv_.pubKey_, json);
+		reply( json, socket_ ); 
 	} else if ( qtype == "QQ" ) {
 		d("a2939 QQ");
 		// request last query result
@@ -304,13 +327,15 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 			reply( lastResult, socket_ ); 
 		}
 		***/
-			sstr lastResult;
-			getResult( trxnId, lastResult );
-			d("a43207 lastResult=[%s] reply...", s(lastResult) );
-			reply( lastResult, socket_ ); 
-			d("a43207 lastResult=[%s] sent done", s(lastResult) );
+		sstr lastResult; // json
+		getResult( trxnId, sender, lastResult );
+		d("a43207 lastResult=[%s] reply...", s(lastResult) );
+		reply( lastResult, socket_ ); 
+		d("a43207 lastResult=[%s] sent done", s(lastResult) );
 	} else {
-		reply( sstr(msg) + "|BADREQUEST", socket_ ); 
+		sstr m;
+		errResponse( trxnId, "INVALID_REQUEST", msg, m );
+		reply( m, socket_ ); 
 	}
 
 	d("a535023 doSimpleQuery done clientIP_=[%s]", s(clientIP_));
@@ -365,11 +390,12 @@ void omsession::makeSessionID()
 	sid_ = buf;
 }
 
-bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn )
+bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 {
 	bool validTrxn = txn.validateTrxn( serv_.secKey_ );
 	if ( ! validTrxn ) {
 		i("E30290 trxn is not valid");
+		err = "Transaction object invalid";
 		return false;
 	}
 
@@ -379,13 +405,15 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn )
 		int rc = serv_.blockMgr_.getBalanceAndPubkey( txn.sender_, bal, pubkey );
 		if ( rc < 0 ) {
             i("E32018 from=[%s] invalid rc=%d", s(txn.sender_), rc );
+			err = "Unable to get balance and public key of sender";
             return false;
 		}
 
 		if ( pubkey != txn.userPubkey_ ) {
-            i("E32016 from=[%s] pubkey ", s(txn.sender_) );
+            i("E32016 pubkey mismatch from=[%s] pubkey ", s(txn.sender_) );
             i("E32016 txn.pubkey=[%s]", s(txn.userPubkey_) );
             i("E32016 acct.pubkey=[%s]", s(pubkey) );
+			err = "Public key mismatch";
             return false;
 		}
 
@@ -393,6 +421,7 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn )
         d("a44502 from=[%s] balance=[%.6f]", s(txn.sender_), bal );
         if ( (bal - amt) < 0.0001 ) {
             d("a30138 from=[%s] balance=%.6f not enough to pay %.6f", s(txn.sender_), bal, amt );
+			err = "Not enough funds";
             return false;
         }
 
@@ -401,6 +430,7 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn )
 			serv_.blockMgr_.getFence( txn.sender_, fromFence);
 			if ( txn.fence_ != fromFence ) {
             	i("E32012 from=[%s] txn.fence_=[%s] != fromFence=[%s]", s(txn.sender_), s(txn.fence_), s(fromFence) );
+				err = "Fencing error";
 				return false;
 			}
 
@@ -410,11 +440,12 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn )
 	return true;
 }
 
-bool omsession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitTrxn )
+bool omsession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitTrxn, sstr &err )
 {
 	bool validTrxn = txn.validateTrxn( serv_.secKey_ );
 	if ( ! validTrxn ) {
 		i("E20290 query is not valid");
+		err = "Invalid tranaction message";
 		return false;
 	}
 
@@ -423,6 +454,7 @@ bool omsession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitT
 	int rc = serv_.blockMgr_.runQuery(txn, res);
 	if  ( rc < 0 ) {
 		i("E40021 runQuery error rc=%d  request=[%s]", rc, s(txn.request_) );
+		err = "Query error";
 		return false;
 	}
 
@@ -434,6 +466,9 @@ bool omsession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitT
 
 	if ( txn.response_ != res ) {
 		d("a31800 after runQuery  txn.response_ != res ");
+		d("a1004 txn.response_=[%s]", s(txn.response_) );
+		d("a1004 res =[%s]", s(res) );
+		err = "Query result mismatch";
 		return false;
 	} else {
 		d("a31400 after runQuery  txn.response_ == res OK ");
@@ -464,10 +499,12 @@ void omsession::doQueryL2(const char *msg, int msglen)
 
 	t.getTrxnID( trxnId );
 
-	bool validTrxn = validateQuery( t, trxnId, isInitTrxn );
+	sstr err;
+	bool validTrxn = validateQuery( t, trxnId, isInitTrxn, err );
 	if ( ! validTrxn ) {
-		sstr m = sstr("INVALID_QUERY|") + id_;
-		reply(m, socket_);
+		sstr json;
+		errResponse( trxnId, "INVALID_QUERY", id_ + "|" + err, json );
+		reply(json, socket_);
 		i("E40202 INVALID_TRXN query ignore" );
 		return;
 	}
@@ -478,20 +515,21 @@ void omsession::doQueryL2(const char *msg, int msglen)
 
 	if ( isInitTrxn ) {
 		t.setID();
-		// t.getTrxnID( trxnId );
 		d("a41713 initquery trxnId=[%s]", s(trxnId) );
 		rc = initQuery( t );
+		OmResponse resp;
+		resp.TID_ = trxnId;
 		if ( rc ) {
-			m = sstr("GOOD_QUERY|initQuery|") +trxnId + "|" + sid_;
+			resp.STT_ = OM_RESP_OK;
+			resp.RSN_ = "initQuery";
 		} else {
-			m = sstr("BAD_QUERY|initQuery|") +trxnId + "|" + sid_;
+			resp.STT_ = OM_RESP_ERR;
+			resp.RSN_ = "INVALID_QUERY";
 		}
-
-		d("a323301 reply to endclient %s", s(m) );
+		resp.json( m );
 		reply(m, socket_);
-		d("a323301 reply to endclient %s done", s(m) );
+
 	} else {
-		// t.getTrxnID( trxnId );
 		Byte xit = t.getXit();
 		d("a43712 exist trxnId=[%s] xit=[%c]", s(trxnId), xit );
 		sstr beacon = t.beacon_;
@@ -519,34 +557,25 @@ void omsession::doQueryL2(const char *msg, int msglen)
 					t.srvport_ = serv_.srvport_;
 					sstr alld; t.allstr(alld);
 					serv_.multicast( OM_XNQ, followers, alld, true, replyVec );
-					//serv_.multicast( OM_XNQ, followers, alld, false, replyVec );
 					d("a32112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(sid_), replyVec.size() );
 
 					int votes = replyVec.size(); // how many replied
 					t.setVoteInt( votes );
-					m = sstr("GOOD_QUERY|Query|") +trxnId + "|a20802|" + sid_;
 					serv_.addQueryVote( trxnId, votes );
 				} else {
 					d("a3306 XIT_i to state A toAgood is false");
-					m = sstr("BAD_QUERY|Query|") +trxnId + "|a20281|" + sid_;
 				}
 			} else {
 				// bad
 				d("a3308 i [%s] am not leader, ignore XIT_i", s(sid_));
-				m = sstr("BAD_QUERY|Query|") +trxnId + "|22272|" + sid_;
 			}
-			/***
-			// else i am not leader, igore 'i' xit
-			d("a51102 leader at C sendback msg to origleader ...");
-			reply(m, socket_);
-			d("a51102 leader at C sendback msg to origleader done");
-			***/
 		} else if ( xit == XIT_j ) {
 			// I am follower, give my vote to leader
 			d("a5502 received XIT_j from [%s] reply back good", s(pfrom));
-			sstr m = sstr("GOOD_TRXN|XIT_j|")+id_ + "|" + sid_;;
-			reply(m, socket_);
-			d("a55150 GOOD_TRXN|XIT_j m=[%s]", m.c_str() );
+			sstr json;
+			okResponse( trxnId, "XIT_j", json);
+			reply(json, socket_);
+			d("a55150 m=[%s]", json.c_str() );
 
 			/***
 			bool toBgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_j );
@@ -617,15 +646,24 @@ bool omsession::initQuery( OmicroTrxn &txn )
 	}
 }
 
-void omsession::getResult( const sstr &trxnId, sstr &res )
+// res is json retured
+void omsession::getResult( const sstr &trxnId, const sstr &sender, sstr &res )
 {
 	auto itr = serv_.result_.find( trxnId );
+	OmResponse resp;
+	resp.TID_ = trxnId;
+	resp.UID_ = sender;
+	resp.NID_ = serv_.id_;
+
 	if ( itr == serv_.result_.end() ) {
-		res = trxnId + "|NOTFOUND";
+		resp.STT_ = OM_RESP_ERR;
+		resp.RSN_ = "NOTFOUND";
 		d("a23309  sid_=[%s]  trxnId=[%s] not found", s(sid_), s(trxnId) );
-		return;
+	} else {
+		resp.STT_ = OM_RESP_OK;
+		resp.DAT_ = itr->second;
 	}
 
-	res = itr->second;
+	resp.json( res );
 }
 

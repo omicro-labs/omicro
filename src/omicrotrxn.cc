@@ -312,10 +312,14 @@ void  OmicroTrxn::makeSimpleTrxn( const sstr &nodePubkey,
 }
 
 void OmicroTrxn::makeNewAcctTrxn( const sstr &nodePubkey, 
-			const sstr &userSecretKey, const sstr &userPublicKey ) 
+			const sstr &userSecretKey, const sstr &userPublicKey, const sstr &userName ) 
 {
 	sstr userId;
-	OmicroUserKey::getUserId( userPublicKey, userId );
+	if ( userName.size() < 1 ) {
+		OmicroUserKey::getUserId( userPublicKey, userId );
+	} else {
+		userId = userName;
+	}
 
 	hdr_ = "IT";
 
