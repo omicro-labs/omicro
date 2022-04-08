@@ -185,6 +185,8 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 	char tstat = '0';
 	sstr err;
 	int rc = readTrxns( from, timestamp, trxnId, vec, tstat, err );
+	d("a56702 queryTrxn readTrxns rc=%d from=[%s] trxnId=[%s] timestamp=[%s]", rc, s(from), s(trxnId), s(timestamp) );
+
 
 	OmResponse resp;
 	resp.TID_ = trxnId;
@@ -209,7 +211,6 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 		//may be OK, just late
 		resp.STT_ = OM_RESP_ERR;
 		resp.RSN_ = "NOTFOUND";
-		// res = trxnId + "|NOTFOUND";
 		resp.json( res );
 		return;
 	}
@@ -221,7 +222,7 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 // get a list of trxns of user from. If trxnId is not empty, get specific trxn
 int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &vec, char &tstat, sstr &err )
 {
-	//d("a53001 readTrxns from=[%s] timestamp=[%s] trxnId=[%s]", s(from), s(timestamp), s(trxnId) );
+	d("a53001 readTrxns from=[%s] timestamp=[%s] trxnId=[%s]", s(from), s(timestamp), s(trxnId) );
 
 	sstr yyyymmddhh = getYYYYMMDDHHFromTS(timestamp);
 
@@ -406,6 +407,7 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 		d("a19721 vec[0]=[%s]", s(vec[0]) );
 	}
 	***/
+	d("a32220 return 0 here");
 	return 0;
 }
 

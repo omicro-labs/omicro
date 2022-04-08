@@ -221,6 +221,10 @@ bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 	bool rc = OmicroNodeKey::verifySB3(data, signature_, cipher_, secretKey);
 	if ( ! rc ) {
 		d("a34408 nodekey verify false");
+		d("a34408 secretKey=[%s]", s(secretKey) );
+		d("a34408 data=[%s]", s(data) );
+		d("a34408 signature_=[%s]", s(signature_) );
+		d("a34408 cipher_=[%s]", s(cipher_) );
 		return false;
 	}
 	/**

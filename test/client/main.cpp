@@ -13,11 +13,14 @@ INIT_LOGGING
 **  This is example code for client to interact with Omicro
 **
 **	Usage: omclient  key    (This will create private and public keys
-**         omclient  <serverIP>  <serverPort>  <acct/req>
-**                                              acct:  to create an account
-**                                              req:  to query account status
+**         omclient  <serverIP>  <serverPort>  acct
+**                                             Create an account
 **
 **         omclient  <serverIP>  <serverPort>  pay  <amt>
+**                                             Pay from user1 to user2
+**
+**         omclient  <serverIP>  <serverPort>  view <userID>
+**                                             View balance of user1 or user2
 **
 ******************************************************************/
 
@@ -30,8 +33,9 @@ void readUserKey( std::string uname, std::string &secKey, std::string &pubKey );
 void help( const char *prog)
 {
 	printf("Usage: %s  key\n", prog);
-	printf("Usage: %s  <serverIP>  <serverPort>  <acct/req>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  acct\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  pay <amount>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  view <userId>\n", prog );
 }
 
 int main(int argc, char* argv[])
@@ -70,7 +74,7 @@ int main(int argc, char* argv[])
 		} else {
 	    	makePayment( srv, port, "user1", "user2", argv[4] );
 		}
-	} else if ( 0 == strcmp(argv[3], "req" ) ) {
+	} else if ( 0 == strcmp(argv[3], "view" ) ) {
 		if ( argc >= 5 ) {
 	    	query( srv, port, argv[4] );
 		} else {

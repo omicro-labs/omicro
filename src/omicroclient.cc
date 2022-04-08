@@ -76,7 +76,7 @@ OmicroClient::OmicroClient( const char *srv, int port )
 OmicroClient::~OmicroClient()
 {
 	if ( connectOK_ ) {
-		d("a72231 dtor of OmicroClient client_.stop() srv=%s port=%d", s(srv_), port_ );
+		//d("a72231 dtor of OmicroClient client_.stop() srv=%s port=%d", s(srv_), port_ );
 		::close( socket_);
 	}
 }
@@ -257,12 +257,13 @@ sstr OmicroClient::reqPublicKey( int waitSeconds)
 	sstr cmd, reply;
 
 	q.strGetPublicKey( cmd );
+	d("a33502 q.strGetPublicKey cmd=[%s]", s(cmd) );
 
 	while ( true ) {
 		reply = sendMessage( OM_RQ, cmd, true );
 		OmResponse resp( reply.c_str() );
 		if ( resp.STT_ == OM_RESP_OK ) {
-			// d("a32038 recved pubkey=[%s]", s(resp.DAT_) );
+			d("a32038 recved pubkey=[%s]", s(resp.DAT_) );
 			return resp.DAT_;
 		}
 

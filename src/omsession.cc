@@ -280,13 +280,13 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 
 void omsession::doSimpleQuery(const char *msg, int msglen)
 {
-	// d("a71002 doSimpleQuery msg.len=%d msg=[%s]", msglen, msg );
+	d("a71002 doSimpleQuery msg.len=%d msg=[%s]", msglen, msg );
 	sstr id_ = serv_.id_;
 
     rapidjson::Document dom;
     dom.Parse( msg );
     if ( dom.HasParseError() ) {
-        printf("E43337 dom.HasParseError msg=[%s]\n", msg );
+        i("E43337 dom.HasParseError msg=[%s]\n", msg );
 		sstr m;
 		errResponse( "unknowTrxnId", "INVALID_QUERY", msg, m );
 		reply( m, socket_ ); 
@@ -303,7 +303,7 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 		sstr json;
 		serv_.blockMgr_.queryTrxn( sender, trxnId, ts, json );
 		reply( json, socket_ ); 
-		d("a40088 received QT return res");
+		d("a40088 received QT return res=[%s]", s(json));
 	} else if ( qtype == "QP" ) {
 		// request public key
 		sstr json;
