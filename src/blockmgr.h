@@ -6,6 +6,7 @@
 #include "omstore.h"
 #include "omicrotrxn.h"
 #include "omutil.h"
+#include "trxnlist.h"
 
 #define OM_MEMPOOL_SZ 3000
 
@@ -38,6 +39,7 @@ class BlockMgr
 	sstr getAcctStoreFilePath( const sstr &userId);
 	char *findSaveStore( const sstr &userId, OmstorePtr &ptr );
 
+	void saveTrxnList( const sstr &from, const sstr &timestamp ); 
 
   	sstr dataDir_;
   	const int DIR_LEVEL1_NUM = 1019; // do not change this
@@ -46,7 +48,7 @@ class BlockMgr
   	const int DIR_HASH_SEED2 = 2593; // do not change this
 	std::unordered_map<sstr, OmstorePtr> trxnStoreMap_;
 	std::unordered_map<sstr, OmstorePtr> acctStoreMap_;
-
+	TrxnList  trxnList_;
 };
 
 #endif

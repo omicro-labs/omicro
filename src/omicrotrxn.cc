@@ -324,6 +324,7 @@ void OmicroTrxn::makeNewAcctTrxn( const sstr &nodePubkey,
 	} else {
 		userId = userName;
 	}
+	d("a43071 makeNewAcctTrxn userId=[%s]", s(userId) );
 
 	hdr_ = "IT";
 
@@ -333,7 +334,7 @@ void OmicroTrxn::makeNewAcctTrxn( const sstr &nodePubkey,
 
 	sender_ = userId;
 
-	receiver_ = "NA";
+	receiver_ = "";
 	amount_ = "0";
 	setNowTimeStamp();
 

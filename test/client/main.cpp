@@ -8,21 +8,23 @@
 #include "omlog.h"
 INIT_LOGGING
 
-/******************************************************************
+/**************************************************************************************
 **
 **  This is example code for client to interact with Omicro
 **
-**	Usage: omclient  key    (This will create private and public keys
-**         omclient  <serverIP>  <serverPort>  acct
-**                                             Create an account
+**	Usage: 
+**	       omclient  key <userID>    (This will create keys of provided userID)
 **
-**         omclient  <serverIP>  <serverPort>  pay  <amt>
-**                                             Pay from user1 to user2
+**         omclient  <serverIP>  <serverPort>  acct <userID>
+**                                             Create account for provided userID
+**
+**         omclient  <serverIP>  <serverPort>  pay <fromUserID> <toUserID>  <amt>
+**                                             Pay from <fromUserID> to <toUserID> <amt>
 **
 **         omclient  <serverIP>  <serverPort>  view <userID>
 **                                             View balance of user1 or user2
 **
-******************************************************************/
+**************************************************************************************/
 
 void createUserKey( const std::string &uname);
 void createAcct( const char *srv, int port, const std::string &username);
@@ -32,28 +34,27 @@ void readUserKey( std::string uname, std::string &secKey, std::string &pubKey );
 
 void help( const char *prog)
 {
-	printf("Usage: %s  key\n", prog);
-	printf("Usage: %s  <serverIP>  <serverPort>  acct\n", prog );
-	printf("Usage: %s  <serverIP>  <serverPort>  pay <amount>\n", prog );
+	printf("Usage: %s  key userID\n", prog);
+	printf("Usage: %s  <serverIP>  <serverPort>  acct <userId>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  pay <fromId> <toId> <amount>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  view <userId>\n", prog );
 }
 
 int main(int argc, char* argv[])
 {
-	if ( argc < 2 ) {
+	if ( argc < 3 ) {
 		help(argv[0]);
 		exit(1);
 	}
 
 	if ( 0 == strcmp(argv[1], "key" ) ) {
-		createUserKey("user1");
-		createUserKey("user2");
-		return 0;
-	}
-
-	if ( argc < 4 ) {
-		help(argv[0]);
-		exit(1);
+		if ( argc >= 3 ) {
+			createUserKey( argv[2] );
+			exit(0);
+		} else {
+			help(argv[0]);
+			exit(1);
+		}
 	}
 
 	g_debug = true;
@@ -61,28 +62,30 @@ int main(int argc, char* argv[])
 	const char *srv = argv[1];
 	int port = atoi(argv[2]);
 
-	if ( 0 == strcmp(argv[3], "key" ) ) {
-		createUserKey("user1");
-		createUserKey("user2");
-	} else if ( 0 == strcmp(argv[3], "acct" ) ) {
-		createAcct( srv, port, "user1" );
-		createAcct( srv, port, "user2" );
-	} else if ( 0 == strcmp(argv[3], "pay" ) ) {
-		if ( argc < 5 ) {
-			help(argv[0]);
-			exit(1);
+	if ( 0 == strcmp(argv[3], "acct" ) ) {
+		if ( argc >= 5 ) {
+			createAcct( srv, port, argv[4] );
 		} else {
-	    	makePayment( srv, port, "user1", "user2", argv[4] );
+			help(argv[0]);
+			exit(3);
+		}
+	} else if ( 0 == strcmp(argv[3], "pay" ) ) {
+		if ( argc >= 7 ) {
+	   		makePayment( srv, port, argv[4], argv[5], argv[6] );
+		} else {
+			help(argv[0]);
+			exit(5);
 		}
 	} else if ( 0 == strcmp(argv[3], "view" ) ) {
 		if ( argc >= 5 ) {
 	    	query( srv, port, argv[4] );
 		} else {
-	    	query( srv, port, "user1" );
+			help(argv[0]);
+			exit(7);
 		}
 	} else {
-		printf("Usage: %s  <serverIP>  <serverPort>  <key/acct/pay>\n", argv[0]);
-		exit(1);
+		help(argv[0]);
+		exit(9);
 	}
 
 }
@@ -155,6 +158,7 @@ void makePayment( const char * srv, int port, const std::string &from, const std
 
 	OmicroTrxn t;
 	t.makeSimpleTrxn( nodePubkey, secretKey, publicKey, from, to, amt );
+	// fake sender t.sender_ = "someotheruser";  // will fail
 
 	std::string data; t.getTrxnData( data );
 	printf("a2220 trxndata=[%s]\n", data.c_str() );

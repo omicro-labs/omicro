@@ -41,6 +41,7 @@ void BlockMgr::setDataDir(  const sstr &dataDir )
 	dataDir_ = dataDir;
 	initDirs();
 	d("a4447 initDirs done");
+	trxnList_.setDataDir( dataDir_ );
 }
 
 BlockMgr::~BlockMgr()
@@ -57,11 +58,14 @@ int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 		return -1;
 	}
 
-	FILE *fp2 = appendToBlockchain(trxn, trxn.receiver_, '+', yyyymmddhh);
-	if ( NULL == fp2 ) {
-		fclose( fp1 );
-		rollbackFromBlockchain(trxn, trxn.sender_, yyyymmddhh );
-		return -2;
+	FILE *fp2 = NULL; 
+	if ( trxn.trxntype_ == OM_PAYMENT ) {
+		fp2 = appendToBlockchain(trxn, trxn.receiver_, '+', yyyymmddhh);
+		if ( NULL == fp2 ) {
+			fclose( fp1 );
+			rollbackFromBlockchain(trxn, trxn.sender_, yyyymmddhh );
+			return -2;
+		}
 	}
 
 	int urc;
@@ -73,18 +77,28 @@ int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 		urc = -10;
 	}
 
+	d("a23021 urc=%d", urc );
+
 	if ( urc < 0 ) {
 		// mark log failure 'F'
 		fprintf(fp1, "F}");
-		fprintf(fp2, "F}");
+		if ( fp2 ) {
+			fprintf(fp2, "F}");
+		}
 	} else {
 		// mark log success 'T'
 		fprintf(fp1, "T}");
-		fprintf(fp2, "T}");
+		if ( fp2 ) {
+			fprintf(fp2, "T}");
+		}
+		d("a123001 success 'T' saveTrxnList ...");
+		trxnList_.saveTrxnList( trxn.sender_, trxn.timestamp_ );
 	}
 
 	fclose(fp1);
-	fclose(fp2);
+	if ( fp2 ) {
+		fclose(fp2);
+	}
 
 	return 0;
 }
@@ -105,8 +119,7 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 		srcptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
 
 		OmAccount acct;
-		//acct.balance_ = "0";
-		acct.balance_ = "1000000"; // todo use 0
+		acct.balance_ = "0";
 		acct.tokentype_ = "O";   // omicro
 		acct.pubkey_ = trxn.userPubkey_;
 		acct.keytype_ = "DL5";
@@ -227,7 +240,7 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 	sstr yyyymmddhh = getYYYYMMDDHHFromTS(timestamp);
 
 	sstr dir = dataDir_ + "/blocks/" + getUserPath(from) + "/" +  yyyymmddhh;
-	sstr fpath = dir + "/blocks.blk";
+	sstr fpath = dir + "/blocks";
 	int fd = open( fpath.c_str(), O_RDONLY|O_NOATIME );
 	if ( fd < 0 ) {
 		i("E45508 error open from=[%s] [%s]", s(from), s(fpath) );
@@ -456,7 +469,7 @@ sstr BlockMgr::getAcctStoreFilePath( const sstr &userid )
 {
 	sstr dir = dataDir_ + "/account/" + getUserPath(userid);
 	makedirPath(dir);
-	sstr fpath = dir + "/acctstore.hdb";
+	sstr fpath = dir + "/store.hdb";
 	d("a42061 getAcctStoreFilePath userid=[%s] fpath=[%s]", s(userid), s(fpath) );
 	return fpath;
 }
@@ -464,9 +477,10 @@ sstr BlockMgr::getAcctStoreFilePath( const sstr &userid )
 // ttype: -: debit/payout   +: credit/receive
 FILE *BlockMgr::appendToBlockchain( OmicroTrxn &t, const sstr &userid, char ttype, const sstr &yyyymmddhh )
 {
+	d("a10072 appendToBlockchain userid=[%s] ttype=[%c] yyyymmddhh=[%s]", s(userid), ttype, s(yyyymmddhh) );
 	sstr dir = dataDir_ + "/blocks/" + getUserPath(userid) + "/" +  yyyymmddhh;
 	makedirPath( dir );
-	sstr fpath = dir + "/blocks.blk";
+	sstr fpath = dir + "/blocks";
 	FILE *fp = fopen(fpath.c_str(), "a");
 	if ( ! fp ) {
 		i("E45508 appendToBlockchain error open [%s]", s(fpath) );
@@ -477,14 +491,14 @@ FILE *BlockMgr::appendToBlockchain( OmicroTrxn &t, const sstr &userid, char ttyp
 	long tsize = tdata.size();
 	// todo compress tdata, tsize would be compressed size
 	fprintf(fp, "%ld~%c~%s~%ld~", tsize, ttype, tdata.c_str(), tsize );
-	d("a56881 appended trxn to [%s]", fpath.c_str() );
+	d("a56881 userid=[%s] appended trxn to fpath [%s]", s(userid),  fpath.c_str() );
 	return fp;
 }
 
 void BlockMgr::rollbackFromBlockchain( OmicroTrxn &t, const sstr &userid, const sstr &yyyymmddhh )
 {
 	sstr dir = dataDir_ + "/blocks/" + getUserPath(userid) + "/" +  yyyymmddhh;
-	sstr fpath = dir + "/blocks.blk";
+	sstr fpath = dir + "/blocks";
 	/***
 	FILE *fp = fopen(fpath.c_str(), "a");
 	if ( ! fp ) {
@@ -628,3 +642,10 @@ char *BlockMgr::findSaveStore( const sstr &userId, OmstorePtr &ptr )
 		}
 	}
 }
+
+void BlockMgr::saveTrxnList( const sstr &from, const sstr &timestamp )
+{
+	trxnList_.saveTrxnList( from, timestamp );
+}
+
+
