@@ -1,5 +1,5 @@
+#include <algorithm>
 #include "omquery.h"
-
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
@@ -36,3 +36,4 @@ void OmQuery::str( sstr &qstr )
     writer.EndObject();
 	qstr = (char*)bs.GetString();
 }
+
