@@ -1,43 +1,41 @@
 #include <math.h>
 #include "omaccount.h"
 #include "omstrsplit.h"
+#include "omjson.h"
+#include "omdom.h"
 
 OmAccount::OmAccount()
 {
 }
 
-OmAccount::OmAccount( const char *rec )
+OmAccount::OmAccount( const char *recjson )
 {
-	int i = 0;
-	OmStrSplit sp(rec, '|');
-	balance_ = sp[i++];
-	tokentype_ = sp[i++];
-	pubkey_ = sp[i++];
-	keytype_ = sp[i++];
-	//fence_ = sp[i++];
-	out_ = sp[i++];
-	in_ = sp[i++];
-	pad1_ = sp[i++];
-	pad2_ = sp[i++];
-	pad3_ = sp[i++];
+	OmDom od( recjson );
+	od.get("A", accttype_ );
+	od.get("B", balance_ );
+	od.get("T", tokentype_ );
+	od.get("P", pubkey_ );
+	od.get("K", keytype_ );
+	od.get("O", out_ );
+	od.get("I", in_ );
+
 }
 
 OmAccount::~OmAccount()
 {
 }
 
-void OmAccount::str( sstr &res)
+void OmAccount::json( sstr &res)
 {
-	res = balance_ 
-	      + "|" + tokentype_ 
-	      + "|" + pubkey_ 
-	      + "|" + keytype_ 
-		  + "|" + out_ 
-		  + "|" + in_ 
-	      + "|" + pad1_
-	      + "|" + pad2_
-	      + "|" + pad3_
-		  ;
+	OmJson json;
+	json.add("A", accttype_ );
+	json.add("B", balance_ );
+	json.add("T", tokentype_ );
+	json.add("P", pubkey_ );
+	json.add("K", keytype_ );
+	json.add("O", out_ );
+	json.add("I", in_ );
+	json.json( res );
 }
 
 double  OmAccount::addBalance( double amt )
@@ -80,4 +78,3 @@ void OmAccount::incrementIn()
 	++cnt;
 	in_ = std::to_string(cnt);
 }
-

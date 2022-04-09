@@ -28,6 +28,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/error/en.h>
 #include "omresponse.h"
+#include "omdom.h"
 
 EXTERN_LOGGING
 
@@ -118,8 +119,18 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 		fpath = getAcctStoreFilePath( from );
 		srcptr = new OmStore( fpath.c_str(), OM_DB_WRITE );
 
+		OmDom dom( trxn.request_ );
+		sstr accttype;
+		dom.get("ACTYPE", accttype );
+		if ( accttype != OM_ACCT_USER && accttype != OM_ACCT_CONTRACT ) {
+			i("E50284 error newacct from=[%s] accttype=[%s] invalid", s(from), s(accttype) );
+			delete srcptr;
+			return -5;
+		}
+
 		OmAccount acct;
-		acct.balance_ = "0";
+		acct.accttype_ = accttype;
+		acct.balance_ = "10000000";
 		acct.tokentype_ = "O";   // omicro
 		acct.pubkey_ = trxn.userPubkey_;
 		acct.keytype_ = "DL5";
@@ -127,7 +138,7 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 		acct.in_ = "0";
 
 		sstr rec;
-		acct.str( rec );
+		acct.json( rec );
 
 		srcptr->put( from.c_str(), from.size(), s(rec), rec.size() );
 		acctStoreMap_.emplace( from, srcptr );
@@ -182,8 +193,8 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 	toAcct.incrementIn();
 
 	sstr fromNew, toNew;
-	fromAcct.str( fromNew );
-	toAcct.str( toNew );
+	fromAcct.json( fromNew );
+	toAcct.json( toNew );
 
 	srcptr->put( from.c_str(), from.size(), fromNew.c_str(), fromNew.size() );
 
@@ -607,6 +618,9 @@ int BlockMgr::runQuery( OmicroTrxn &trxn, sstr &res )
 		} else if ( 0 == strcmp(p, "tokentype") ) {
 			writer.Key(p);
 			writer.String(fromAcct.tokentype_.c_str());
+		} else if ( 0 == strcmp(p, "accttype") ) {
+			writer.Key(p);
+			writer.String(fromAcct.accttype_.c_str());
 		}
 	}
 

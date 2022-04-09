@@ -6,6 +6,13 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/error/en.h>
 
+OmJson::OmJson()
+{
+}
+
+OmJson::~OmJson()
+{
+}
 
 static void jsonHandleLeaf( const rapidjson::Value &rv, const std::vector<sstr> &keep, const char *name,
 				 			rapidjson::Writer<rapidjson::StringBuffer> &writer )
@@ -102,4 +109,22 @@ void OmJson::stripJson(const sstr &inJson,  const std::vector<sstr> &keep, sstr 
     rapidjson::Writer<rapidjson::StringBuffer> writer(sbuf);
     jsonRecCopy(dom, keep, writer);
 	outJson = sbuf.GetString();
+}
+
+void OmJson::add(const std::string &key, const std::string &val )
+{
+	vec_.push_back( std::make_pair(key, val) );
+}
+
+void OmJson::json( std::string &str )
+{
+    rapidjson::StringBuffer sbuf;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(sbuf);
+	writer.StartObject();
+	for ( const auto &p : vec_ ) {
+		writer.Key(p.first.c_str() );
+		writer.String(p.second.c_str() );
+	}
+	writer.EndObject();
+	str = sbuf.GetString();
 }

@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <string>
-//#include "omicrodef.h"
 
 class OmJson
 {
@@ -13,6 +12,12 @@ class OmJson
 
 	static void stripJson(const std::string &inJson, const std::vector<std::string> &keep, 
 						  std::string &outJson);
+
+	void add(const std::string &key, const std::string &val );
+	void json( std::string &str );
+
+  protected:
+	std::vector<std::pair<std::string,std::string>> vec_;
 };
 
 #endif

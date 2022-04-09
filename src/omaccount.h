@@ -3,6 +3,9 @@
 
 #include "omicrodef.h"
 
+#define OM_ACCT_USER      "U"
+#define OM_ACCT_CONTRACT  "C"
+
 class OmAccount
 {
   public:
@@ -10,13 +13,14 @@ class OmAccount
     OmAccount( const char *rec );
     ~OmAccount();
 
-	void str( sstr &res );
+	void json( sstr &res );
 	double addBalance(double amt);
 	double getBalance(); 
 	ulong  getFence();
 	void   incrementFence();
 	void   incrementIn();
 
+  	sstr accttype_;
   	sstr balance_;
 	sstr tokentype_;
   	sstr pubkey_;

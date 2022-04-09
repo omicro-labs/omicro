@@ -24,6 +24,8 @@
 #include "omicrokey.h"
 #include "omquery.h"
 #include "omlog.h"
+#include "omaccount.h"
+#include "omjson.h"
 EXTERN_LOGGING
 
 OmicroTrxn::OmicroTrxn()
@@ -328,8 +330,8 @@ void OmicroTrxn::makeNewAcctTrxn( const sstr &nodePubkey,
 
 	hdr_ = "IT";
 
-	beacon_ = "12345678";
-	//setBeacon();
+	//beacon_ = "12345678";
+	setBeacon();
 	srvport_ = "127.0.0.1:client";
 
 	sender_ = userId;
@@ -341,6 +343,11 @@ void OmicroTrxn::makeNewAcctTrxn( const sstr &nodePubkey,
 	trxntype_ = OM_NEWACCT; // create acct
 	assettype_ = "";
 	setVoteInt(0);
+
+	// set request_
+	OmJson js;
+	js.add("ACTYPE", OM_ACCT_USER);
+	js.json( request_ );
 
 	makeNodeSignature( nodePubkey );
 	makeUserSignature( userSecretKey, userPublicKey );
@@ -382,6 +389,7 @@ void OmicroTrxn::makeAcctQuery( const sstr &nodePubkey, const sstr &secretKey,
 	q.addField("in");
 	q.addField("tokentype");
 	q.addField("keytype");
+	q.addField("accttype");
 	sstr qstr;
 	q.str( qstr );
 	request_ = qstr;
