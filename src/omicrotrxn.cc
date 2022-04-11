@@ -353,6 +353,35 @@ void OmicroTrxn::makeNewAcctTrxn( const sstr &nodePubkey,
 	makeUserSignature( userSecretKey, userPublicKey );
 }
 
+void OmicroTrxn::makeNewTokenTrxn( const sstr &nodePubkey, 
+			const sstr &userSecretKey, const sstr &userPublicKey, 
+			const sstr &ownerId, const sstr &tokenSpec ) 
+{
+	d("a41071 makeNewTokenTrxn ownerId=[%s]", s(ownerId) );
+
+	hdr_ = "IT";
+
+	//beacon_ = "12345678";
+	setBeacon();
+	srvport_ = "127.0.0.1:client";
+
+	sender_ = ownerId;
+
+	receiver_ = "";
+	amount_ = "0";
+	setNowTimeStamp();
+
+	trxntype_ = OM_NEWTOKEN; // create acct
+	assettype_ = "T";
+	setVoteInt(0);
+
+	// set request_
+	request_ = tokenSpec;
+
+	makeNodeSignature( nodePubkey );
+	makeUserSignature( userSecretKey, userPublicKey );
+}
+
 void OmicroTrxn::makeUserSignature( const sstr &userSecretKey, const sstr &usrPubkey )
 {
 	d("a222101 makeUserSignature ...");
@@ -391,7 +420,7 @@ void OmicroTrxn::makeAcctQuery( const sstr &nodePubkey, const sstr &secretKey,
 	q.addField("keytype");
 	q.addField("accttype");
 	sstr qstr;
-	q.str( qstr );
+	q.json( qstr );
 	request_ = qstr;
 
 	setVoteInt(0);
@@ -399,3 +428,30 @@ void OmicroTrxn::makeAcctQuery( const sstr &nodePubkey, const sstr &secretKey,
 	makeUserSignature( secretKey, publicKey );
 }
 
+void OmicroTrxn::makeTokensQuery( const sstr &nodePubkey, const sstr &secretKey, 
+								const sstr &publicKey, const sstr &fromId )
+{
+	hdr_ = "IT";
+	setBeacon();
+	srvport_ = "127.0.0.1:client";
+
+	sender_ = fromId;
+	setNowTimeStamp();
+	trxntype_ = OM_QUERY; 
+
+	OmQuery q;
+	q.addField("balance");
+	q.addField("out");
+	q.addField("in");
+	q.addField("tokentype");
+	q.addField("keytype");
+	q.addField("accttype");
+	q.addField("tokens");
+	sstr qstr;
+	q.json( qstr );
+	request_ = qstr;
+
+	setVoteInt(0);
+	makeNodeSignature( nodePubkey );
+	makeUserSignature( secretKey, publicKey );
+}

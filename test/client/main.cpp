@@ -6,6 +6,10 @@
 #include "omicroquery.h"
 #include "omicrokey.h"
 #include "omlog.h"
+#include "omjson.h"
+#include "omsimpletoken.h"
+#include "omcontract.h"
+#include "omtoken.h"
 INIT_LOGGING
 
 /**************************************************************************************
@@ -21,15 +25,23 @@ INIT_LOGGING
 **         omclient  <serverIP>  <serverPort>  pay <fromUserID> <toUserID>  <amt>
 **                                             Pay from <fromUserID> to <toUserID> <amt>
 **
-**         omclient  <serverIP>  <serverPort>  view <userID>
+**         omclient  <serverIP>  <serverPort>  viewbal <userID>
 **                                             View balance of user1 or user2
+**
+**         omclient  <serverIP>  <serverPort>  token <ownerID>
+**                                             Create tokens under user <ownerID>. ownerID must exist already
+**
+**         omclient  <serverIP>  <serverPort>  viewtokens <ownerID>
+**                                             View tokens under user <ownerID>.
+**
 **
 **************************************************************************************/
 
 void createUserKey( const std::string &uname);
 void createAcct( const char *srv, int port, const std::string &username);
+void createToken( const char *srv, int port, const std::string &owner );
 void makePayment( const char *srv, int port, const std::string &from, const std::string &to, const std::string &amt );
-void query( const char *srv, int port, const std::string &from );
+void query( const std::string &qt, const char *srv, int port, const std::string &from );
 void readUserKey( std::string uname, std::string &secKey, std::string &pubKey );
 
 void help( const char *prog)
@@ -37,7 +49,9 @@ void help( const char *prog)
 	printf("Usage: %s  key userID\n", prog);
 	printf("Usage: %s  <serverIP>  <serverPort>  acct <userId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  pay <fromId> <toId> <amount>\n", prog );
-	printf("Usage: %s  <serverIP>  <serverPort>  view <userId>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  viewbal <userId>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  token <ownerId>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  viewtokens <ownerId>\n", prog );
 }
 
 int main(int argc, char* argv[])
@@ -69,6 +83,14 @@ int main(int argc, char* argv[])
 			help(argv[0]);
 			exit(3);
 		}
+	} else if ( 0 == strcmp(argv[3], "token" ) ) {
+		if ( argc >= 5 ) {
+			createToken( srv, port, argv[4] );
+			//                     onwerId
+		} else {
+			help(argv[0]);
+			exit(3);
+		}
 	} else if ( 0 == strcmp(argv[3], "pay" ) ) {
 		if ( argc >= 7 ) {
 	   		makePayment( srv, port, argv[4], argv[5], argv[6] );
@@ -76,9 +98,16 @@ int main(int argc, char* argv[])
 			help(argv[0]);
 			exit(5);
 		}
-	} else if ( 0 == strcmp(argv[3], "view" ) ) {
+	} else if ( 0 == strcmp(argv[3], "viewbal" ) ) {
 		if ( argc >= 5 ) {
-	    	query( srv, port, argv[4] );
+	    	query( "balance", srv, port, argv[4] );
+		} else {
+			help(argv[0]);
+			exit(7);
+		}
+	} else if ( 0 == strcmp(argv[3], "viewtokens" ) ) {
+		if ( argc >= 5 ) {
+	    	query( "tokens", srv, port, argv[4] );
 		} else {
 			help(argv[0]);
 			exit(7);
@@ -131,6 +160,10 @@ void createAcct( const char *srv, int port, const std::string &userName)
 	readUserKey( userName, secretKey, publicKey );
 
 	OmicroClient client( srv, port );
+	if ( ! client.connectOK() ) {
+		printf("Error connect=[%s:%d]\n", srv, port );
+		return;
+	}
 	std::string nodePubkey = client.reqPublicKey( 3 );
 	printf("clientproxy pubkey=[%s]\n", nodePubkey.c_str() );
 
@@ -143,9 +176,53 @@ void createAcct( const char *srv, int port, const std::string &userName)
 	printf("%s confirmation=[%s]\n", userName.c_str(), reply.c_str());
 }
 
+void createToken( const char *srv, int port, const std::string &userName )
+{
+	std::string secretKey, publicKey;
+	readUserKey( userName, secretKey, publicKey );
+
+	OmicroClient client( srv, port );
+	if ( ! client.connectOK() ) {
+		printf("Error connect=[%s:%d]\n", srv, port );
+		return;
+	}
+	std::string nodePubkey = client.reqPublicKey( 3 );
+	printf("clientproxy pubkey=[%s]\n", nodePubkey.c_str() );
+
+	// mint some tokens: name and max are required, 
+	// others are optional and can be added by creator in any way
+	std::string token1 = "name: mytoken1, max: 10000";
+	std::string nfttoken = "name: petnft, max: 1, url: http://abceruxv123";
+	std::string token3 = "name: concert2023, max: 30000";
+	std::vector<std::string> vec;
+	vec.push_back(token1);
+	vec.push_back(nfttoken);
+	vec.push_back(token3);
+
+	std::string tokensJson;
+	OmToken::getJson(vec, tokensJson );
+	if ( tokensJson.size() < 1 ) {
+		printf("Error: tokensJson is empty\n");
+		return;
+	}
+
+	OmicroTrxn t;
+	t.makeNewTokenTrxn(nodePubkey, secretKey, publicKey, userName, tokensJson );
+
+	printf("a000234 client.sendTrxn() ...\n");
+	std::string reply = client.sendTrxn( t );
+
+	printf("%s confirmation=[%s]\n", userName.c_str(), reply.c_str());
+}
+
 void makePayment( const char * srv, int port, const std::string &from, const std::string &to, const std::string &amt )
 {
 	OmicroClient client( srv, port );
+	if ( ! client.connectOK() ) {
+		printf("Error connect=[%s:%d]\n", srv, port );
+		return;
+	}
+
 	std::string nodePubkey = client.reqPublicKey( 3 );
 	// printf("clientproxy nodepubkey=[%s]\n", nodePubkey.c_str() );
 
@@ -169,9 +246,13 @@ void makePayment( const char * srv, int port, const std::string &from, const std
 	printf("%s confirmation=[%s]\n", from.c_str(), reply.c_str());
 }
 
-void query( const char * srv, int port, const std::string &from )
+void query( const std::string &qt, const char * srv, int port, const std::string &from )
 {
 	OmicroClient client( srv, port );
+	if ( ! client.connectOK() ) {
+		printf("Error connect=[%s:%d]\n", srv, port );
+		return;
+	}
 	std::string nodePubkey = client.reqPublicKey( 3 );
 	// printf("clientproxy nodepubkey=[%s]\n", nodePubkey.c_str() );
 
@@ -180,7 +261,14 @@ void query( const char * srv, int port, const std::string &from )
 	printf("user from=[%s] pubkey=[%s]\n", from.c_str(), publicKey.c_str() );
 
 	OmicroTrxn t;
-	t.makeAcctQuery( nodePubkey, secretKey, publicKey, from );
+	if ( qt == "balance" ) {
+		t.makeAcctQuery( nodePubkey, secretKey, publicKey, from );
+	} else if ( qt == "tokens" ) {
+		t.makeTokensQuery( nodePubkey, secretKey, publicKey, from );
+	} else {
+		printf("Error [%s] is not supported\n", qt.c_str() );
+		return;
+	}
 
 	std::string data; t.getTrxnData( data );
 	printf("a2220 trxndata=[%s]\n", data.c_str() );

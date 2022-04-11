@@ -19,7 +19,7 @@ void OmQuery::addField( const sstr &field )
 	fields_.push_back(field);
 }
 
-void OmQuery::str( sstr &qstr )
+void OmQuery::json( sstr &qstr )
 {
  	rapidjson::StringBuffer bs;
     rapidjson::Writer<rapidjson::StringBuffer> writer(bs);

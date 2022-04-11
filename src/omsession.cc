@@ -298,17 +298,17 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
     sstr sender = dom["FRM"].GetString();
     sstr ts = dom["TS"].GetString();
 
-	if ( qtype == "QT" ) {
+	if ( qtype == "QP" ) {
+		// request public key
+		sstr json;
+		okResponse( trxnId, serv_.pubKey_, json);
+		reply( json, socket_ ); 
+	} else if ( qtype == "QT" ) {
 		// query trxn status
 		sstr json;
 		serv_.blockMgr_.queryTrxn( sender, trxnId, ts, json );
 		reply( json, socket_ ); 
 		d("a40088 received QT return res=[%s]", s(json));
-	} else if ( qtype == "QP" ) {
-		// request public key
-		sstr json;
-		okResponse( trxnId, serv_.pubKey_, json);
-		reply( json, socket_ ); 
 	} else if ( qtype == "QQ" ) {
 		d("a2939 QQ");
 		// request last query result

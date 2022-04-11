@@ -10,7 +10,7 @@ class OmQuery
     OmQuery();
     ~OmQuery();
 
-	void str( sstr &qstr );
+	void json( sstr &qstr );
 	void addField( const sstr &field );
 	sstr predicate_;
 	std::vector<sstr> fields_;

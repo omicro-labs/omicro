@@ -155,6 +155,11 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 	sstr alldata; t.allstr(alldata);
 
 	sstr reply = sendMessage( OM_TXN, alldata, true );
+	if ( reply.size() < 1 ) {
+		d("a11128 sendMessage empty");
+		return "";
+	}
+
 	d("14073 sendTrxn sendMessage reply=[%s]", s(reply));
 
 	OmResponse resp( reply.c_str() );
@@ -204,6 +209,10 @@ sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
 	t.setInitTrxn();
 	sstr alldata; t.allstr(alldata);
 	sstr reply = sendMessage( OM_XNQ, alldata, true );
+	if ( reply.size() < 1 ) {
+		d("a11123 sendMessage empty");
+		return "";
+	}
 	d("a344409 sendQuery sendMessage reply=[%s]", reply.c_str() );
 
 	OmResponse resp( reply.c_str() );
@@ -261,6 +270,10 @@ sstr OmicroClient::reqPublicKey( int waitSeconds)
 
 	while ( true ) {
 		reply = sendMessage( OM_RQ, cmd, true );
+		if ( reply.size() < 1 ) {
+			break;
+		}
+
 		OmResponse resp( reply.c_str() );
 		if ( resp.STT_ == OM_RESP_OK ) {
 			d("a32038 recved pubkey=[%s]", s(resp.DAT_) );

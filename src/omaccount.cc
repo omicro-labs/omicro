@@ -18,6 +18,7 @@ OmAccount::OmAccount( const char *recjson )
 	od.get("K", keytype_ );
 	od.get("O", out_ );
 	od.get("I", in_ );
+	od.get("N", tokens_ );
 
 }
 
@@ -35,12 +36,13 @@ void OmAccount::json( sstr &res)
 	json.add("K", keytype_ );
 	json.add("O", out_ );
 	json.add("I", in_ );
+	json.add("N", tokens_ );
 	json.json( res );
 }
 
 double  OmAccount::addBalance( double amt )
 {
-	if ( fabs(amt) > 1000000000 ) {
+	if ( fabs(amt) > 10000000000 ) {
 		return -15.0;
 	}
 

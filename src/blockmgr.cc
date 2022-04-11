@@ -29,6 +29,7 @@
 #include <rapidjson/error/en.h>
 #include "omresponse.h"
 #include "omdom.h"
+#include "omtoken.h"
 
 EXTERN_LOGGING
 
@@ -74,11 +75,13 @@ int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 		urc = updateAcctBalances(trxn);
 	} else if ( trxn.trxntype_ == OM_NEWACCT ) {
 		urc = createAcct(trxn);
+	} else if ( trxn.trxntype_ == OM_NEWTOKEN ) {
+		urc = createToken(trxn);
 	} else {
 		urc = -10;
 	}
 
-	d("a23021 urc=%d", urc );
+	d("a23021 urc=%d 0 is OK", urc );
 
 	if ( urc < 0 ) {
 		// mark log failure 'F'
@@ -112,7 +115,7 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 
 	OmstorePtr srcptr;
 	sstr fpath;
-	sstr ts; trxn.getTrxnData(ts);
+	// sstr ts; trxn.getTrxnData(ts);
 
 	auto itr1 = acctStoreMap_.find( from );
 	if ( itr1 == acctStoreMap_.end() ) {
@@ -147,6 +150,64 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 		i("E50387 error from=[%s] acct already exist", s(from) );
 		return -10;
 	}
+
+	return 0;
+}
+
+// a user create some tokens
+int BlockMgr::createToken( OmicroTrxn &trxn)
+{
+	sstr trxnId; trxn.getTrxnID( trxnId );
+	sstr from = trxn.sender_;
+	d("a32047 createAcct trxnId=[%s] from=[%s]", s(trxnId), s(from) );
+
+	//each token under owner has its own contractId/address
+	OmstorePtr srcptr;
+	char *fromrec = findSaveStore( from, srcptr );
+	if ( ! fromrec ) {
+		i("E30821 createToken error from=[%s] not created yet.", s(from));
+		return -10;
+	}
+
+	OmAccount acct(fromrec);
+
+	if ( acct.tokens_.size() < 1 ) {
+		acct.tokens_ = trxn.request_;
+	} else {
+		// make sure trxn.request_ has no identical names in acct.tokens_
+		bool dup = OmToken::hasDupNames( acct.tokens_, trxn.request_);
+		if ( dup ) {
+			i("E30220 error from=[%s] has dup names", s(from));
+			i("E30220 error trxn.request_=[%s]", s(trxn.request_));
+			i("E30220 error acct.tokens_=[%s]", s(acct.tokens_) );
+			return -15;
+		}
+
+		// qwer
+		std::string &s = acct.tokens_;
+		s.erase(s.find_last_not_of("]")+1);
+		// trim right ]
+
+
+		//trim left of trxn.request_
+		const char *p = trxn.request_.c_str();
+		while ( *p != '[' && *p != '\0' ) ++p; 
+		if ( *p == '[' ) {
+			++p; // skip [
+		} else {
+			//p = trxn.request_.c_str();
+			return -20;
+		}
+
+		acct.tokens_ = acct.tokens_ + "," + std::string(p);
+	}
+
+	sstr newjson;
+	acct.json( newjson );
+
+	srcptr->put( from.c_str(), from.size(), newjson.c_str(), newjson.size() );
+	i("I2023 user=[%s]  added tokens [%s]", s(from), s(trxn.request_) );
+	i("I2023 user=[%s]  all tokens [%s]", s(from), s(acct.tokens_) );
 
 	return 0;
 }
@@ -215,15 +276,14 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 	OmResponse resp;
 	resp.TID_ = trxnId;
 	resp.UID_ = from;
+
 	
 	if ( rc < 0 || tstat == 'F' ) {
 		resp.STT_ = OM_RESP_ERR;
 		resp.RSN_ = "FAILED";
 		if ( rc < 0 ) {
-			//res = trxnId + "|FAILED|" + err;
 			resp.DAT_ = err;
 		} else {
-			//res = trxnId + "|FAILED|TRXNERROR";
 			resp.DAT_ = "TRXNERROR";
 		}
 		resp.json( res );
@@ -238,6 +298,9 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 		resp.json( res );
 		return;
 	}
+
+	OmicroTrxn t( vec[0].c_str() );
+	resp.REQ_ = t.request_;
 
 	resp.STT_ = OM_RESP_OK;
 	resp.json( res );
@@ -540,6 +603,19 @@ double BlockMgr::getBalance( const sstr &from )
 	return fromAcct.getBalance();
 }
 
+void BlockMgr::getTokens( const sstr &from, sstr &tokens ) 
+{
+	OmstorePtr srcptr;
+	char *fromrec = findSaveStore( from, srcptr );
+	if ( ! fromrec ) {
+		i("E21776 error user from=[%s] does not exist", s(from));
+		return;
+	}
+
+	OmAccount fromAcct( fromrec );
+	tokens = fromAcct.tokens_;
+}
+
 int BlockMgr::getBalanceAndPubkey( const sstr &from, double &bal, sstr &pubkey )
 {
 	OmstorePtr srcptr;
@@ -621,6 +697,9 @@ int BlockMgr::runQuery( OmicroTrxn &trxn, sstr &res )
 		} else if ( 0 == strcmp(p, "accttype") ) {
 			writer.Key(p);
 			writer.String(fromAcct.accttype_.c_str());
+		} else if ( 0 == strcmp(p, "tokens") ) {
+			writer.Key(p);
+			writer.String(fromAcct.tokens_.c_str());
 		}
 	}
 

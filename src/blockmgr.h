@@ -24,6 +24,7 @@ class BlockMgr
 	int    getBalanceAndPubkey( const sstr &from, double &bal, sstr &pubkey );
 	void   getFence( const sstr &from, sstr &fence );
 	int    runQuery( OmicroTrxn &trxn, sstr &res );
+	void   getTokens( const sstr &from, sstr &tokens ) ;
 
   protected:
     void initDirs();
@@ -32,6 +33,7 @@ class BlockMgr
 	void rollbackFromBlockchain( OmicroTrxn &t, const sstr &userId, const sstr &yyyymmddhh );
 	int updateAcctBalances( OmicroTrxn &trxn);
 	int createAcct( OmicroTrxn &trxn);
+	int createToken( OmicroTrxn &trxn);
 	void markBlockchain(FILE *fp, OmicroTrxn &t, const sstr &userId, char stat );
 	int readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &rec, char &tstat, sstr &err );
 

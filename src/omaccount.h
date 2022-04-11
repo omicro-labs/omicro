@@ -4,7 +4,9 @@
 #include "omicrodef.h"
 
 #define OM_ACCT_USER      "U"
+#define OM_ACCT_TOKEN     "T"
 #define OM_ACCT_CONTRACT  "C"
+#define OM_ACCT_ESCROW    "E"
 
 class OmAccount
 {
@@ -27,10 +29,7 @@ class OmAccount
   	sstr keytype_;
   	sstr out_;
   	sstr in_;
-  	sstr pad1_;
-  	sstr pad2_;
-  	sstr pad3_;
-    
+  	sstr tokens_;
 };
 
 #endif
