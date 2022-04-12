@@ -576,20 +576,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 			okResponse( trxnId, "XIT_j", json);
 			reply(json, socket_);
 			d("a55150 m=[%s]", json.c_str() );
-
-			/***
-			bool toBgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_j );
-			d("a55150 received T_j  toBgood=%d, reply back xtrn T_k ...", toBgood );
-			t.setXit( XIT_k );
-			t.srvport_ = serv_.srvport_;
-			sstr alld; t.allstr(alld);
-			reply(alld, socket_);
-			***/
 		} else if ( xit == XIT_k ) {
-			//qwer
-			// need rendezvous for all followers to ge to state 'C'
-			//serv_.onRecvK( beacon, trxnId, clientIP_, sid_, t );
-			// send to clientproxy client message GOOD
 		}
     }
 

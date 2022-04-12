@@ -7,6 +7,7 @@
 #define OM_PAYMENT         "P"
 #define OM_NEWACCT         "A"
 #define OM_NEWTOKEN        "T"
+#define OM_XFERTOKEN       "X"
 #define OM_GETBAL          "B"
 #define OM_SMART_CONTRACT  "C"
 #define OM_SECURE_CONTRACT "S"
@@ -35,8 +36,9 @@ class OmicroTrxn
 	void allstr( std::string &alldata );
 
 	void  getTrxnID( std::string &id);
-	void  makeSimpleTrxn( const std::string &nodePubkey, const std::string &userSecretKey, const std::string &userPublicKey, 
-						  const std::string &fromId, const std::string &toId, const std::string &amt );
+	void  makeSimpleTrxn( const std::string &nodePubkey, const std::string &userSecretKey, 
+						  const std::string &userPublicKey, const std::string &fromId, 
+						  const std::string &toId, const std::string &amt );
 	void  makeNewAcctTrxn( const std::string &nodePubkey, const std::string &userSecKey, 
 						   const std::string &userPubkey, const std::string &userId );
 	void  makeNewTokenTrxn( const std::string &nodePubkey, const std::string &userSecKey, 
@@ -46,6 +48,11 @@ class OmicroTrxn
 						 const std::string &publicKey, const std::string &fromId );
 	void  makeTokensQuery( const std::string &nodePubkey, const std::string &secretKey, 
 						 const std::string &publicKey, const std::string &fromId );
+
+	void  makeTokenTransfer( const std::string &nodePubkey, const std::string &userSecretKey, 
+						      const std::string &userPublicKey, 
+						      const std::string &fromId, const std::string &tokenJson, 
+							  const std::string &toId, const std::string &amt );
 
 	void  print();
 	void  setInitTrxn();

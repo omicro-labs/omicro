@@ -7,8 +7,6 @@
 #include "omicrokey.h"
 #include "omlog.h"
 #include "omjson.h"
-#include "omsimpletoken.h"
-#include "omcontract.h"
 #include "omtoken.h"
 INIT_LOGGING
 
@@ -34,6 +32,8 @@ INIT_LOGGING
 **         omclient  <serverIP>  <serverPort>  viewtokens <ownerID>
 **                                             View tokens under user <ownerID>.
 **
+**         omclient  <serverIP>  <serverPort>  xfer <fromUserID> <toUserID>  <amt>
+**                                             Transfer tokens from <fromUserID> to <toUserID> <amt>
 **
 **************************************************************************************/
 
@@ -43,15 +43,17 @@ void createToken( const char *srv, int port, const std::string &owner );
 void makePayment( const char *srv, int port, const std::string &from, const std::string &to, const std::string &amt );
 void query( const std::string &qt, const char *srv, int port, const std::string &from );
 void readUserKey( std::string uname, std::string &secKey, std::string &pubKey );
+void makeTransfer( const char *srv, int port, const std::string &from, const std::string &to, const std::string &amt );
 
 void help( const char *prog)
 {
-	printf("Usage: %s  key userID\n", prog);
+	printf("Usage: %s   key userID\n", prog);
 	printf("Usage: %s  <serverIP>  <serverPort>  acct <userId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  pay <fromId> <toId> <amount>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  viewbal <userId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  token <ownerId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  viewtokens <ownerId>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  xfer <fromId> <toId> <amount>\n", prog );
 }
 
 int main(int argc, char* argv[])
@@ -111,6 +113,13 @@ int main(int argc, char* argv[])
 		} else {
 			help(argv[0]);
 			exit(7);
+		}
+	} else if ( 0 == strcmp(argv[3], "xfer" ) ) {
+		if ( argc >= 7 ) {
+	   		makeTransfer( srv, port, argv[4], argv[5], argv[6] );
+		} else {
+			help(argv[0]);
+			exit(5);
 		}
 	} else {
 		help(argv[0]);
@@ -200,7 +209,7 @@ void createToken( const char *srv, int port, const std::string &userName )
 	vec.push_back(token3);
 
 	std::string tokensJson;
-	OmToken::getJson(vec, tokensJson );
+	OmToken::getMintJson(vec, tokensJson );
 	if ( tokensJson.size() < 1 ) {
 		printf("Error: tokensJson is empty\n");
 		return;
@@ -307,4 +316,48 @@ void readUserKey( std::string uname, std::string &secKey, std::string &pubKey )
 	pubKey = buf;
 
 	printf("Keys are read from %s %s\n", f1.c_str(), f2.c_str() );
+}
+
+void makeTransfer( const char * srv, int port, const std::string &from, const std::string &to, const std::string &amt )
+{
+	OmicroClient client( srv, port );
+	if ( ! client.connectOK() ) {
+		printf("Error connect=[%s:%d]\n", srv, port );
+		return;
+	}
+
+	std::string nodePubkey = client.reqPublicKey( 3 );
+	// printf("clientproxy nodepubkey=[%s]\n", nodePubkey.c_str() );
+
+	std::string secretKey, publicKey;
+	readUserKey( from, secretKey, publicKey );
+
+	std::string secretKey2, publicKey2;
+	readUserKey( to, secretKey2, publicKey2 );
+
+	OmicroTrxn t;
+
+	std::string fttoken = "name: mytoken1, amount: 100";
+	std::string nfttoken = "name: petnft"; 
+	std::vector<std::string> vec;
+	vec.push_back(fttoken);
+	vec.push_back(nfttoken);
+
+	std::string tokensJson;
+	OmToken::getXferJson(vec, tokensJson );
+	if ( tokensJson.size() < 1 ) {
+		printf("Error: tokensJson is empty\n");
+		return;
+	}
+
+	t.makeTokenTransfer( nodePubkey, secretKey, publicKey, from, tokensJson, to, amt );
+	// fake sender t.sender_ = "someotheruser";  // will fail
+
+	std::string data; t.getTrxnData( data );
+	printf("a2220 trxndata=[%s]\n", data.c_str() );
+
+	printf("a000234 client.sendTrxn() ...\n");
+	std::string reply = client.sendTrxn( t );
+
+	printf("%s confirmation=[%s]\n", from.c_str(), reply.c_str());
 }

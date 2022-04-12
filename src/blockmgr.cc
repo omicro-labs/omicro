@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#define  RAPIDJSON_HAS_STDSTRING 1
 #include "xxHash/xxhash.h"
 #include "blockmgr.h"
 #include "omutil.h"
@@ -61,7 +62,7 @@ int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 	}
 
 	FILE *fp2 = NULL; 
-	if ( trxn.trxntype_ == OM_PAYMENT ) {
+	if ( trxn.trxntype_ == OM_PAYMENT || trxn.trxntype_ == OM_XFERTOKEN ) {
 		fp2 = appendToBlockchain(trxn, trxn.receiver_, '+', yyyymmddhh);
 		if ( NULL == fp2 ) {
 			fclose( fp1 );
@@ -77,6 +78,8 @@ int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 		urc = createAcct(trxn);
 	} else if ( trxn.trxntype_ == OM_NEWTOKEN ) {
 		urc = createToken(trxn);
+	} else if ( trxn.trxntype_ == OM_XFERTOKEN ) {
+		urc = transferToken(trxn);
 	} else {
 		urc = -10;
 	}
@@ -159,7 +162,7 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
 	sstr from = trxn.sender_;
-	d("a32047 createAcct trxnId=[%s] from=[%s]", s(trxnId), s(from) );
+	d("a32047 createToken trxnId=[%s] from=[%s]", s(trxnId), s(from) );
 
 	//each token under owner has its own contractId/address
 	OmstorePtr srcptr;
@@ -173,6 +176,7 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 
 	if ( acct.tokens_.size() < 1 ) {
 		acct.tokens_ = trxn.request_;
+		d("a51280 nitial acct.tokens_=[%s]", s(acct.tokens_) );
 	} else {
 		// make sure trxn.request_ has no identical names in acct.tokens_
 		bool dup = OmToken::hasDupNames( acct.tokens_, trxn.request_);
@@ -183,11 +187,9 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 			return -15;
 		}
 
-		// qwer
-		std::string &s = acct.tokens_;
-		s.erase(s.find_last_not_of("]")+1);
+		sstr &str = acct.tokens_;
+		str.erase(str.find_last_not_of("]")+1);
 		// trim right ]
-
 
 		//trim left of trxn.request_
 		const char *p = trxn.request_.c_str();
@@ -195,11 +197,11 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 		if ( *p == '[' ) {
 			++p; // skip [
 		} else {
-			//p = trxn.request_.c_str();
 			return -20;
 		}
 
-		acct.tokens_ = acct.tokens_ + "," + std::string(p);
+		acct.tokens_ = acct.tokens_ + "," + sstr(p);
+		d("a51281 new acct.tokens_=[%s]", s(acct.tokens_) );
 	}
 
 	sstr newjson;
@@ -656,7 +658,7 @@ int BlockMgr::runQuery( OmicroTrxn &trxn, sstr &res )
 	}
 
 	rapidjson::Document dom;
-	dom.Parse( trxn.request_.c_str() );
+	dom.Parse( trxn.request_ );
 	if ( dom.HasParseError() ) {
 		d("a30280 from=[%s] dom.HasParseError", s(from) );
         return -30;
@@ -741,4 +743,207 @@ void BlockMgr::saveTrxnList( const sstr &from, const sstr &timestamp )
 	trxnList_.saveTrxnList( from, timestamp );
 }
 
+// Transfer tokens from one account to another
+int BlockMgr::transferToken( OmicroTrxn &trxn)
+{
+	sstr trxnId; trxn.getTrxnID( trxnId );
+	sstr from = trxn.sender_;
+	sstr to = trxn.receiver_;
+	d("a32007 transferToken trxnId=[%s] from=[%s] to=[%s]", s(trxnId), s(from), s(to) );
+
+	OmstorePtr srcptr;
+	char *fromrec = findSaveStore( from, srcptr );
+	if ( ! fromrec ) {
+		i("E30821 transferToken error from=[%s] not created yet.", s(from));
+		return -10;
+	}
+
+	OmstorePtr dstptr;
+	char *torec = findSaveStore( to, dstptr );
+	if ( ! torec ) {
+		i("E30321 transferToken error to=[%s] not created yet.", s(to));
+		return -20;
+	}
+
+	OmAccount fromacct(fromrec);
+
+	if ( fromacct.tokens_.size() < 1 ) {
+		//acct.tokens_ = trxn.request_;
+		i("E33401 from=[%s] tokens_ is empty", s(from) );
+		return -30;
+	}
+
+	bool exist = OmToken::hasDupNames( fromacct.tokens_, trxn.request_);
+	if ( ! exist ) {
+		i("E22303 from=[%s] tokens_ does not have the tokens to be xfered", s(from) );
+		i("E22303 fromacct.tokens_=[%s]", s(fromacct.tokens_) );
+		i("E22303 trxn.request_=[%s]", s(trxn.request_) );
+		return -40;
+	}
+
+	OmAccount toacct(torec);
+
+	// modify fromacct.tokens_  and toacct.tokens_
+	int rc = modifyTokens( trxn.request_, fromacct.tokens_, toacct.tokens_ );
+	if ( rc < 0 ) {
+		i("E21303 from=[%s] to=[%s] modifyTokens error rc=%d", s(from), s(to), rc );
+		i("E21303 fromacct.tokens_=[%s]", s(fromacct.tokens_) );
+		i("E21303 trxn.request_=[%s]", s(trxn.request_) );
+		return -50;
+	}
+
+	sstr fromnewjson;
+	fromacct.json( fromnewjson );
+
+	sstr tonewjson;
+	toacct.json( tonewjson );
+
+	srcptr->put( from.c_str(), from.size(), fromnewjson.c_str(), fromnewjson.size() );
+	i("I2023 user=[%s]  xfered tokens [%s]", s(from), s(trxn.request_) );
+	i("I2023 user=[%s]  all tokens [%s]", s(from), s(fromacct.tokens_) );
+	i("I2023 user=[%s]  all tokens [%s]", s(to), s(toacct.tokens_) );
+
+	dstptr->put( to.c_str(), to.size(), tonewjson.c_str(), tonewjson.size() );
+
+	return 0;
+}
+
+// reqJson: [{ "name": "tok1", "amount": "123" }, {...}, {...}]  if no amount, default is 1
+// fromTokens: [{ "name": "tok1", "max": "1239999", "bal": "2221", "url": "http://xxx", "other": "zzzzz" }, {...}, {...}]
+// toTokens: "" empty or
+// toTokens: [{ "name": "tok4", "max": "12999", "bal": "22", "url": "http://xxx", "some": "yyy" }, {...}, {...}]
+int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toTokens )
+{
+	using namespace rapidjson;
+	Document fromdom;
+	fromdom.Parse( fromTokens );
+	if ( fromdom.HasParseError() ) {
+		i("E32231 modifyTokens fromTokens invalid");
+		return -10;
+	}
+
+	Document todom;
+	todom.Parse( toTokens );
+	if ( todom.HasParseError() ) {
+		i("E32233 modifyTokens toTokens invalid");
+		return -20;
+	}
+
+	Document chdom;
+	chdom.Parse( reqJson );
+	if ( chdom.HasParseError() ) {
+		i("E32235 modifyTokens reqJson invalid");
+		return -30;
+	}
+
+	if ( ! chdom.IsArray() ) {
+		i("E33035 modifyTokens chdom is not array");
+		return -40;
+	}
+
+	Value::ConstMemberIterator itr;
+	double damt;
+	char buf[32];
+
+   	for ( rapidjson::SizeType idx = 0; idx < chdom.Size(); ++idx) {
+		const rapidjson::Value &rv = chdom[idx];
+		if ( ! rv.IsObject() ) {
+			continue;
+		}
+
+		// rv is object { "name": "tok1", "amount": "234" }
+		itr = rv.FindMember("name");
+		if ( itr == rv.MemberEnd() ) {
+			continue;
+		}
+		const sstr &name = itr->value.GetString();
+		if ( name.size() > 128 ) {
+			continue;
+		}
+
+		itr = rv.FindMember("amount");
+		if ( itr == rv.MemberEnd() ) {
+			continue;
+		}
+		const sstr &amt = itr->value.GetString();
+		if ( amt.size() > 30 ) {
+			continue;
+		}
+		if ( atof( amt.c_str() ) <= 0 ) {
+			i("E37023 error amt=[%s]", s(amt) );
+			return -45;
+		}
+
+		// change from tokens
+   		for ( rapidjson::SizeType j = 0; j < fromdom.Size(); ++j) {
+			rapidjson::Value &v = fromdom[j];
+			if ( ! v.IsObject() ) {
+				continue;
+			}
+			itr = v.FindMember("name");
+			if ( itr == v.MemberEnd() ) {
+				continue;
+			}
+			const sstr &tname = itr->value.GetString();
+			if ( tname != name ) {
+				continue;
+			}
+
+			itr = v.FindMember("bal");
+			if ( itr == v.MemberEnd() ) {
+				continue;
+			}
+			const sstr &bal = itr->value.GetString();
+
+			damt = atof(bal.c_str()) - atof(amt.c_str());
+			if ( damt < 0.0 ) {
+				i("E21722 error amt=[%s] iver bal=[%s]", amt.c_str(), bal.c_str() );
+				return -50;
+			}
+
+			sprintf(buf, "%.6f", damt );
+			v["bal"].SetString( rapidjson::StringRef(buf) );
+		}
+
+
+   		for ( rapidjson::SizeType j = 0; j < todom.Size(); j++) {
+			rapidjson::Value &v = todom[j];
+			if ( ! v.IsObject() ) {
+				continue;
+			}
+			itr = v.FindMember("name");
+			if ( itr == v.MemberEnd() ) {
+				continue;
+			}
+			const sstr &tname = itr->value.GetString();
+			if ( tname != name ) {
+				continue;
+			}
+
+			itr = v.FindMember("bal");
+			if ( itr == v.MemberEnd() ) {
+				continue;
+			}
+			const sstr &bal = itr->value.GetString();
+			damt = atof(bal.c_str()) + atof(amt.c_str());
+			sprintf(buf, "%.6f", damt );
+			v["bal"].SetString( rapidjson::StringRef(buf) );
+		}
+	}
+
+	StringBuffer sbuf;
+	Writer<StringBuffer> writer(sbuf);
+	fromdom.Accept(writer);
+	fromTokens = sbuf.GetString();
+
+	StringBuffer sbuf2;
+	Writer<StringBuffer> writer2(sbuf2);
+	todom.Accept(writer2);
+	toTokens = sbuf2.GetString();
+
+	d("a23017 fromTokens=[%s]", s(fromTokens) );
+	d("a23017 toTokens=[%s]", s(toTokens) );
+
+	return 0;
+}
 

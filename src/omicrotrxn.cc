@@ -290,15 +290,15 @@ void OmicroTrxn::print()
 	// i("OmicroTrxn::print data=[%s]\n" );
 }
 
-// for testing only
+// Send payment from one user to another
 void  OmicroTrxn::makeSimpleTrxn( const sstr &nodePubkey, 
 		const sstr &userSecretKey, const sstr &userPublicKey,
 		const sstr &from, const sstr &to, const sstr &amt)
 {
 	hdr_ = "IT";
 
-	beacon_ = "12345678";
-	//setBeacon();
+	//beacon_ = "12345678";
+	setBeacon();
 	srvport_ = "127.0.0.1:client";
 
 	sender_ = from;
@@ -454,4 +454,32 @@ void OmicroTrxn::makeTokensQuery( const sstr &nodePubkey, const sstr &secretKey,
 	setVoteInt(0);
 	makeNodeSignature( nodePubkey );
 	makeUserSignature( secretKey, publicKey );
+}
+
+// Send tokens from one account to another
+void  OmicroTrxn::makeTokenTransfer( const sstr &nodePubkey, 
+		const sstr &userSecretKey, const sstr &userPublicKey,
+		const sstr &from, const sstr &tokenJson, const sstr &to, const sstr &amt)
+{
+	hdr_ = "IT";
+
+	//beacon_ = "12345678";
+	setBeacon();
+	srvport_ = "127.0.0.1:client";
+
+	sender_ = from;
+	receiver_ = to;
+
+	amount_ = amt;
+
+	setNowTimeStamp();
+
+	trxntype_ = OM_XFERTOKEN; // transfer tokens
+	request_ = tokenJson;
+
+	assettype_ = "TK";
+	setVoteInt(0);
+
+	makeNodeSignature( nodePubkey );
+	makeUserSignature( userSecretKey, userPublicKey );
 }

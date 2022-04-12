@@ -2,10 +2,6 @@
 #define _omicro_def_h_
 
 #include <string>
-//#include <vector>
-//#include <thread>
-//#include <mutex>
-//#include <boost/asio.hpp>
 
 using sstr = std::string;
 using Byte = unsigned char;

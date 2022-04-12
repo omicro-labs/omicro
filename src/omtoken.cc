@@ -1,3 +1,4 @@
+#include "omicrodef.h"
 #include "omtoken.h"
 #include "omlimits.h"
 #include <rapidjson/document.h>
@@ -8,7 +9,7 @@
 // vec is array of key-val pairs "name: petnft, max: 1, url: http://abceruxv123"
 // name and max are required. Users choose to add any other arbitrary properties.
 // return: json "[ { ...}, { ... }, {....} ]";
-void OmToken::getJson( const std::vector<std::string> &vec, std::string &json )
+void OmToken::getMintJson( const std::vector<sstr> &vec, sstr &json )
 {
 	if ( vec.size() < 1 ) return;
 	if ( vec.size() > 128 ) return; // todo; each token costs 1 O-token
@@ -17,14 +18,14 @@ void OmToken::getJson( const std::vector<std::string> &vec, std::string &json )
     rapidjson::Writer<rapidjson::StringBuffer> writer(sbuf);
 	writer.StartArray();
 
-	std::vector<std::pair<std::string,std::string>> kvVec;
+	std::vector<std::pair<sstr,sstr>> kvVec;
 	bool hasName = false;
 	bool hasMax = false;
 	bool hasIn = false;
 	bool hasOut = false;
 	bool hasBal = false;
 
-	std::string maxVal;
+	sstr maxVal;
 	for (const auto &s: vec ) {
 		writer.StartObject();
 		kvVec.clear();
@@ -75,10 +76,10 @@ void OmToken::getJson( const std::vector<std::string> &vec, std::string &json )
 // token: "name: aaa, max: 123 , url: http://uurfjfppsvb, prop1: ffk, prop2: eieied"
 // key-values in the string cannot contain whitespaces
 // key-val has no double quotes
-void OmToken::getKVPairs( const std::string &token, 
-					      std::vector<std::pair<std::string,std::string>> &kvVec )
+void OmToken::getKVPairs( const sstr &token, 
+					      std::vector<std::pair<sstr,sstr>> &kvVec )
 {
-    std::string key, val;
+    sstr key, val;
     const char *p = token.c_str();
     while ( *p == ' ' || *p == '\t' ) ++p; // q at ,
     if ( *p == '\0' ) return;
@@ -88,7 +89,7 @@ void OmToken::getKVPairs( const std::string &token,
         if ( *q == '\0' ) {
 			break;
 		}
-        key = std::string(p, q-p);
+        key = sstr(p, q-p);
         ++q;  // pass ':'
         while ( *q == ' ' || *q == '\t' ) ++q;
         if ( *q == '\0' ) {
@@ -96,7 +97,7 @@ void OmToken::getKVPairs( const std::string &token,
 		}
         p = q;
         while ( *q != ' ' && *q != '\t' && *q != ',' && *q != '\0' ) ++q; // q at ,
-        val = std::string(p, q-p);
+        val = sstr(p, q-p);
 		kvVec.push_back( std::make_pair(key, val) );
         while ( *q == ' ' || *q == '\t' || *q == ',' ) ++q;
         //if ( *q == '\0' ) break;
@@ -108,10 +109,10 @@ void OmToken::getKVPairs( const std::string &token,
 // json1: "[{ "name": "xzs", ...}, {name: dsds, ...}, {...}]"
 // json2: "[{ name: xzs, ...}, {name: tok2, ...}, {...}]"
 // key-val has double quotes
-bool OmToken::hasDupNames( const std::string &json1, const std::string &json2 )
+bool OmToken::hasDupNames( const sstr &json1, const sstr &json2 )
 {
 	if ( json1.size() < 1 || json2.size() < 1 ) return false;
-	std::unordered_set<std::string> set;
+	std::unordered_set<sstr> set;
 	OmToken::getKeysSet( json1, set );
 	bool found = OmToken::findKeyInSet( json2, set );
 	return found;
@@ -119,9 +120,9 @@ bool OmToken::hasDupNames( const std::string &json1, const std::string &json2 )
 
 
 // key-val has double quotes
-void OmToken::getKeysSet( const std::string &token, std::unordered_set<std::string> &set )
+void OmToken::getKeysSet( const sstr &token, std::unordered_set<sstr> &set )
 {
-    std::string key, val;
+    sstr key, val;
     const char *p = token.c_str();
     while ( *p == ' ' || *p == '\t' || *p == '{' || *p == '[' ) {
 		++p; // q at ,
@@ -139,7 +140,7 @@ void OmToken::getKeysSet( const std::string &token, std::unordered_set<std::stri
         while ( *q != '"' && *q != '\0' ) ++q;
         if ( *q == '\0' ) { break; }
 
-        key = std::string(p, q-p);
+        key = sstr(p, q-p);
 		set.emplace(key);
 		//printf("a13010 find key=[%s]\n", key.c_str() );
         ++q;  // pass second '"'
@@ -153,9 +154,9 @@ void OmToken::getKeysSet( const std::string &token, std::unordered_set<std::stri
 } 
 
 // key-val has double quotes
-bool OmToken::findKeyInSet( const std::string &token, const std::unordered_set<std::string> &set )
+bool OmToken::findKeyInSet( const sstr &token, const std::unordered_set<sstr> &set )
 {
-    std::string key, val;
+    sstr key, val;
     const char *p = token.c_str();
     while ( *p == ' ' || *p == '\t' || *p == '{' || *p == '[' ) {
 		++p; // q at ,
@@ -173,7 +174,7 @@ bool OmToken::findKeyInSet( const std::string &token, const std::unordered_set<s
         while ( *q != '"' && *q != '\0' ) ++q;
         if ( *q == '\0' ) { break; }
 
-        key = std::string(p, q-p);
+        key = sstr(p, q-p);
 		//vec.push_back( key );
 		//printf("a30312 find key=[%s]\n", key.c_str() );
 		if ( set.find(key) != set.end() ) {
@@ -189,3 +190,44 @@ bool OmToken::findKeyInSet( const std::string &token, const std::unordered_set<s
 
 	return false;
 } 
+
+// vec is array of key-val pairs "name: petnft, amount: 1"
+// name is required. default of amount is 1
+// return: json "[ { ...}, { ... }, {....} ]";
+void OmToken::getXferJson( const std::vector<sstr> &vec, sstr &json )
+{
+	if ( vec.size() < 1 ) return;
+	if ( vec.size() > OM_MAX_TOKEN_XFER ) return; 
+
+	rapidjson::StringBuffer sbuf;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(sbuf);
+	writer.StartArray();
+
+	std::vector<std::pair<sstr,sstr>> kvVec;
+	bool hasName = false;
+
+	sstr maxVal;
+	for (const auto &s: vec ) {
+		writer.StartObject();
+		kvVec.clear();
+		OmToken::getKVPairs(s, kvVec);
+		if ( kvVec.size() > 4 ) {
+			return;
+		}
+
+		hasName = false; 
+		for ( const auto& pair: kvVec) {
+			writer.Key( pair.first.c_str() );
+			writer.String( pair.second.c_str() );
+			if ( pair.first == "name" ) {
+				hasName = true;
+			} 
+		}
+
+		if ( ! hasName ) { return; }
+		writer.EndObject();
+	}
+
+	writer.EndArray();
+	json = sbuf.GetString();
+}

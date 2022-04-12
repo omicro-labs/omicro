@@ -34,6 +34,7 @@ class BlockMgr
 	int updateAcctBalances( OmicroTrxn &trxn);
 	int createAcct( OmicroTrxn &trxn);
 	int createToken( OmicroTrxn &trxn);
+	int transferToken( OmicroTrxn &trxn);
 	void markBlockchain(FILE *fp, OmicroTrxn &t, const sstr &userId, char stat );
 	int readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &rec, char &tstat, sstr &err );
 
@@ -42,6 +43,7 @@ class BlockMgr
 	char *findSaveStore( const sstr &userId, OmstorePtr &ptr );
 
 	void saveTrxnList( const sstr &from, const sstr &timestamp ); 
+	int  modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toTokens);
 
   	sstr dataDir_;
   	const int DIR_LEVEL1_NUM = 1019; // do not change this

@@ -90,10 +90,10 @@ MY_LIBS = $(HASH)/xxHash/libxxhash.a \
 		  $(DILITH_LIBS) \
 		  $(BASE85)/ascii85/ascii85.o \
 		  $(AES)/tiny-AES-c/aes.o \
-          $(BOOST_LIB_PATH)/libboost_system.a \
-		  $(BOOST_LIB_PATH)/libboost_filesystem.a \
 		  $(TC)/lib/libtokyocabinet.a -lz -lbz2 -lcrypto
 
+          #$(BOOST_LIB_PATH)/libboost_system.a \
+		  #$(BOOST_LIB_PATH)/libboost_filesystem.a \
 
 #BOOST_DEFINE = -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
 
