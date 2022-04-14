@@ -25,6 +25,7 @@ class BlockMgr
 	void   getFence( const sstr &from, sstr &fence );
 	int    runQuery( OmicroTrxn &trxn, sstr &res );
 	void   getTokens( const sstr &from, sstr &tokens ) ;
+	int    isXferTokenValid( OmicroTrxn &trxn);
 
   protected:
     void initDirs();
@@ -44,6 +45,8 @@ class BlockMgr
 
 	void saveTrxnList( const sstr &from, const sstr &timestamp ); 
 	int  modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toTokens);
+	int  checkValidTokens( const sstr &reqJson, sstr &fromTokens, sstr &toTokens);
+
 
   	sstr dataDir_;
   	const int DIR_LEVEL1_NUM = 1019; // do not change this

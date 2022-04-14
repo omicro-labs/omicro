@@ -823,16 +823,21 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 	}
 
 	Document todom;
-	todom.Parse( toTokens );
-	if ( todom.HasParseError() ) {
-		i("E32233 modifyTokens toTokens invalid");
-		return -20;
+	if ( toTokens.size() > 0 ) {
+		todom.Parse( toTokens );
+		if ( todom.HasParseError() ) {
+			i("E32233 modifyTokens toTokens invalid");
+			return -20;
+		}
+	} else {
+		todom.Parse( "[]" );
 	}
 
 	Document chdom;
 	chdom.Parse( reqJson );
 	if ( chdom.HasParseError() ) {
 		i("E32235 modifyTokens reqJson invalid");
+		i("reqJson=%s", s(reqJson) );
 		return -30;
 	}
 
@@ -844,6 +849,10 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 	Value::ConstMemberIterator itr;
 	double damt;
 	char buf[32];
+	sstr xferAmount;
+
+	bool fromHasToken;
+	bool toHasToken;
 
    	for ( rapidjson::SizeType idx = 0; idx < chdom.Size(); ++idx) {
 		const rapidjson::Value &rv = chdom[idx];
@@ -856,25 +865,39 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 		if ( itr == rv.MemberEnd() ) {
 			continue;
 		}
-		const sstr &name = itr->value.GetString();
-		if ( name.size() > 128 ) {
+		const sstr &xferName = itr->value.GetString();
+		// bug above  name
+		if ( xferName.size() > 128 ) {
 			continue;
 		}
 
 		itr = rv.FindMember("amount");
 		if ( itr == rv.MemberEnd() ) {
-			continue;
-		}
-		const sstr &amt = itr->value.GetString();
-		if ( amt.size() > 30 ) {
-			continue;
-		}
-		if ( atof( amt.c_str() ) <= 0 ) {
-			i("E37023 error amt=[%s]", s(amt) );
-			return -45;
+			xferAmount = "1";
+			printf("a29292 no amount, use 1\n");
+		} else {
+    		if ( itr->value.IsString() ) {
+    			//printf("[%s] amount a33933930 is string !!!!\n", s(name));
+    			// bug
+        		const sstr &amt = itr->value.GetString();
+        		if ( amt.size() > 30 ) {
+        			continue;
+        		}
+        		if ( atof( amt.c_str() ) <= 0 ) {
+        			i("E37023 error amt=[%s]", s(amt) );
+        			return -45;
+        		}
+        		xferAmount = amt;
+    		} else {
+        		i("E31043 error not string" );
+        		return -46;
+    		}
 		}
 
-		// change from tokens
+		d("a2221 xferAmount=[%s]", s(xferAmount));
+
+		// deduct from tokens
+		fromHasToken = false;
    		for ( rapidjson::SizeType j = 0; j < fromdom.Size(); ++j) {
 			rapidjson::Value &v = fromdom[j];
 			if ( ! v.IsObject() ) {
@@ -885,7 +908,7 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 				continue;
 			}
 			const sstr &tname = itr->value.GetString();
-			if ( tname != name ) {
+			if ( tname != xferName ) {
 				continue;
 			}
 
@@ -895,28 +918,40 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 			}
 			const sstr &bal = itr->value.GetString();
 
-			damt = atof(bal.c_str()) - atof(amt.c_str());
+			damt = atof(bal.c_str()) - atof(xferAmount.c_str());
 			if ( damt < 0.0 ) {
-				i("E21722 error amt=[%s] iver bal=[%s]", amt.c_str(), bal.c_str() );
+				i("E21722 error xferamount=[%s] iver bal=[%s]", xferAmount.c_str(), bal.c_str() );
 				return -50;
 			}
 
 			sprintf(buf, "%.6f", damt );
-			v["bal"].SetString( rapidjson::StringRef(buf) );
+			v["bal"].SetString( buf, fromdom.GetAllocator() );
+			d("a22083 new from account xfername=[%s] bal_buf=[%s] origbal=[%s] xferAmount=[%s]", s(xferName), buf, s(bal), s(xferAmount) );
+			fromHasToken = true;
+			break;
 		}
 
+		if ( ! fromHasToken ) {
+			//continue;  // do not touch todom
+			i("E45023 fromacct has no such token [%s]", s(xferName) );
+			return -55;
+		}
 
+		// check existing tokens in to account
+		toHasToken = false;
    		for ( rapidjson::SizeType j = 0; j < todom.Size(); j++) {
 			rapidjson::Value &v = todom[j];
 			if ( ! v.IsObject() ) {
 				continue;
 			}
+
 			itr = v.FindMember("name");
 			if ( itr == v.MemberEnd() ) {
 				continue;
 			}
+
 			const sstr &tname = itr->value.GetString();
-			if ( tname != name ) {
+			if ( tname != xferName ) {
 				continue;
 			}
 
@@ -924,11 +959,56 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 			if ( itr == v.MemberEnd() ) {
 				continue;
 			}
+
+			toHasToken = true;
 			const sstr &bal = itr->value.GetString();
-			damt = atof(bal.c_str()) + atof(amt.c_str());
+			damt = atof(bal.c_str()) + atof(xferAmount.c_str());
 			sprintf(buf, "%.6f", damt );
-			v["bal"].SetString( rapidjson::StringRef(buf) );
+
+			v["bal"].SetString( buf, todom.GetAllocator() );
+			d("a222001 toaccount bal xfername=[%s] to=[%s] bal=[%s] xferAmoun=[%s]", s(xferName), buf, s(bal), s(xferAmount) );
+			break;
 		}
+
+		d("a93938 toHasToken=%d", toHasToken );
+
+		if ( ! toHasToken ) {
+			// find the oject with the mathching name in from
+   			for ( rapidjson::SizeType j = 0; j < fromdom.Size(); ++j) {
+				const rapidjson::Value &v = fromdom[j];
+				if ( ! v.IsObject() ) {
+					continue;
+				}
+				itr = v.FindMember("name");
+				if ( itr == v.MemberEnd() ) {
+					continue;
+				}
+				const sstr &tname = itr->value.GetString();
+				if ( tname != xferName ) {
+					continue;
+				}
+
+				// v is the keys-values object
+				Value obj(kObjectType);
+				obj.SetObject();
+				//todo qwer wrong call for todom
+				int cnt = 0;
+				for (auto& kv : v.GetObject()) {
+					if ( 0 == strcmp(kv.name.GetString(), "bal" ) ) {
+						obj.AddMember( StringRef(kv.name.GetString()), xferAmount, todom.GetAllocator() );
+					} else {
+						obj.AddMember( StringRef(kv.name.GetString()), StringRef(kv.value.GetString()), todom.GetAllocator() );
+					}
+					++cnt;
+				}
+				if ( cnt > 0 ) {
+					todom.PushBack( obj, todom.GetAllocator() ); 
+				}
+				break;
+			}
+		}
+
+		d("a22222\n");
 	}
 
 	StringBuffer sbuf;
@@ -941,9 +1021,178 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 	todom.Accept(writer2);
 	toTokens = sbuf2.GetString();
 
-	d("a23017 fromTokens=[%s]", s(fromTokens) );
-	d("a23017 toTokens=[%s]", s(toTokens) );
+	//d("a23017 fromTokens=[%s]", s(fromTokens) );
+	//d("a23017 toTokens=[%s]", s(toTokens) );
+	return 0;
+}
+
+// reqJson: [{ "name": "tok1", "amount": "123" }, {...}, {...}]  if no amount, default is 1
+// fromTokens: [{ "name": "tok1", "max": "1239999", "bal": "2221", "url": "http://xxx", "other": "zzzzz" }, {...}, {...}]
+// toTokens: "" empty or
+// toTokens: [{ "name": "tok4", "max": "12999", "bal": "22", "url": "http://xxx", "some": "yyy" }, {...}, {...}]
+int BlockMgr::checkValidTokens( const sstr &reqJson, sstr &fromTokens, sstr &toTokens )
+{
+	using namespace rapidjson;
+	Document fromdom;
+	fromdom.Parse( fromTokens );
+	if ( fromdom.HasParseError() ) {
+		i("E34231 modifyTokens fromTokens invalid");
+		return -10;
+	}
+
+	Document todom;
+	if ( toTokens.size() > 0 ) {
+		todom.Parse( toTokens );
+		if ( todom.HasParseError() ) {
+			i("E34233 modifyTokens toTokens invalid");
+			return -20;
+		}
+	} 
+
+	Document chdom;
+	chdom.Parse( reqJson );
+	if ( chdom.HasParseError() ) {
+		i("E34235 modifyTokens reqJson invalid");
+		i("reqJson=%s", s(reqJson) );
+		return -30;
+	}
+
+	if ( ! chdom.IsArray() ) {
+		i("E34035 modifyTokens chdom is not array");
+		return -40;
+	}
+
+	Value::ConstMemberIterator itr;
+	sstr xferAmount;
+	bool fromHasToken;
+
+	// check each tolen to be transfered
+   	for ( rapidjson::SizeType idx = 0; idx < chdom.Size(); ++idx) {
+		const rapidjson::Value &rv = chdom[idx];
+		if ( ! rv.IsObject() ) {
+			continue;
+		}
+
+		// rv is object { "name": "tok1", "amount": "234" }
+		itr = rv.FindMember("name");
+		if ( itr == rv.MemberEnd() ) {
+			continue;
+		}
+		const sstr &xferName = itr->value.GetString();
+		// bug above  name
+		if ( xferName.size() > 128 ) {
+			continue;
+		}
+
+		itr = rv.FindMember("amount");
+		if ( itr == rv.MemberEnd() ) {
+			xferAmount = "1";
+		} else {
+    		if ( itr->value.IsString() ) {
+    			//printf("[%s] amount a33933930 is string !!!!\n", s(name));
+    			// bug
+        		const sstr &amt = itr->value.GetString();
+        		if ( amt.size() > 30 ) {
+        			continue;
+        		}
+        		if ( atof( amt.c_str() ) <= 0 ) {
+        			i("E34023 error amt=[%s]", s(amt) );
+        			return -45;
+        		}
+        		xferAmount = amt;
+    		} else {
+        		i("E34043 error not string" );
+        		return -46;
+    		}
+		}
+
+		fromHasToken = false;
+		// check fromtokens
+   		for ( rapidjson::SizeType j = 0; j < fromdom.Size(); ++j) {
+			rapidjson::Value &v = fromdom[j];
+			if ( ! v.IsObject() ) {
+				continue;
+			}
+			itr = v.FindMember("name");
+			if ( itr == v.MemberEnd() ) {
+				continue;
+			}
+			const sstr &tname = itr->value.GetString();
+			if ( tname != xferName ) {
+				continue;
+			}
+
+			itr = v.FindMember("bal");
+			if ( itr == v.MemberEnd() ) {
+				continue;
+			}
+			const sstr &bal = itr->value.GetString();
+			if ( atof(bal.c_str()) < atof(xferAmount.c_str()) ) {
+				i("E24722 error xferamount=[%s] iver bal=[%s]", xferAmount.c_str(), bal.c_str() );
+				return -50;
+			}
+
+			fromHasToken = true;
+			break;
+		}
+
+		if ( ! fromHasToken ) {
+			i("E44023 fromacct has no such token [%s]", s(xferName) );
+			return -55;
+		}
+	}
 
 	return 0;
 }
 
+// Transfer tokens from one account to another
+int BlockMgr::isXferTokenValid( OmicroTrxn &trxn)
+{
+	sstr trxnId; trxn.getTrxnID( trxnId );
+	sstr from = trxn.sender_;
+	sstr to = trxn.receiver_;
+	d("a32007 transferToken trxnId=[%s] from=[%s] to=[%s]", s(trxnId), s(from), s(to) );
+
+	OmstorePtr srcptr;
+	char *fromrec = findSaveStore( from, srcptr );
+	if ( ! fromrec ) {
+		i("E30821 transferToken error from=[%s] not created yet.", s(from));
+		return -10;
+	}
+
+	OmstorePtr dstptr;
+	char *torec = findSaveStore( to, dstptr );
+	if ( ! torec ) {
+		i("E30321 transferToken error to=[%s] not created yet.", s(to));
+		return -20;
+	}
+
+	OmAccount fromacct(fromrec);
+
+	if ( fromacct.tokens_.size() < 1 ) {
+		//acct.tokens_ = trxn.request_;
+		i("E33401 from=[%s] tokens_ is empty", s(from) );
+		return -30;
+	}
+
+	bool exist = OmToken::hasDupNames( fromacct.tokens_, trxn.request_);
+	if ( ! exist ) {
+		i("E22403 from=[%s] tokens_ does not have the tokens to be xfered", s(from) );
+		i("E22303 fromacct.tokens_=[%s]", s(fromacct.tokens_) );
+		i("E22403 trxn.request_=[%s]", s(trxn.request_) );
+		return -40;
+	}
+
+	OmAccount toacct(torec);
+
+	// modify fromacct.tokens_  and toacct.tokens_
+	int rc = checkValidTokens( trxn.request_, fromacct.tokens_, toacct.tokens_ );
+	if ( rc < 0 ) {
+		i("E21403 from=[%s] to=[%s] modifyTokens error rc=%d", s(from), s(to), rc );
+		i("E21403 fromacct.tokens_=[%s]", s(fromacct.tokens_) );
+		i("E21403 trxn.request_=[%s]", s(trxn.request_) );
+		return -50;
+	}
+
+	return 0;
+}

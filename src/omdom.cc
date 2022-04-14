@@ -1,3 +1,4 @@
+#define  RAPIDJSON_HAS_STDSTRING 1
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/error/en.h>
@@ -6,7 +7,7 @@
 OmDom::OmDom( const std::string &json )
 {
 	valid_ = true;
-	dom_.Parse( json.c_str() );
+	dom_.Parse( json );
 	if ( dom_.HasParseError() ) {
 		valid_ = false;
 		return;

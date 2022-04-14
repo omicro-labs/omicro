@@ -162,7 +162,7 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 
 	d("14073 sendTrxn sendMessage reply=[%s]", s(reply));
 
-	OmResponse resp( reply.c_str() );
+	OmResponse resp( reply );
 	d("a42128 sendTrxn reply=[%s]\n", s(reply));
 	sstr trxnId = resp.TID_;
 
@@ -184,7 +184,7 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 
 	while ( true ) {
 		reply = sendMessage( OM_RQ, data, true );
-		OmResponse resp( reply.c_str() );
+		OmResponse resp( reply );
 		d("a423376 sendMessage OM_RQ reply=[%s]", s(reply) );
 		if ( resp.RSN_ == "FAILED" ) {
 			break;
@@ -215,7 +215,7 @@ sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
 	}
 	d("a344409 sendQuery sendMessage reply=[%s]", reply.c_str() );
 
-	OmResponse resp( reply.c_str() );
+	OmResponse resp( reply );
 	sstr trxnId = resp.TID_;
 	if ( resp.STT_ == OM_RESP_ERR ) {
 		d("a32208 got INVALID from server [%s]", resp.RSN_.c_str() );
@@ -236,7 +236,7 @@ sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
 		reply = sendMessage( OM_RQ, data, true );
 		d("a73714 sendMessage got reply=[%s] ", reply.c_str() );
 
-		OmResponse resp( reply.c_str() );
+		OmResponse resp( reply );
 		if ( resp.RSN_ == "FAILED" ) {
 			break;
 		}
@@ -274,7 +274,7 @@ sstr OmicroClient::reqPublicKey( int waitSeconds)
 			break;
 		}
 
-		OmResponse resp( reply.c_str() );
+		OmResponse resp( reply );
 		if ( resp.STT_ == OM_RESP_OK ) {
 			d("a32038 recved pubkey=[%s]", s(resp.DAT_) );
 			return resp.DAT_;

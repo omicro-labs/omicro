@@ -284,7 +284,7 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 	sstr id_ = serv_.id_;
 
     rapidjson::Document dom;
-    dom.Parse( msg );
+    dom.Parse( msg, msglen );
     if ( dom.HasParseError() ) {
         i("E43337 dom.HasParseError msg=[%s]\n", msg );
 		sstr m;
@@ -434,6 +434,13 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 				return false;
 			}
 
+		}
+	} else if ( txn.trxntype_ == OM_XFERTOKEN ) {
+		int rc = serv_.blockMgr_.isXferTokenValid( txn );
+		if ( rc < 0 ) {
+           	i("E35012 from=[%s] xfer token invalid ", s(txn.sender_), s(txn.receiver_)  );
+			err = "Transfer error";
+			return false;
 		}
 	}
 

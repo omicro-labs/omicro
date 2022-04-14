@@ -1,4 +1,5 @@
 #include <algorithm>
+#define  RAPIDJSON_HAS_STDSTRING 1
 #include "omjson.h"
 #include "omicrodef.h"
 #include <rapidjson/document.h>
