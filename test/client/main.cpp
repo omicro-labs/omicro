@@ -337,7 +337,7 @@ void makeTransfer( const char * srv, int port, const std::string &from, const st
 
 	OmicroTrxn t;
 
-	std::string fttoken = "name: mytoken1, amount: 100";
+	std::string fttoken = std::string("name: mytoken1, amount: ") + amt;
 	std::string nfttoken = "name: petnft"; 
 	std::vector<std::string> vec;
 	vec.push_back(fttoken);

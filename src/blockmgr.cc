@@ -80,6 +80,7 @@ int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 	} else if ( trxn.trxntype_ == OM_NEWTOKEN ) {
 		urc = createToken(trxn);
 	} else if ( trxn.trxntype_ == OM_XFERTOKEN ) {
+		d("a38103 transferToken ...");
 		urc = transferToken(trxn);
 	} else {
 		urc = -10;
@@ -801,9 +802,11 @@ int BlockMgr::transferToken( OmicroTrxn &trxn)
 	}
 
 	sstr fromnewjson;
+	fromacct.incrementFence();
 	fromacct.json( fromnewjson );
 
 	sstr tonewjson;
+	toacct.incrementIn();
 	toacct.json( tonewjson );
 
 	srcptr->put( from.c_str(), from.size(), fromnewjson.c_str(), fromnewjson.size() );
@@ -1250,10 +1253,9 @@ int BlockMgr::isXferTokenValid( OmicroTrxn &trxn)
 
 	OmAccount toacct(torec);
 
-	// modify fromacct.tokens_  and toacct.tokens_
 	int rc = checkValidTokens(from, to, trxn.request_, fromacct.tokens_, toacct.tokens_ );
 	if ( rc < 0 ) {
-		i("E21403 from=[%s] to=[%s] modifyTokens error rc=%d", s(from), s(to), rc );
+		i("E21403 from=[%s] to=[%s] checkValidTokens error rc=%d", s(from), s(to), rc );
 		i("E21403 fromacct.tokens_=[%s]", s(fromacct.tokens_) );
 		i("E21403 trxn.request_=[%s]", s(trxn.request_) );
 		return -50;
@@ -1262,6 +1264,7 @@ int BlockMgr::isXferTokenValid( OmicroTrxn &trxn)
 	return 0;
 }
 
+// may update requestJson
 int BlockMgr::validateReqTokens( const sstr &from, sstr &requestJson )
 {
 	using namespace rapidjson;
@@ -1308,7 +1311,12 @@ int BlockMgr::validateReqTokens( const sstr &from, sstr &requestJson )
 			}
 
 			if ( atoi( max.c_str() ) == 1 ) {
-				v["owner"].SetString( from, dom.GetAllocator() );
+				itr = v.FindMember("owner");
+					v.AddMember("owner", from, dom.GetAllocator() );
+				if (  itr == v.MemberEnd() ) {
+				} else {
+					v["owner"].SetString( from, dom.GetAllocator() );
+				}
 				hasChange = true;
 			}
 	}

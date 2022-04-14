@@ -21,8 +21,6 @@ void OmToken::getMintJson( const std::vector<sstr> &vec, sstr &json )
 	std::vector<std::pair<sstr,sstr>> kvVec;
 	bool hasName = false;
 	bool hasMax = false;
-	bool hasIn = false;
-	bool hasOut = false;
 	bool hasBal = false;
 
 	sstr maxVal;
@@ -42,29 +40,16 @@ void OmToken::getMintJson( const std::vector<sstr> &vec, sstr &json )
 			} else if ( pair.first == "max" ) {
 				hasMax = true;
 				maxVal = pair.second;
-			} else if ( pair.first == "in" ) {
-				hasIn = true;
-			} else if ( pair.first == "out" ) {
-				hasOut = true;
 			} else if ( pair.first == "bal" ) {
 				hasBal = true;
 			}
 		}
 
-		if ( hasIn || hasOut || hasBal ) { return; }
+		if ( hasBal ) { return; }
 
 		writer.Key( "bal" ); 
 		writer.String( maxVal.c_str() );
-
-		writer.Key( "in" );
-		writer.String( "0" );
-
-		writer.Key( "out" );
-		writer.String( "0" );
 		writer.EndObject();
-	}
-	if ( hasIn || hasOut ) {
-		return;
 	}
 
 	if ( hasName && hasMax ) {

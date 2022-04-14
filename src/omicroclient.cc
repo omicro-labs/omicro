@@ -167,7 +167,7 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 	sstr trxnId = resp.TID_;
 
 	if ( resp.STT_ == OM_RESP_ERR ) {
-		d("a32208 got INVALID from server [%s]", reply.c_str() );
+		d("a322081 got OM_RESP_ERR from server [%s]", reply.c_str() );
 		return reply;
 	}
 
@@ -218,7 +218,7 @@ sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
 	OmResponse resp( reply );
 	sstr trxnId = resp.TID_;
 	if ( resp.STT_ == OM_RESP_ERR ) {
-		d("a32208 got INVALID from server [%s]", resp.RSN_.c_str() );
+		d("a322082 got OM_RESP_ERR from server [%s]", resp.RSN_.c_str() );
 		return resp.RSN_;
 	}
 

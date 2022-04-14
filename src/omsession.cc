@@ -258,7 +258,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 			serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t );
 		} else if ( xit == XIT_m ) {
 		    // received one XIT_m, there may be more XIT_m in next 3 seconds
-			d("a54103 %s got XIT_m from [%s]", s(id_), pfrom );
+			d("a54103 %s got XIT_m from [%s]", s(id_), s(pfrom) );
 			serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t );
 		} else if ( xit == XIT_n ) {
 			// follower gets a trxn commit message
@@ -433,7 +433,6 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 				err = "Fencing error";
 				return false;
 			}
-
 		}
 	} else if ( txn.trxntype_ == OM_XFERTOKEN ) {
 		int rc = serv_.blockMgr_.isXferTokenValid( txn );
@@ -441,6 +440,16 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn, sstr &err )
            	i("E35012 from=[%s] xfer token invalid ", s(txn.sender_), s(txn.receiver_)  );
 			err = "Transfer error";
 			return false;
+		}
+
+		if ( ! isInitTrxn ) {
+			sstr fromFence;
+			serv_.blockMgr_.getFence( txn.sender_, fromFence);
+			if ( txn.fence_ != fromFence ) {
+            	i("E32014 from=[%s] txn.fence_=[%s] != fromFence=[%s]", s(txn.sender_), s(txn.fence_), s(fromFence) );
+				err = "Xfer token Fencing error";
+				return false;
+			}
 		}
 	}
 
