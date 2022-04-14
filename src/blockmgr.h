@@ -43,10 +43,10 @@ class BlockMgr
 	sstr getAcctStoreFilePath( const sstr &userId);
 	char *findSaveStore( const sstr &userId, OmstorePtr &ptr );
 
+	int  validateReqTokens( const sstr &from, sstr &requestJson );
 	void saveTrxnList( const sstr &from, const sstr &timestamp ); 
-	int  modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toTokens);
-	int  checkValidTokens( const sstr &reqJson, sstr &fromTokens, sstr &toTokens);
-
+	int  checkValidTokens( const sstr &from, const sstr &to, const sstr &reqJson, sstr &fromTokens, sstr &toTokens);
+	int  modifyTokens( const sstr &from, const sstr &to, const sstr &reqJson, sstr &fromTokens, sstr &toTokens);
 
   	sstr dataDir_;
   	const int DIR_LEVEL1_NUM = 1019; // do not change this

@@ -31,6 +31,7 @@
 #include "omresponse.h"
 #include "omdom.h"
 #include "omtoken.h"
+#include "omlimits.h"
 
 EXTERN_LOGGING
 
@@ -169,6 +170,13 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 	char *fromrec = findSaveStore( from, srcptr );
 	if ( ! fromrec ) {
 		i("E30821 createToken error from=[%s] not created yet.", s(from));
+		return -10;
+	}
+
+	// trxn.request_ "[{..}, {...}, {...} ]"
+	int rc = validateReqTokens( from, trxn.request_ );
+	if ( rc < 0 ) {
+		i("E30824 createToken error from=[%s] trxn.request_=[%s] not valid.", s(from), s(trxn.request_) );
 		return -10;
 	}
 
@@ -784,7 +792,7 @@ int BlockMgr::transferToken( OmicroTrxn &trxn)
 	OmAccount toacct(torec);
 
 	// modify fromacct.tokens_  and toacct.tokens_
-	int rc = modifyTokens( trxn.request_, fromacct.tokens_, toacct.tokens_ );
+	int rc = modifyTokens(from, to, trxn.request_, fromacct.tokens_, toacct.tokens_ );
 	if ( rc < 0 ) {
 		i("E21303 from=[%s] to=[%s] modifyTokens error rc=%d", s(from), s(to), rc );
 		i("E21303 fromacct.tokens_=[%s]", s(fromacct.tokens_) );
@@ -812,7 +820,7 @@ int BlockMgr::transferToken( OmicroTrxn &trxn)
 // fromTokens: [{ "name": "tok1", "max": "1239999", "bal": "2221", "url": "http://xxx", "other": "zzzzz" }, {...}, {...}]
 // toTokens: "" empty or
 // toTokens: [{ "name": "tok4", "max": "12999", "bal": "22", "url": "http://xxx", "some": "yyy" }, {...}, {...}]
-int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toTokens )
+int BlockMgr::modifyTokens( const sstr &from, const sstr &to,  const sstr &reqJson, sstr &fromTokens, sstr &toTokens )
 {
 	using namespace rapidjson;
 	Document fromdom;
@@ -853,32 +861,33 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 
 	bool fromHasToken;
 	bool toHasToken;
+	bool isNFT;
 
    	for ( rapidjson::SizeType idx = 0; idx < chdom.Size(); ++idx) {
 		const rapidjson::Value &rv = chdom[idx];
 		if ( ! rv.IsObject() ) {
-			continue;
+			i("E32005 not object");
+			return -41;
 		}
 
 		// rv is object { "name": "tok1", "amount": "234" }
 		itr = rv.FindMember("name");
 		if ( itr == rv.MemberEnd() ) {
-			continue;
+			i("E32006 no name");
+			return -42;
 		}
 		const sstr &xferName = itr->value.GetString();
-		// bug above  name
-		if ( xferName.size() > 128 ) {
-			continue;
+		if ( xferName.size() > OM_TOKEN_MAX_LEN ) {
+			i("E32007 name too long");
+			return -44;
 		}
 
 		itr = rv.FindMember("amount");
 		if ( itr == rv.MemberEnd() ) {
 			xferAmount = "1";
-			printf("a29292 no amount, use 1\n");
 		} else {
     		if ( itr->value.IsString() ) {
     			//printf("[%s] amount a33933930 is string !!!!\n", s(name));
-    			// bug
         		const sstr &amt = itr->value.GetString();
         		if ( amt.size() > 30 ) {
         			continue;
@@ -898,18 +907,43 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 
 		// deduct from tokens
 		fromHasToken = false;
+		isNFT = false;
    		for ( rapidjson::SizeType j = 0; j < fromdom.Size(); ++j) {
 			rapidjson::Value &v = fromdom[j];
 			if ( ! v.IsObject() ) {
-				continue;
+				i("E12287 not object");
+				return -70;
 			}
 			itr = v.FindMember("name");
 			if ( itr == v.MemberEnd() ) {
-				continue;
+				i("E12237 not name");
+				return -70;
 			}
 			const sstr &tname = itr->value.GetString();
 			if ( tname != xferName ) {
 				continue;
+			}
+
+			itr = v.FindMember("max");
+			if ( itr == v.MemberEnd() ) {
+				i("E12230 not max");
+				return -70;
+			}
+			const sstr &max = itr->value.GetString();
+			if ( atoll(max.c_str() ) == 1 ) {
+				itr = v.FindMember("owner");
+				if ( itr == v.MemberEnd() ) {
+					i("E32474 nft token no owner");
+					return -81;
+				}
+				const sstr &towner = itr->value.GetString();
+				if ( from != towner ) {
+					i("E32431 nft token wrong owner from=[%s] towner=[%s]", s(from), s(towner));
+					return -81;
+				}
+				// modify owner
+				v["owner"].SetString( to, fromdom.GetAllocator() );
+				isNFT = true;
 			}
 
 			itr = v.FindMember("bal");
@@ -961,12 +995,18 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 			}
 
 			toHasToken = true;
-			const sstr &bal = itr->value.GetString();
-			damt = atof(bal.c_str()) + atof(xferAmount.c_str());
-			sprintf(buf, "%.6f", damt );
 
-			v["bal"].SetString( buf, todom.GetAllocator() );
-			d("a222001 toaccount bal xfername=[%s] to=[%s] bal=[%s] xferAmoun=[%s]", s(xferName), buf, s(bal), s(xferAmount) );
+			if ( isNFT ) {
+				v["bal"].SetString( "1", todom.GetAllocator() );
+				v["owner"].SetString( to, todom.GetAllocator() );
+			} else {
+				const sstr &bal = itr->value.GetString();
+				damt = atof(bal.c_str()) + atof(xferAmount.c_str());
+				sprintf(buf, "%.6f", damt );
+				v["bal"].SetString( buf, todom.GetAllocator() );
+				d("a222001 toaccount bal xfername=[%s] to=[%s] bal=[%s] xferAmoun=[%s]", s(xferName), buf, s(bal), s(xferAmount) );
+			}
+
 			break;
 		}
 
@@ -977,11 +1017,13 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
    			for ( rapidjson::SizeType j = 0; j < fromdom.Size(); ++j) {
 				const rapidjson::Value &v = fromdom[j];
 				if ( ! v.IsObject() ) {
-					continue;
+					i("E23371 no object");
+					return -90;
 				}
 				itr = v.FindMember("name");
 				if ( itr == v.MemberEnd() ) {
-					continue;
+					i("E23351 no name");
+					return -90;
 				}
 				const sstr &tname = itr->value.GetString();
 				if ( tname != xferName ) {
@@ -991,13 +1033,13 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 				// v is the keys-values object
 				Value obj(kObjectType);
 				obj.SetObject();
-				//todo qwer wrong call for todom
 				int cnt = 0;
 				for (auto& kv : v.GetObject()) {
 					if ( 0 == strcmp(kv.name.GetString(), "bal" ) ) {
 						obj.AddMember( StringRef(kv.name.GetString()), xferAmount, todom.GetAllocator() );
 					} else {
 						obj.AddMember( StringRef(kv.name.GetString()), StringRef(kv.value.GetString()), todom.GetAllocator() );
+						// fromdom has changed owner for nft token
 					}
 					++cnt;
 				}
@@ -1030,7 +1072,7 @@ int BlockMgr::modifyTokens( const sstr &reqJson, sstr &fromTokens, sstr &toToken
 // fromTokens: [{ "name": "tok1", "max": "1239999", "bal": "2221", "url": "http://xxx", "other": "zzzzz" }, {...}, {...}]
 // toTokens: "" empty or
 // toTokens: [{ "name": "tok4", "max": "12999", "bal": "22", "url": "http://xxx", "some": "yyy" }, {...}, {...}]
-int BlockMgr::checkValidTokens( const sstr &reqJson, sstr &fromTokens, sstr &toTokens )
+int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &reqJson, sstr &fromTokens, sstr &toTokens )
 {
 	using namespace rapidjson;
 	Document fromdom;
@@ -1070,18 +1112,20 @@ int BlockMgr::checkValidTokens( const sstr &reqJson, sstr &fromTokens, sstr &toT
    	for ( rapidjson::SizeType idx = 0; idx < chdom.Size(); ++idx) {
 		const rapidjson::Value &rv = chdom[idx];
 		if ( ! rv.IsObject() ) {
-			continue;
+        	i("E34128 error not object" );
+        	return -35;
 		}
 
 		// rv is object { "name": "tok1", "amount": "234" }
 		itr = rv.FindMember("name");
 		if ( itr == rv.MemberEnd() ) {
-			continue;
+        	i("E34020 error no name" );
+        	return -45;
 		}
 		const sstr &xferName = itr->value.GetString();
-		// bug above  name
-		if ( xferName.size() > 128 ) {
-			continue;
+		if ( xferName.size() > OM_TOKEN_MAX_LEN ) {
+        	i("E34021 error name too long" );
+        	return -46;
 		}
 
 		itr = rv.FindMember("amount");
@@ -1089,11 +1133,10 @@ int BlockMgr::checkValidTokens( const sstr &reqJson, sstr &fromTokens, sstr &toT
 			xferAmount = "1";
 		} else {
     		if ( itr->value.IsString() ) {
-    			//printf("[%s] amount a33933930 is string !!!!\n", s(name));
-    			// bug
         		const sstr &amt = itr->value.GetString();
         		if ( amt.size() > 30 ) {
-        			continue;
+					i("E34022 error amt too big" );
+					return -57;
         		}
         		if ( atof( amt.c_str() ) <= 0 ) {
         			i("E34023 error amt=[%s]", s(amt) );
@@ -1115,16 +1158,38 @@ int BlockMgr::checkValidTokens( const sstr &reqJson, sstr &fromTokens, sstr &toT
 			}
 			itr = v.FindMember("name");
 			if ( itr == v.MemberEnd() ) {
-				continue;
+				i("E32208 no name");
+				return -60;
 			}
 			const sstr &tname = itr->value.GetString();
 			if ( tname != xferName ) {
 				continue;
 			}
 
+			itr = v.FindMember("max");
+			if ( itr == v.MemberEnd() ) {
+				i("E32401 no max");
+				return -61;
+			}
+			const sstr &max = itr->value.GetString();
+			if ( atoll( max.c_str() ) == 1 ) {
+				itr = v.FindMember("owner");
+				if ( itr == v.MemberEnd() ) {
+					i("E32471 nft token no owner");
+					return -71;
+				}
+				const sstr &towner = itr->value.GetString();
+				if ( from != towner ) {
+					i("E32481 nft token wrong owner from=[%s] towner=[%s]", s(from), s(towner));
+					return -71;
+				}
+			}
+
 			itr = v.FindMember("bal");
 			if ( itr == v.MemberEnd() ) {
-				continue;
+				i("E32204 no bal");
+				return -65;
+				//continue;
 			}
 			const sstr &bal = itr->value.GetString();
 			if ( atof(bal.c_str()) < atof(xferAmount.c_str()) ) {
@@ -1186,7 +1251,7 @@ int BlockMgr::isXferTokenValid( OmicroTrxn &trxn)
 	OmAccount toacct(torec);
 
 	// modify fromacct.tokens_  and toacct.tokens_
-	int rc = checkValidTokens( trxn.request_, fromacct.tokens_, toacct.tokens_ );
+	int rc = checkValidTokens(from, to, trxn.request_, fromacct.tokens_, toacct.tokens_ );
 	if ( rc < 0 ) {
 		i("E21403 from=[%s] to=[%s] modifyTokens error rc=%d", s(from), s(to), rc );
 		i("E21403 fromacct.tokens_=[%s]", s(fromacct.tokens_) );
@@ -1196,3 +1261,66 @@ int BlockMgr::isXferTokenValid( OmicroTrxn &trxn)
 
 	return 0;
 }
+
+int BlockMgr::validateReqTokens( const sstr &from, sstr &requestJson )
+{
+	using namespace rapidjson;
+	Document dom;
+	dom.Parse( requestJson );
+	if ( dom.HasParseError() ) {
+		i("E38031 validateReqTokens invalid");
+		return -10;
+	}
+
+	if ( ! dom.IsArray() ) {
+		i("E38041 validateReqTokens dom is not array");
+		return -20;
+	}
+
+	// each obj in dom
+	bool hasChange = false;
+	Value::ConstMemberIterator itr;
+ 	for ( rapidjson::SizeType j = 0; j < dom.Size(); ++j) {
+			rapidjson::Value &v = dom[j];
+			if ( ! v.IsObject() ) {
+				continue;
+			}
+			itr = v.FindMember("name");
+			if ( itr == v.MemberEnd() ) {
+				i("E38051 no name found in req");
+				return -30;
+			}
+			const sstr &tname = itr->value.GetString();
+			if ( tname.size() < 1 ) {
+				i("E38052 name empty in req");
+				return -30;
+			}
+
+			itr = v.FindMember("max");
+			if ( itr == v.MemberEnd() ) {
+				i("E38053 no max found in req");
+				return -40;
+			}
+			const sstr &max = itr->value.GetString();
+			if ( max.size() < 1 ) {
+				i("E38054 max empty in req");
+				return -50;
+			}
+
+			if ( atoi( max.c_str() ) == 1 ) {
+				v["owner"].SetString( from, dom.GetAllocator() );
+				hasChange = true;
+			}
+	}
+
+	if ( hasChange ) {
+		StringBuffer sbuf;
+		Writer<StringBuffer> writer(sbuf);
+		dom.Accept(writer);
+		requestJson = sbuf.GetString();
+	}
+
+	return 0;
+}
+
+
