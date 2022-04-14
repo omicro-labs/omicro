@@ -26,6 +26,7 @@
 #include "omlog.h"
 #include "omaccount.h"
 #include "omjson.h"
+#include "omlimits.h"
 EXTERN_LOGGING
 
 OmicroTrxn::OmicroTrxn()
@@ -209,6 +210,16 @@ void OmicroTrxn::getTrxnID( sstr &id )
 
 bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 {
+	if ( sender_.size() > OM_NAME_MAXSZ ) {
+		i("E203938 sender_ too long", s(sender_) );
+		return false;
+	}
+
+	if ( receiver_.size() > OM_NAME_MAXSZ ) {
+		i("E203934 receiver_ too long", s(receiver_) );
+		return false;
+	}
+
 	ulong trxnTime = getTimeStampUS();
 	unsigned long nowt = getNowTimeUS();
 	if ( nowt - trxnTime > 60000000 ) {

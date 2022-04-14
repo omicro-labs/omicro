@@ -118,6 +118,11 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 	sstr from = trxn.sender_;
 	d("a32047 createAcct trxnId=[%s] from=[%s]", s(trxnId), s(from) );
 
+	if ( from.size() > OM_NAME_MAXSZ ) {
+		i("E40214 newacct from=[%s] too long", s(from) );
+		return -1;
+	}
+
 	OmstorePtr srcptr;
 	sstr fpath;
 	// sstr ts; trxn.getTrxnData(ts);
@@ -892,7 +897,7 @@ int BlockMgr::modifyTokens( const sstr &from, const sstr &to,  const sstr &reqJs
     		if ( itr->value.IsString() ) {
     			//printf("[%s] amount a33933930 is string !!!!\n", s(name));
         		const sstr &amt = itr->value.GetString();
-        		if ( amt.size() > 30 ) {
+        		if ( amt.size() > OM_NUM_MAXSZ ) {
         			continue;
         		}
         		if ( atof( amt.c_str() ) <= 0 ) {
@@ -907,6 +912,10 @@ int BlockMgr::modifyTokens( const sstr &from, const sstr &to,  const sstr &reqJs
 		}
 
 		d("a2221 xferAmount=[%s]", s(xferAmount));
+		if ( xferAmount.size() > OM_NUM_MAXSZ ) {
+        	i("E31443 error xferAmount size too long" );
+        	return -48;
+		}
 
 		// deduct from tokens
 		fromHasToken = false;
@@ -1137,7 +1146,7 @@ int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &re
 		} else {
     		if ( itr->value.IsString() ) {
         		const sstr &amt = itr->value.GetString();
-        		if ( amt.size() > 30 ) {
+        		if ( amt.size() > OM_NUM_MAXSZ ) {
 					i("E34022 error amt too big" );
 					return -57;
         		}
@@ -1152,12 +1161,18 @@ int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &re
     		}
 		}
 
+		if ( xferAmount.size() > OM_NUM_MAXSZ ) {
+        	i("E35043 error xferAmount too long" );
+        	return -48;
+		}
+
 		fromHasToken = false;
 		// check fromtokens
    		for ( rapidjson::SizeType j = 0; j < fromdom.Size(); ++j) {
 			rapidjson::Value &v = fromdom[j];
 			if ( ! v.IsObject() ) {
-				continue;
+				i("E32268 not object");
+				return -55;
 			}
 			itr = v.FindMember("name");
 			if ( itr == v.MemberEnd() ) {
@@ -1286,17 +1301,22 @@ int BlockMgr::validateReqTokens( const sstr &from, sstr &requestJson )
  	for ( rapidjson::SizeType j = 0; j < dom.Size(); ++j) {
 			rapidjson::Value &v = dom[j];
 			if ( ! v.IsObject() ) {
-				continue;
+				i("E38061 error not object");
+				return -25;
 			}
 			itr = v.FindMember("name");
 			if ( itr == v.MemberEnd() ) {
 				i("E38051 no name found in req");
-				return -30;
+				return -27;
 			}
 			const sstr &tname = itr->value.GetString();
 			if ( tname.size() < 1 ) {
 				i("E38052 name empty in req");
 				return -30;
+			}
+			if ( tname.size() > OM_TOKEN_MAX_LEN ) {
+				i("E38052 name too long in req");
+				return -35;
 			}
 
 			itr = v.FindMember("max");
@@ -1307,6 +1327,10 @@ int BlockMgr::validateReqTokens( const sstr &from, sstr &requestJson )
 			const sstr &max = itr->value.GetString();
 			if ( max.size() < 1 ) {
 				i("E38054 max empty in req");
+				return -50;
+			}
+			if ( max.size() > OM_NUM_MAXSZ ) {
+				i("E38354 max too long in req");
 				return -50;
 			}
 
@@ -1330,5 +1354,4 @@ int BlockMgr::validateReqTokens( const sstr &from, sstr &requestJson )
 
 	return 0;
 }
-
 
