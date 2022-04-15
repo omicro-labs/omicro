@@ -6,5 +6,6 @@
 #define OM_TOKEN_MAX_LEN   128
 #define OM_NUM_MAXSZ       20
 #define OM_NAME_MAXSZ      64
+#define OM_MSG_MAXSZ       256000
 
 #endif

@@ -79,11 +79,10 @@ omserver::~omserver()
 void omserver::do_accept()
 {
     acceptor_.async_accept(
-          [this](bcode ec, tcp::socket acc_sock)
-          {
+          [this](bcode ec, tcp::socket accpt_sock) {
             if (!ec)
             {
-                std::shared_ptr<omsession> sess = std::make_shared<omsession>(io_context_, *this, std::move(acc_sock));
+                std::shared_ptr<omsession> sess = std::make_shared<omsession>(io_context_, *this, std::move(accpt_sock));
                 sess->start();
             }
 

@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 #include <string>
 #include <sys/stat.h>
@@ -47,6 +48,7 @@ void makePayment( const char *srv, int port, const std::string &from, const std:
 void query( const std::string &qt, const char *srv, int port, const std::string &from, const std::string &token );
 void readUserKey( std::string uname, std::string &secKey, std::string &pubKey );
 void makeTransfer( const char *srv, int port, const std::string &from, const std::string &to, const std::string &amt );
+std::string getHomeDir();
 
 void help( const char *prog)
 {
@@ -141,8 +143,9 @@ int main(int argc, char* argv[])
 
 void createUserKey( const std::string &uname )
 {
-	std::string f1 = "/tmp/mysecretKey" + uname;
-	std::string f2 = "/tmp/mypublicKey" + uname;
+	std::string rt = getHomeDir();
+	std::string f1 = rt + "/mysecretKey" + uname;
+	std::string f2 = rt + "/mypublicKey" + uname;
 
 	std::string secretKey, publicKey;
 	OmicroUserKey::createKeyPairDL5( secretKey, publicKey );
@@ -303,8 +306,9 @@ void query( const std::string &qt, const char * srv, int port, const std::string
 
 void readUserKey( std::string uname, std::string &secKey, std::string &pubKey )
 {
-	std::string f1 = "/tmp/mysecretKey" + uname;
-	std::string f2 = "/tmp/mypublicKey" + uname;
+	std::string rt = getHomeDir();
+	std::string f1 = rt + "/mysecretKey" + uname;
+	std::string f2 = rt + "/mypublicKey" + uname;
 
 	char buf[20000];
 
@@ -373,4 +377,18 @@ void makeTransfer( const char * srv, int port, const std::string &from, const st
 	std::string reply = client.sendTrxn( t );
 
 	printf("%s confirmation=[%s]\n", from.c_str(), reply.c_str());
+}
+
+std::string getHomeDir()
+{
+	std::string rt;
+	char *p = getenv("HOME");
+	if ( p ) {
+		rt = std::string(p) + "/.omicro";
+	} else {
+		rt = std::string("/tmp/.omicro");
+	}
+
+	::mkdir(rt.c_str(), 0700 );
+	return rt;
 }

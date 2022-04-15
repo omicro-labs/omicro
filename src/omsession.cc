@@ -28,6 +28,7 @@
 #include "ommsghdr.h"
 #include "omicroclient.h"
 #include "omresponse.h"
+#include "omlimits.h"
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
@@ -65,29 +66,34 @@ void omsession::do_read()
 				// do read data
 				OmMsgHdr mhdr(hdr_, OMHDR_SZ, false);
 				ulong dlen = mhdr.getLength();
-				char *data = (char*)malloc( dlen+1 );
-				data[dlen] = '\0';
-				d("a63003 a91838 srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
-
-				bcode ec2;
-				int len2 =  boost::asio::read( socket_, boost::asio::buffer(data,dlen), ec2 );
-				d("a45023 boost::asio::read len2=%d dlen=%d", len2, dlen );
-				data[len2] = '\0';
-
-				char tp = mhdr.getMsgType();
-				d("a10287 mhdr.getMsgType tp=[%c]", tp );
-				if ( tp == OM_TXN ) {
-					doTrxnL2( data, len2 );
-				} else if ( tp == OM_RQ ) {
-					doSimpleQuery( data, len2 );
-				} else if ( tp == OM_XNQ ) {
-					doQueryL2( data, len2 );
+				if ( dlen <= OM_MSG_MAXSZ ) {
+    				char *data = (char*)malloc( dlen+1 );
+    				data[dlen] = '\0';
+    				d("a63003 a91838 srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
+    
+    				bcode ec2;
+    				int len2 =  boost::asio::read( socket_, boost::asio::buffer(data,dlen), ec2 );
+    				d("a45023 boost::asio::read len2=%d dlen=%d", len2, dlen );
+    				data[len2] = '\0';
+    
+    				char tp = mhdr.getMsgType();
+    				d("a10287 mhdr.getMsgType tp=[%c]", tp );
+    				if ( tp == OM_TXN ) {
+    					doTrxnL2( data, len2 );
+    				} else if ( tp == OM_RQ ) {
+    					doSimpleQuery( data, len2 );
+    				} else if ( tp == OM_XNQ ) {
+    					doQueryL2( data, len2 );
+    				} else {
+    					d("E30292 error invalid msgtype [%c]", tp );
+    				}
+    
+    				free(data);
+    				do_read();
 				} else {
-					d("E30292 error invalid msgtype [%c]", tp );
+					i("E398462 dlen=%d too big > %d  close socket", dlen, OM_MSG_MAXSZ );
+					socket_.close();
 				}
-
-				free(data);
-    			do_read();
             } else {
                 d("a82838 srv do read read no data error=[%s]", ec.message().c_str());
 			}
@@ -113,7 +119,7 @@ void omsession::reply( const sstr &str, tcp::socket &socket )
        				int len2 = boost::asio::write(socket, boost::asio::buffer(str.c_str(), str.size()));
     				d("a00292 server write str back str=[%s] strlen=%d done sentbytes=%d", str.c_str(), str.size(), len2 );
 				} catch (std::exception& e) {
-					i("a66331 error brokenpipe in server reply() exception [%s] clientIP_=[%s]", e.what(), s(clientIP_) );
+					i("E66331 error brokenpipe in server reply() exception [%s] clientIP_=[%s]", e.what(), s(clientIP_) );
 				}
             } else {
                 d("a33309 111 error async_write() srv reply hdr len=%d", len);
