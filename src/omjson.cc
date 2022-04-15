@@ -2,10 +2,13 @@
 #define  RAPIDJSON_HAS_STDSTRING 1
 #include "omjson.h"
 #include "omicrodef.h"
+#include "omlog.h"
+#include "omutil.h"
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/error/en.h>
+EXTERN_LOGGING
 
 OmJson::OmJson()
 {
@@ -128,4 +131,44 @@ void OmJson::json( std::string &str )
 	}
 	writer.EndObject();
 	str = sbuf.GetString();
+}
+
+void OmJson::getObjStr( const std::string &name, const std::string &jsonArr, std::string &resultObj )
+{
+	d("a102028 getObjStr name=[%s]", name.c_str() );
+	using namespace rapidjson;
+	rapidjson::Document dom;
+	dom.Parse( jsonArr );
+	if ( dom.HasParseError() ) {
+		d("a41408 getObjStr parserror jsonArr=[%s]", s(jsonArr) );
+		return;
+	}
+
+	Value::ConstMemberIterator itr;
+	for ( rapidjson::SizeType idx = 0; idx < dom.Size(); ++idx) {
+		rapidjson::Value &rv = dom[idx];
+		if ( ! rv.IsObject() ) {
+			d("a44408 getObjStr not object");
+			continue;
+		}
+
+		itr = rv.FindMember("name");
+		if ( itr == rv.MemberEnd() ) {
+			d("a14408 getObjStr no name ");
+			continue;
+		}
+
+		const std::string &tName = itr->value.GetString();
+		if ( tName == name ) {
+			// rv is right object
+			StringBuffer sbuf;
+			Writer<StringBuffer> writer(sbuf);
+			rv.Accept(writer);
+			resultObj = sbuf.GetString();
+			d("a287373 resultObj=[%s]", s(resultObj) );
+			return;
+		}
+	}
+
+	d("a83712 not found");
 }

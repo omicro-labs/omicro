@@ -52,7 +52,7 @@ double  OmAccount::addBalance( double amt )
 		return -20.0;
 	}
 	char buf[48];
-	sprintf(buf, "%.6f", bal);
+	sprintf(buf, "%.6g", bal);
 	balance_ = buf;
 	return bal;
 }

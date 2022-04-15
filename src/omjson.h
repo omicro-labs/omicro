@@ -15,6 +15,7 @@ class OmJson
 
 	void add(const std::string &key, const std::string &val );
 	void json( std::string &str );
+	static void getObjStr( const std::string &name, const std::string &jsonArr, std::string &resultObj );
 
   protected:
 	std::vector<std::pair<std::string,std::string>> vec_;

@@ -260,7 +260,7 @@ bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 	if ( trxntype_ == OM_PAYMENT ) {
 		double amt = getAmountDouble();
 		if ( amt <= 0.0001 ) {
-			d("a31538 amt=%.6f too small", amt );
+			d("a31538 amt=%.6g too small", amt );
 			return false;
 		}
 	}
@@ -458,6 +458,36 @@ void OmicroTrxn::makeTokensQuery( const sstr &nodePubkey, const sstr &secretKey,
 	q.addField("keytype");
 	q.addField("accttype");
 	q.addField("tokens");
+	sstr qstr;
+	q.json( qstr );
+	request_ = qstr;
+
+	setVoteInt(0);
+	makeNodeSignature( nodePubkey );
+	makeUserSignature( secretKey, publicKey );
+}
+
+void OmicroTrxn::makeOneTokenQuery( const sstr &nodePubkey, const sstr &secretKey, 
+								const sstr &publicKey, const sstr &fromId, const sstr &tokenName  )
+{
+	hdr_ = "IT";
+	setBeacon();
+	srvport_ = "127.0.0.1:client";
+
+	sender_ = fromId;
+	setNowTimeStamp();
+	trxntype_ = OM_QUERY; 
+
+	OmQuery q;
+	q.predicate_ = sstr("name=") + tokenName;
+	//q.addField("balance");
+	//q.addField("out");
+	//q.addField("in");
+	//q.addField("tokentype");
+	q.addField("keytype");
+	q.addField("accttype");
+	//q.addField("tokens");
+	q.addField("token");
 	sstr qstr;
 	q.json( qstr );
 	request_ = qstr;

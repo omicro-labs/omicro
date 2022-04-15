@@ -31,6 +31,9 @@ INIT_LOGGING
 **
 **         omclient  <serverIP>  <serverPort>  viewtokens <ownerID>
 **                                             View tokens under user <ownerID>.
+
+**         omclient  <serverIP>  <serverPort>  viewtoken <ownerID> <tokenId>
+**                                             View token under user <ownerID>.
 **
 **         omclient  <serverIP>  <serverPort>  xfer <fromUserID> <toUserID>  <amt>
 **                                             Transfer tokens from <fromUserID> to <toUserID> <amt>
@@ -41,7 +44,7 @@ void createUserKey( const std::string &uname);
 void createAcct( const char *srv, int port, const std::string &username);
 void createToken( const char *srv, int port, const std::string &owner );
 void makePayment( const char *srv, int port, const std::string &from, const std::string &to, const std::string &amt );
-void query( const std::string &qt, const char *srv, int port, const std::string &from );
+void query( const std::string &qt, const char *srv, int port, const std::string &from, const std::string &token );
 void readUserKey( std::string uname, std::string &secKey, std::string &pubKey );
 void makeTransfer( const char *srv, int port, const std::string &from, const std::string &to, const std::string &amt );
 
@@ -53,6 +56,7 @@ void help( const char *prog)
 	printf("Usage: %s  <serverIP>  <serverPort>  viewbal <userId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  token <ownerId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  viewtokens <ownerId>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  viewtoken <ownerId> <tokenId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  xfer <fromId> <toId> <amount>\n", prog );
 }
 
@@ -102,14 +106,21 @@ int main(int argc, char* argv[])
 		}
 	} else if ( 0 == strcmp(argv[3], "viewbal" ) ) {
 		if ( argc >= 5 ) {
-	    	query( "balance", srv, port, argv[4] );
+	    	query( "balance", srv, port, argv[4], "" );
 		} else {
 			help(argv[0]);
 			exit(7);
 		}
 	} else if ( 0 == strcmp(argv[3], "viewtokens" ) ) {
 		if ( argc >= 5 ) {
-	    	query( "tokens", srv, port, argv[4] );
+	    	query( "tokens", srv, port, argv[4], "" );
+		} else {
+			help(argv[0]);
+			exit(7);
+		}
+	} else if ( 0 == strcmp(argv[3], "viewtoken" ) ) {
+		if ( argc >= 6 ) {
+	    	query( "token", srv, port, argv[4], argv[5] );
 		} else {
 			help(argv[0]);
 			exit(7);
@@ -255,7 +266,7 @@ void makePayment( const char * srv, int port, const std::string &from, const std
 	printf("%s confirmation=[%s]\n", from.c_str(), reply.c_str());
 }
 
-void query( const std::string &qt, const char * srv, int port, const std::string &from )
+void query( const std::string &qt, const char * srv, int port, const std::string &from, const std::string &token )
 {
 	OmicroClient client( srv, port );
 	if ( ! client.connectOK() ) {
@@ -274,6 +285,8 @@ void query( const std::string &qt, const char * srv, int port, const std::string
 		t.makeAcctQuery( nodePubkey, secretKey, publicKey, from );
 	} else if ( qt == "tokens" ) {
 		t.makeTokensQuery( nodePubkey, secretKey, publicKey, from );
+	} else if ( qt == "token" ) {
+		t.makeOneTokenQuery( nodePubkey, secretKey, publicKey, from, token );
 	} else {
 		printf("Error [%s] is not supported\n", qt.c_str() );
 		return;

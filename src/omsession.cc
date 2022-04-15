@@ -418,9 +418,9 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 		}
 
     	double amt = txn.getAmountDouble();
-        d("a44502 from=[%s] balance=[%.6f]", s(txn.sender_), bal );
+        d("a44502 from=[%s] balance=[%.6g]", s(txn.sender_), bal );
         if ( (bal - amt) < 0.0001 ) {
-            d("a30138 from=[%s] balance=%.6f not enough to pay %.6f", s(txn.sender_), bal, amt );
+            d("a30138 from=[%s] balance=%.6g not enough to pay %.6g", s(txn.sender_), bal, amt );
 			err = "Not enough funds";
             return false;
         }

@@ -24,7 +24,7 @@ void OmDom::get(const std::string &key, std::string &val )
 		return;
 	}
 
-	rapidjson::Value::ConstMemberIterator itr = dom_.FindMember( key.c_str() );
+	rapidjson::Value::ConstMemberIterator itr = dom_.FindMember( key );
 	if ( itr == dom_.MemberEnd() ) {
 		val = "";
 		return;
@@ -57,7 +57,7 @@ void OmDom::get(const std::string &key, std::string &val )
 		sprintf(buf, "%lu", rv.GetUint64() );
 		val = buf;
     } else if ( rv.IsDouble() ) {
-		sprintf(buf, "%f", rv.GetDouble() );
+		sprintf(buf, "%.6g", rv.GetDouble() );
 		val = buf;
 	} else {
 		val = "";

@@ -48,6 +48,8 @@ class OmicroTrxn
 						 const std::string &publicKey, const std::string &fromId );
 	void  makeTokensQuery( const std::string &nodePubkey, const std::string &secretKey, 
 						 const std::string &publicKey, const std::string &fromId );
+	void  makeOneTokenQuery( const std::string &nodePubkey, const std::string &secretKey, 
+						 const std::string &publicKey, const std::string &fromId, const std::string &token );
 
 	void  makeTokenTransfer( const std::string &nodePubkey, const std::string &userSecretKey, 
 						      const std::string &userPublicKey, 

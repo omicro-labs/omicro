@@ -32,6 +32,7 @@
 #include "omdom.h"
 #include "omtoken.h"
 #include "omlimits.h"
+#include "omjson.h"
 
 EXTERN_LOGGING
 
@@ -195,7 +196,7 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 		// make sure trxn.request_ has no identical names in acct.tokens_
 		bool dup = OmToken::hasDupNames( acct.tokens_, trxn.request_);
 		if ( dup ) {
-			i("E30220 error from=[%s] has dup names", s(from));
+			i("E30220 error from=[%s] has dup token names", s(from));
 			i("E30220 error trxn.request_=[%s]", s(trxn.request_));
 			i("E30220 error acct.tokens_=[%s]", s(acct.tokens_) );
 			return -15;
@@ -679,6 +680,13 @@ int BlockMgr::runQuery( OmicroTrxn &trxn, sstr &res )
     }
 
 	//const rapidjson::Value& pred = dom["predicate"];
+	sstr predicate;
+	auto itr = dom.FindMember("predicate");
+	if ( itr != dom.MemberEnd() ) {
+		predicate = itr->value.GetString();
+	}
+	d("a39338 runQuery predicate=[%s]", s(predicate) );
+
 	const rapidjson::Value& fields = dom["fields"];
 	if ( ! fields.IsArray() ) {
 		d("a30280 from=[%s] fields not array", s(from) );
@@ -691,8 +699,8 @@ int BlockMgr::runQuery( OmicroTrxn &trxn, sstr &res )
 	rapidjson::Writer<rapidjson::StringBuffer> writer(sbuf);
 	writer.StartObject();
 
-	for ( rapidjson::SizeType  i = 0; i < fields.Size(); i++) {
-		const rapidjson::Value &v = fields[i];
+	for ( rapidjson::SizeType  idx = 0; idx < fields.Size(); ++idx ) {
+		const rapidjson::Value &v = fields[idx];
 		if ( ! v.IsString() ) {
 			continue;
 		}
@@ -709,13 +717,34 @@ int BlockMgr::runQuery( OmicroTrxn &trxn, sstr &res )
 			writer.String(fromAcct.in_.c_str());
 		} else if ( 0 == strcmp(p, "tokentype") ) {
 			writer.Key(p);
-			writer.String(fromAcct.tokentype_.c_str());
+			writer.String(fromAcct.tokentype_);
 		} else if ( 0 == strcmp(p, "accttype") ) {
 			writer.Key(p);
-			writer.String(fromAcct.accttype_.c_str());
+			writer.String(fromAcct.accttype_);
 		} else if ( 0 == strcmp(p, "tokens") ) {
 			writer.Key(p);
-			writer.String(fromAcct.tokens_.c_str());
+			writer.String(fromAcct.tokens_);
+		} else if ( 0 == strcmp(p, "token") ) {
+			if ( predicate.size() > 0 ) {
+				// expect "name=mytokenname123"
+				OmStrSplit sp(predicate, '=');
+				if ( sp.length() == 2 && sp[0] == "name" ) {
+					// find object where name==sp[1]
+					sstr resultObj;
+					OmJson::getObjStr( sp[1], fromAcct.tokens_, resultObj );
+					d("a33408 resultObj=[%s]", s(resultObj) );
+					if ( resultObj.size() > 0 ) {
+						writer.Key("token");
+						writer.String( resultObj );
+					} else {
+						i("E56231 not found fromAcct.tokens_=[%s]", s(fromAcct.tokens_) );
+						writer.Key("token");
+						writer.String( "" );
+					}
+				}
+			}
+
+			//writer.String(fromAcct.tokens_.c_str());
 		}
 	}
 
@@ -970,7 +999,7 @@ int BlockMgr::modifyTokens( const sstr &from, const sstr &to,  const sstr &reqJs
 				return -50;
 			}
 
-			sprintf(buf, "%.6f", damt );
+			sprintf(buf, "%.6g", damt );
 			v["bal"].SetString( buf, fromdom.GetAllocator() );
 			d("a22083 new from account xfername=[%s] bal_buf=[%s] origbal=[%s] xferAmount=[%s]", s(xferName), buf, s(bal), s(xferAmount) );
 			fromHasToken = true;
@@ -1014,7 +1043,7 @@ int BlockMgr::modifyTokens( const sstr &from, const sstr &to,  const sstr &reqJs
 			} else {
 				const sstr &bal = itr->value.GetString();
 				damt = atof(bal.c_str()) + atof(xferAmount.c_str());
-				sprintf(buf, "%.6f", damt );
+				sprintf(buf, "%.6g", damt );
 				v["bal"].SetString( buf, todom.GetAllocator() );
 				d("a222001 toaccount bal xfername=[%s] to=[%s] bal=[%s] xferAmoun=[%s]", s(xferName), buf, s(bal), s(xferAmount) );
 			}
