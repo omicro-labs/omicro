@@ -26,6 +26,8 @@
 
 EXTERN_LOGGING
 
+//#define OM_DEBUG_KEY 1
+
 /************************** node key *************************
 *
 *************************************************************/
@@ -54,10 +56,46 @@ void OmicroNodeKey::encryptSB3( const sstr &msg, const sstr &publicKey, sstr &ci
 	uint8_t pk[CRYPTO_PUBLICKEYBYTES];
 
 	base85Decode( publicKey, pk, CRYPTO_PUBLICKEYBYTES);
+
 	crypto_kem_enc(ct, ss, pk);
+
 	base85Encode( ct, CRYPTO_CIPHERTEXTBYTES, cipher );
+	#ifdef OM_DEBUG_KEY
+		uint8_t ct2[CRYPTO_CIPHERTEXTBYTES];
+		base85Decode( cipher, ct2, CRYPTO_CIPHERTEXTBYTES);
+		for ( int j=0; j < CRYPTO_CIPHERTEXTBYTES; ++j ) {
+			if ( ct2[j] != ct[j] ) {
+				i("k222021 cipher problem");	
+				break;
+			}
+		}
+	#endif
+
 	base85Encode( ss, CRYPTO_BYTES, passwd );
+	#ifdef OM_DEBUG_KEY
+		uint8_t ss2[CRYPTO_BYTES];
+		base85Decode( passwd, ss2, CRYPTO_BYTES);
+		for ( int j=0; j < CRYPTO_BYTES; ++j ) {
+			if ( ss2[j] != ss[j] ) {
+				i("k222024 ss problem");	
+				break;
+			}
+		}
+	#endif
+
 	aesEncrypt( msg, passwd, encMsg );
+	#ifdef OM_DEBUG_KEY
+		sstr plain;
+		aesDecrypt( encMsg, passwd, plain );
+		if ( plain != msg ) {
+			i("k224025 aesEncrypt/aesDecrypt problem");	
+			i("k224025 encMsg=[%s] size=%lu strlen=%lu", s(encMsg), encMsg.size(), strlen(encMsg.c_str()) );
+			i("k224025 msg  =[%s] msg.len=%d", s(msg), msg.size() );
+			i("k224025 plain=[%s] pln.len=%d", s(plain), plain.size() );
+			i("k224025 passwd=[%s] passwd.size=%lu strlen=%lu", s(passwd), passwd.size(), strlen(passwd.c_str()) );
+		}
+	#endif
+
 }
 
 void OmicroNodeKey::decryptSB3( const sstr &encMsg, const sstr &secretKey, const sstr &cipher, sstr &plain )
@@ -74,39 +112,67 @@ void OmicroNodeKey::decryptSB3( const sstr &encMsg, const sstr &secretKey, const
 	aesDecrypt( encMsg, passwd, plain );
 }
 
-
 void OmicroNodeKey::signSB3( const sstr &msg, const sstr &pubKey, sstr &cipher, sstr &signature )
 {
-	XXH64_hash_t hash = XXH64(msg.c_str(), msg.size(), 0 );
-	char buf[32];
-	sprintf(buf, "%lu", hash);
-	sstr hs(buf);
-	//d("a22330 sign data msg=[%s] msglen=%lu", s(msg), msg.size() );
-	//d("a22330 sign hash=%lu hash str=[%s]", hash, s(hs) );
+	sstr hashStr;
+	getHash( msg, hashStr );
 
 	sstr passwd;
-	encryptSB3( hs, pubKey, cipher, passwd, signature);
+	encryptSB3( hashStr, pubKey, cipher, passwd, signature);
+
+	/***
+	d("a22330 signSB3 sign data msg=[%s] msglen=%lu", s(msg), msg.size() );
+	d("a22330 signSB3 hashstr=[%s]", s(hashStr) );
+	d("a22330 signSB3 pubKey=[%s]", s(pubKey) );
+	d("a22330 signSB3 cipher=[%s]", s(cipher) );
+	d("a22330 signSB3 signature=[%s]", s(signature) );
+	***/
 }
 
 bool OmicroNodeKey::verifySB3(const sstr &msg, const sstr &signature, const sstr &cipher, const sstr &secretKey )
 {
-	XXH64_hash_t hash = XXH64(msg.c_str(), msg.size(), 0 );
-
-	//d("a00288 verify msg=[%s] msglen=%d", s(msg), msg.size() );
-	//d("a00288 ciper.len=%ld  seckeylen=%ld  signature.len=%ld\n", cipher.size(), secretKey.size(), signature.size() );
+	sstr hashStr;
+	getHash( msg, hashStr );
+	/***
+	d("a00288 verifySB3 verify msg=[%s]", s(msg) );
+	d("a00288 msglen=%d", msg.size() );
+	d("a00288 ciper.len=%ld  seckeylen=%ld  signature.len=%ld\n", cipher.size(), secretKey.size(), signature.size() );
+	***/
 	
 	sstr hashPlain;
 	decryptSB3( signature, secretKey, cipher, hashPlain);
-	char *ptr;
-	unsigned long hashv = strtoul(hashPlain.c_str(), &ptr, 10);
+	//d("a122291 decryptSB3 hashPlain=[%s]", hashPlain.c_str() );
 
-	if ( hash == hashv ) {
+	if ( hashStr == hashPlain ) {
+		/**
+		d("a44291 verifySB3 OK signature=[%s]", s(signature) ); 
+		d("a44291 verifySB3 OK cipher=[%s]", s(cipher) ); 
+		d("a44291 verifySB3 OK secretKey=[%s]", s(secretKey) ); 
+		**/
 		return true;
 	} else {
-		d("a22272838 msghash=%lu embeddedhashv=%lu  NEQ", hash, hashv );
+		d("a22272838 re-computed hashStr=[%s] embeddedhashstr=[%s]  NEQ", s(hashStr), s(hashPlain) );
 		return false;
 	}
 }
+
+void OmicroNodeKey::getHash( const std::string &msg, std::string &hashStr )
+{
+	/***
+	char buf[24];
+	XXH64_hash_t hashv = XXH64(msg.c_str(), msg.size(), 0 ) % 100000000;
+	sprintf(buf, "%08lu:xxh64hh", hashv);
+	hashStr = buf;
+	***/
+
+	char buf[48];
+	XXH64_hash_t hashv = XXH64(msg.c_str(), msg.size(), 0 );
+	//sprintf(buf, "xxhash:%lx:yy", hashv);
+	sprintf(buf, "z%lx", hashv);
+	hashStr = buf;
+}
+
+
 
 /******************** user key *****************************************
 *

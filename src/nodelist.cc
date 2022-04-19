@@ -19,6 +19,7 @@
 #include <string>
 #include "nodelist.h"
 #include "omutil.h"
+#include "omlimits.h"
 
 NodeList::NodeList( const char *fpath )
 {
@@ -71,7 +72,7 @@ void NodeList::readFile()
 
 	fclose( fp );
 	d("a02828 nodelist:  size=%d", list_.size() );
-	print();
+	//print();
 
 }
 
@@ -102,7 +103,8 @@ NodeList::getData( const sstr &rec,
 Byte NodeList::getLevel() const
 {
 	// todo
-	int L2max = 25;
+	//int L2max = OM_L2_MAX_NODES;
+	int L2max = 10000;
 	int N = list_.size();
 	if ( N < L2max ) {
 		return 2;
@@ -124,7 +126,7 @@ unsigned int NodeList::size() const
 void NodeList::print()
 {
 	for ( unsigned int i = 0; i < list_.size(); ++i ) {
-		printf("%s\n", list_[i].c_str() );
+		printf("a22233 %s\n", list_[i].c_str() );
 		fflush(stdout);
 	}
 }

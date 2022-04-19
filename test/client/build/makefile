@@ -54,7 +54,7 @@ MY_LIBS   = \
 CPPFLAGS  = -Wall \
             -I $(SRCINC) \
 			-I $(JSON)/include  \
-			-g
+			-O3 
 
 # The options used in linking as well as in any direct use of ld.
 LDFLAGS   = 

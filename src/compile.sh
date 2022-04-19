@@ -3,7 +3,7 @@
 arg=$1
 
 cd build
-if [[ "$arg" = "force" ]]; then
+if [[ "$arg" = "f" ]]; then
 	make clean
 fi
 ./compile.sh

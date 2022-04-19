@@ -26,6 +26,7 @@ class BlockMgr
 	int    runQuery( OmicroTrxn &trxn, sstr &res );
 	void   getTokens( const sstr &from, sstr &tokens ) ;
 	int    isXferTokenValid( OmicroTrxn &trxn);
+	void   setSrvPort( const sstr &srv, const sstr &port);
 
   protected:
     void initDirs();
@@ -56,6 +57,7 @@ class BlockMgr
 	std::unordered_map<sstr, OmstorePtr> trxnStoreMap_;
 	std::unordered_map<sstr, OmstorePtr> acctStoreMap_;
 	TrxnList  trxnList_;
+	sstr  srv_, port_;
 };
 
 #endif

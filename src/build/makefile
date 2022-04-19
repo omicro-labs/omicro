@@ -118,7 +118,7 @@ CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
 			$(BOOST_DEFINE) \
 			-D DILITHIUM_MODE=5 \
 			-I $(DILITH)/include \
-			-g
+			-g -ggdb
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)

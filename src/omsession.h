@@ -22,6 +22,7 @@ class omsession : public std::enable_shared_from_this<omsession>
   public:
     omsession( boost::asio::io_context& io_context, omserver &srv, tcp::socket socket);
     void start();
+	~omsession();
   
   private:
 
@@ -34,7 +35,7 @@ class omsession : public std::enable_shared_from_this<omsession>
 	bool initTrxn( OmicroTrxn &txn );
 	bool initQuery( OmicroTrxn &txn );
 	void makeSessionID();
-	bool validateTrxn( OmicroTrxn &txn, bool isInitTrxn, sstr &err );
+	bool validateTrxn( const sstr &trxnId, OmicroTrxn &txn, bool isInitTrxn, sstr &err );
 	bool validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitTrxn, sstr &err );
 	void getResult( const sstr &trxnId, const sstr &sender, sstr &res );
   

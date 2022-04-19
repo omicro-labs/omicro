@@ -16,6 +16,9 @@
  */
 #include "trxnstate.h"
 #include "omutil.h"
+#include "omlog.h"
+EXTERN_LOGGING
+
 
 TrxnState::TrxnState()
 {
@@ -81,6 +84,7 @@ bool TrxnState::goStateL2( const sstr &trxnid, Byte transit, Byte curState, OmSt
 	}
 
 	st.state = nextState;
+	d("a80023 goState xit=%c st.state=%c trxnid=%s ", transit, st.state, trxnid.c_str() );
 	insertOrUpdateState( trxnid, st, itr );
 	return true;
 }

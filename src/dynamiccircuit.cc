@@ -55,10 +55,13 @@ int DynamicCircuit::getNumFullZones()
 {
 	int nlen = nodeList_.length();
 	int numZones;
+	d("a09821 getNumFullZones nlen=%d", nlen );
 	if ( level_ == 2 ) {
 		numZones = int( sqrt(nlen) );
+		d("a09821 level=2 getNumFullZones numZones=%d", numZones );
 	} else {
 		numZones = int( std::cbrt(nlen) );
+		d("a09821 notlevel=2  level=%d getNumFullZones numZones=%d", level_, numZones );
 	}
 	return numZones;
 }
@@ -91,10 +94,12 @@ void DynamicCircuit::getLeaders( int numZones, int numFullZones,  const sstr &be
 	}
 	vec = leader;
 
+	/***
 	for ( int z = 0; z < numZones; ++z ) {
 		const sstr &sr = leader[z];
 		d("a83380 zone=%d leader=%s", z, s(sr));
 	}
+	***/
 
 }
 
@@ -159,7 +164,7 @@ bool DynamicCircuit::isLeader( const sstr &beacon, const sstr &srvid, bool getFo
 	XXH64_hash_t hash;
 	hash = XXH64( srvid.c_str(), srvid.size(), seed ) % len;
 	int zoneid =  hash / dd;
-	d("a22201 isLeader check srvid=[%s] zoneid=%d", s(srvid), zoneid );
+	d("a22201 isLeader check srvid=[%s] zoneid=%d seed=%d len=%d numFullZones=%d dd=%d", s(srvid), zoneid, seed, len, numFullZones, dd );
 
 	int zone;
 	bool isLeader = false;

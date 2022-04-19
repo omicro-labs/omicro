@@ -9,6 +9,7 @@
 #include "omlog.h"
 #include "omjson.h"
 #include "omtoken.h"
+#include "ommsghdr.h"
 INIT_LOGGING
 
 /**************************************************************************************
@@ -36,7 +37,7 @@ INIT_LOGGING
 **         omclient  <serverIP>  <serverPort>  viewtoken <ownerID> <tokenId>
 **                                             View token under user <ownerID>.
 **
-**         omclient  <serverIP>  <serverPort>  xfer <fromUserID> <toUserID>  <amt>
+**         omclient  <serverIP>  <serverPort>  xfer <fromUserID> <toUserID>  <amt> 
 **                                             Transfer tokens from <fromUserID> to <toUserID> <amt>
 **
 **************************************************************************************/
@@ -79,7 +80,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	g_debug = true;
+	//g_debug = true;
 
 	const char *srv = argv[1];
 	int port = atoi(argv[2]);
@@ -128,8 +129,8 @@ int main(int argc, char* argv[])
 			exit(7);
 		}
 	} else if ( 0 == strcmp(argv[3], "xfer" ) ) {
-		if ( argc >= 7 ) {
-	   		makeTransfer( srv, port, argv[4], argv[5], argv[6] );
+		if ( argc <= 7 ) {
+	   		makeTransfer( srv, port, argv[4], argv[5], argv[6]  );
 		} else {
 			help(argv[0]);
 			exit(5);
@@ -238,7 +239,8 @@ void createToken( const char *srv, int port, const std::string &userName )
 	printf("%s confirmation=[%s]\n", userName.c_str(), reply.c_str());
 }
 
-void makePayment( const char * srv, int port, const std::string &from, const std::string &to, const std::string &amt )
+void makePayment( const char * srv, int port, const std::string &from, const std::string &to, 
+				  const std::string &amt )
 {
 	OmicroClient client( srv, port );
 	if ( ! client.connectOK() ) {
@@ -263,8 +265,9 @@ void makePayment( const char * srv, int port, const std::string &from, const std
 	std::string data; t.getTrxnData( data );
 	printf("a2220 trxndata=[%s]\n", data.c_str() );
 
+	std::string reply;
 	printf("a000234 client.sendTrxn() ...\n");
-	std::string reply = client.sendTrxn( t );
+	reply = client.sendTrxn( t );
 
 	printf("%s confirmation=[%s]\n", from.c_str(), reply.c_str());
 }
@@ -335,7 +338,8 @@ void readUserKey( std::string uname, std::string &secKey, std::string &pubKey )
 	printf("Keys are read from %s %s\n", f1.c_str(), f2.c_str() );
 }
 
-void makeTransfer( const char * srv, int port, const std::string &from, const std::string &to, const std::string &amt )
+void makeTransfer( const char * srv, int port, const std::string &from, const std::string &to, 
+				   const std::string &amt )
 {
 	OmicroClient client( srv, port );
 	if ( ! client.connectOK() ) {
@@ -373,8 +377,9 @@ void makeTransfer( const char * srv, int port, const std::string &from, const st
 	std::string data; t.getTrxnData( data );
 	printf("a2220 trxndata=[%s]\n", data.c_str() );
 
-	printf("a000234 client.sendTrxn() ...\n");
-	std::string reply = client.sendTrxn( t );
+	std::string reply;
+	printf("a00231 client.sendTrxn() ...\n");
+	reply = client.sendTrxn( t );
 
 	printf("%s confirmation=[%s]\n", from.c_str(), reply.c_str());
 }

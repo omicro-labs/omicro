@@ -21,6 +21,7 @@ class OmicroNodeKey
 	static bool verifySB3(const std::string &msg, const std::string &signature, 
 					   const std::string &cipher, const std::string &secretKey);
 
+	static void getHash( const std::string & msg, std::string &hash );
 };
 
 class OmicroUserKey

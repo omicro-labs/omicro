@@ -156,7 +156,7 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 
 		srcptr->put( from.c_str(), from.size(), s(rec), rec.size() );
 		acctStoreMap_.emplace( from, srcptr );
-		i("I0023 added user account [%s]", s(from) );
+		i("I0023 added user account [%s] %s:%s", s(from), s(srv_), s(port_) );
 	} else {
 		i("E50387 error from=[%s] acct already exist", s(from) );
 		return -10;
@@ -266,6 +266,7 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 	}
 	
 	fromAcct.incrementFence();
+	d("a333081 from=[%s] after incrementFence [%s]", s(from), s(fromAcct.out_) );
 
 	toAcct.addBalance( amt );
 	toAcct.incrementIn();
@@ -289,18 +290,21 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 	int rc = readTrxns( from, timestamp, trxnId, vec, tstat, err );
 	d("a56702 queryTrxn readTrxns rc=%d from=[%s] trxnId=[%s] timestamp=[%s]", rc, s(from), s(trxnId), s(timestamp) );
 
-
 	OmResponse resp;
 	resp.TID_ = trxnId;
 	resp.UID_ = from;
 
-	
 	if ( rc < 0 || tstat == 'F' ) {
 		resp.STT_ = OM_RESP_ERR;
-		resp.RSN_ = "FAILED";
 		if ( rc < 0 ) {
+			if ( rc  == -1000 ) {
+				resp.RSN_ = "NOTFOUND";
+			} else {
+				resp.RSN_ = "FAILED";
+			}
 			resp.DAT_ = err;
 		} else {
+			resp.RSN_ = "FAILED";
 			resp.DAT_ = "TRXNERROR";
 		}
 		resp.json( res );
@@ -326,17 +330,17 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 // get a list of trxns of user from. If trxnId is not empty, get specific trxn
 int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &vec, char &tstat, sstr &err )
 {
-	d("a53001 readTrxns from=[%s] timestamp=[%s] trxnId=[%s]", s(from), s(timestamp), s(trxnId) );
 
 	sstr yyyymmddhh = getYYYYMMDDHHFromTS(timestamp);
 
 	sstr dir = dataDir_ + "/blocks/" + getUserPath(from) + "/" +  yyyymmddhh;
 	sstr fpath = dir + "/blocks";
+	d("a53001 readTrxns from=[%s] timestamp=[%s] trxnId=[%s] fpath=[%s]", s(from), s(timestamp), s(trxnId), s(fpath) );
 	int fd = open( fpath.c_str(), O_RDONLY|O_NOATIME );
 	if ( fd < 0 ) {
 		i("E45508 error open from=[%s] [%s]", s(from), s(fpath) );
-		err = "System error: unable to find user data";
-		return -100;
+		err = sstr("System error: unable to find user data ") + srv_ + ":" + port_;
+		return -1000;
 	}
 	lseek(fd, 0, SEEK_SET );
 	//d("a2329 readTrxns from=[%s] fpath=[%s] offset=%ld", s(from), s(fpath), off);
@@ -434,7 +438,7 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 				++idx;
 				//d("a21087 second dbuf=[%s] idx=%d", dbuf, idx );
 			} else {
-				break;
+				break; // got ~
 			}
 		}
 		if ( idx < 1 ) {
@@ -490,9 +494,10 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 		}
 
 		if ( trxnId.size() > 0 ) {
-			//trxn_sender = sp[4];
-			//trxn_timestamp = sp[7];
-			trxn_tid = sp[7] + ":" + sp[4];
+			//trxn_sender = sp[2];
+			//trxn_timestamp = sp[5];
+			// refer trxn structure
+			trxn_tid = sp[5] + ":" + sp[2];
 			if ( trxn_tid == trxnId ) {
 				//d("a5023 found trxn for tid=[%s]", s(trxnId) );
 				vec.push_back(pt);
@@ -511,7 +516,7 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 		d("a19721 vec[0]=[%s]", s(vec[0]) );
 	}
 	***/
-	d("a32220 return 0 here");
+	d("a32220 return 0 here vec.size=%d", vec.size() );
 	return 0;
 }
 
@@ -1384,3 +1389,8 @@ int BlockMgr::validateReqTokens( const sstr &from, sstr &requestJson )
 	return 0;
 }
 
+void BlockMgr::setSrvPort( const sstr &srv, const sstr &port )
+{
+	srv_ = srv;
+	port_ = port;
+}

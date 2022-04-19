@@ -44,7 +44,7 @@ OmicroClient::OmicroClient( const char *srv, int port )
     }
 
     if (p == NULL) {
-        i("E20034 No addresses found");
+        i("E20034 No addresses found %s:%d", srv, port);
         return;
     }
 
@@ -58,7 +58,7 @@ OmicroClient::OmicroClient( const char *srv, int port )
     int connectR = connect(sockFD, p->ai_addr, p->ai_addrlen);
     if (connectR == -1) {
         close(sockFD);
-		i("E20036 Error connect errno=%d errstr=[%s]", errno, strerror(errno) ); 
+		i("E20036 Error connect %s:%d errno=%d errstr=[%s]", srv, port, errno, strerror(errno) ); 
         return;
     }
 

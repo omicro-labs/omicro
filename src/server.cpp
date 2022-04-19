@@ -33,6 +33,7 @@
 #include "omsync.h"
 #include "omsession.h"
 #include "omstrsplit.h"
+#include "omicrokey.h"
 
 EXTERN_LOGGING
 using namespace boost::asio::ip;
@@ -40,7 +41,7 @@ using bcode = boost::system::error_code;
 
 
 omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, const sstr &port)
-      : io_context_(io_context),
+      : io_context_(io_context), cTimer_(io_context), dTimer_(io_context),
 	    acceptor_(io_context, tcp::endpoint(boost::asio::ip::address::from_string(srvip.c_str()), atoi(port.c_str()) ))
 {
     address_ = srvip;
@@ -56,14 +57,19 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
 
 	sstr dataDir = getDataDir(); 
 	i("Data dir is [%s]", dataDir.c_str());
+	blockMgr_.setSrvPort( address_, port_);
 	blockMgr_.setDataDir( dataDir );
 
-	timer1_ = new btimer( io_context_ );
-	timer2_ = new btimer( io_context_ );
-	timer3_ = new btimer( io_context_ );
-	waitCCount_ = 0;
-	waitDCount_ = 0;
-	waitQCount_ = 0;
+	//timer1_ = new btimer( io_context_ );
+	//timer2_ = new btimer( io_context_ );
+	//timer3_ = new btimer( io_context_ );
+	cleanupTimer_ = new btimer( io_context_ );
+
+	//waitCCount_ = 0;
+	//waitDCount_ = 0;
+	//waitQCount_ = 0;
+	cleanupTimer_->expires_at(cleanupTimer_->expiry() + boost::asio::chrono::seconds(300));
+	cleanupTimer_->async_wait(boost::bind(&omserver::doCleanup, this ));
 
     do_accept();
 	i("omserver is ready");
@@ -72,8 +78,10 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
 
 omserver::~omserver()
 {
-	delete timer1_;
-	delete timer2_;
+	//delete timer1_;
+	//delete timer2_;
+	//delete timer3_;
+	delete cleanupTimer_;
 }
 
 void omserver::do_accept()
@@ -82,8 +90,10 @@ void omserver::do_accept()
           [this](bcode ec, tcp::socket accpt_sock) {
             if (!ec)
             {
+				//printf("server accepted connection newsession ...\n");
                 std::shared_ptr<omsession> sess = std::make_shared<omsession>(io_context_, *this, std::move(accpt_sock));
                 sess->start();
+				//printf("server connection newsession is done\n");
             }
 
             do_accept();
@@ -235,7 +245,8 @@ void omserver::getPubkey( const sstr &srvport, sstr &pubkey )
 	pubkey = srvport_pubkey_[srvport];
 }
 
-void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t )
+//void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t )
+void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
 {
 	strvec otherLeaders;
 	DynamicCircuit circ( nodeList_);
@@ -265,17 +276,23 @@ void omserver::tryRecvL( const sstr &beacon, const sstr &trxnId, const sstr &cli
 		doRecvL( beacon, trxnId, clientIP, sid, otherLeaders, t );
 	} else {
 		// debug only
-		++waitCCount_;
-		if ( waitCCount_ > 100 ) {
-			d("a9207 error waitCCount_ > 100 give up wait");
-			waitCCount_ = 0;
+		//++waitCCount_;
+		waitCCount_.add(trxnId);
+		size_t n = waitCCount_.get(trxnId);
+		if ( n  > 100 ) {
+			d("a9207 error waitCCount_ > 100 giveup wait");
+			//waitCCount_ = 0;
 			return;
 		}
 
-		d("a81116 curState != ST_C (curstte=%c) wait 100 millisecs then tryRecvL ...", curState );
+		d("a81116 n=%d curState != ST_C (curstte=%c) wait 300 millisecs then tryRecvL ...", n, curState );
 		d("a81116 curState != ST_C sid=[%s] trxnid=[%s]", s(sid), trxnId.substr(0,50).c_str() );
-		timer1_->expires_at(timer1_->expiry() + boost::asio::chrono::milliseconds(100));
+		timerPtr tptr = cTimer_.get(trxnId); 
+		tptr->expires_at(tptr->expiry() + boost::asio::chrono::milliseconds(300));
+		/**
+		timer1_->expires_at(timer1_->expiry() + boost::asio::chrono::milliseconds(300));
 		timer1_->async_wait(boost::bind(&omserver::tryRecvL, this, beacon, trxnId, clientIP, sid, otherLeaders, boost::ref(t) ));
+		**/
 	}
 	//doRecvL( beacon, trxnId, clientIP, sid, otherLeaders, t );
 }
@@ -294,7 +311,7 @@ void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	d("a53098 twofp1=%d otherleaders=%d", twofp1, otherLeaders.size() );
 	uint recvcnt = collectTrxn_[trxnId].size();
 	if ( recvcnt >= twofp1 ) { 
-		d("a2234 %s got XIT_l, a leader,  rcvcnt=%d >= twofp1=%d", s(id_), recvcnt, twofp1 );
+		d("a2234 %s got XIT_l, good, a leader,  rcvcnt=%d >= twofp1=%d", s(id_), recvcnt, twofp1 );
 		// state to D
 		bool toDgood = trxnState_.goState( level_, trxnId, XIT_l );
 		if ( toDgood ) {
@@ -303,7 +320,7 @@ void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			t.setXit( XIT_m );
 			t.setVoteInt( totalVotes_[trxnId] );
 			strvec nullvec;
-			pvec(otherLeaders);
+			//pvec(otherLeaders);
 			t.srvport_ = srvport_; 
 			sstr dat; t.allstr(dat);
 			//d("a33221 %s round-2 multicast otherLeaders trnmsg=[%s] ...", s(id_), s(dat) );
@@ -316,13 +333,14 @@ void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 		totalVotes_.erase(trxnId);
 	} else {
 		// d("a2234 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d, nostart round-2", s(id_), recvcnt, twofp1 );
-		d("a2234 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d", s(id_), recvcnt, twofp1 );
+		d("a22342 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d", s(id_), recvcnt, twofp1 );
 	}
 }
 
 
 // L2
-void omserver::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t )
+//void omserver::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t )
+void omserver::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
 {
     strvec otherLeaders, followers;
     DynamicCircuit circ( nodeList_);
@@ -352,24 +370,32 @@ void omserver::tryRecvM( const sstr &beacon, const sstr &trxnId, const sstr &cli
 		doRecvM( beacon, trxnId, clientIP, sid, otherLeaders, followers, t );
 	} else {
 		// debug only
-		++waitDCount_;
-		if ( waitDCount_ > 100 ) {
-			d("a9209 waitCount_ > 100 give up wait");
+		//++waitDCount_;
+		waitDCount_.add(trxnId);
+		size_t n = waitDCount_.get(trxnId);
+		if ( n > 100 ) {
+			d("a9209 waitCount_ > 100 giveup wait");
 			i("E40430 error waitCount_ > 100 give up wait in tryRecvM");
-			waitDCount_ = 0;
+			//waitDCount_ = 0;
 			return;
 		}
 
-		d("a81117 error curState != ST_D wait 100 millisecs then tryRecvM ...");
-		timer2_->expires_at(timer2_->expiry() + boost::asio::chrono::milliseconds(100));
+		d("a81117 error n=%d curState=%c != ST_D wait 300 millisecs then tryRecvM ...", n, curState);
+		timerPtr tptr = dTimer_.get(trxnId); 
+		tptr->expires_at(tptr->expiry() + boost::asio::chrono::milliseconds(300));
+		/**
+		timer2_->expires_at(timer2_->expiry() + boost::asio::chrono::milliseconds(300));
 		timer2_->async_wait(boost::bind(&omserver::tryRecvM, this, beacon, trxnId, clientIP, sid, otherLeaders, followers, boost::ref(t) ));
+		**/
+
+		//timer2_->async_wait(boost::bind(&omserver::tryRecvM, this, beacon, trxnId, clientIP, sid, otherLeaders, followers, boost::cref(t) ));
 	}
 }
 
 void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
 					    const strvec &otherLeaders, const strvec &followers, OmicroTrxn &t )
 {
-	t.srvport_ = srvport_;
+	//t.srvport_ = srvport_;
 
 	collectTrxn_[trxnId].push_back(1);
 	totalVotes_[trxnId] += t.getVoteInt();
@@ -390,7 +416,7 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			t.setVoteInt( avgVotes );
 			strvec nullvec;
 			d("a33281 %s multicast XIT_n followers ...", s(id_));
-			pvec(followers);
+			//pvec(followers);
 			t.srvport_ = srvport_;
 			sstr dat; t.allstr(dat);
 			omserver::multicast( OM_TXN, followers, dat, false, nullvec );
@@ -398,9 +424,9 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 
 			// i do commit too to state F
 			// block_.add( t );
+			trxnState_.goState( level_, trxnId, XIT_n );  // to ST_F
 			blockMgr_.receiveTrxn( t );
 			d("a9999 leader commit a TRXN %s ", s(trxnId));
-			trxnState_.goState( level_, trxnId, XIT_n );  // to ST_F
 			// reply back to client
 			// d("a99992 conv=%ld clientconv=%ld\n", conv,  clientConv_[trxnId] );
 			// sstr m( sstr("GOOD_TRXN|") + id_);
@@ -430,6 +456,7 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 	pthread_t thrd[len];
 	ThreadParam thrdParam[len];
 	sstr srvport, pubkey, dat;
+	bool useThreads = false;
 	for ( int i=0; i < len; ++i ) {
 		NodeList::getData( hostVec[i], id, ip, port);
 		thrdParam[i].srv = ip;
@@ -438,12 +465,26 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 		srvport = ip + ":" + port;
 
 		getPubkey( srvport, pubkey );
+		d("a10827 get target srvport pubkey %s:%s", s(ip), s(port) );
+		d("a10827 pubkey [%s]", s(pubkey) );
 		OmicroTrxn t( trxnMsg.c_str() );
 		t.makeNodeSignature(pubkey);
 
+		#ifdef OM_DEBUG
+		sstr trxndata; t.getTrxnData(trxndata);
+		bool rc1 = OmicroNodeKey::verifySB3( trxndata, t.signature_, t.cipher_, secKey_);
+		d("a2999 in multicase after t.makeNodeSignature verifySB3 rc1=%d", rc1 );
+		bool rc = t.validateTrxn( secKey_ );
+		d("a2999 in multicase after t.makeNodeSignature t.validateTrxn rc=%d", rc );
+		#endif
+
 		t.allstr(thrdParam[i].trxn);
 		thrdParam[i].expectReply = expectReply;
-		pthread_create(&thrd[i], NULL, &threadSendMsg, (void *)&thrdParam[i]);
+		if ( useThreads ) {
+			pthread_create(&thrd[i], NULL, &threadSendMsg, (void *)&thrdParam[i]);
+		} else {
+			threadSendMsg( (void *)&thrdParam[i] );
+		}
 	}
 
 	// todo
@@ -451,7 +492,10 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 
 	int connected = 0;
 	for ( int i=0; i < len; ++i ) {
-		pthread_join( thrd[i], NULL );
+		if ( useThreads ) {
+			pthread_join( thrd[i], NULL );
+		}
+
 		if ( expectReply ) {
 			d("a59031 pthread_join i=%d done expectReply=1", i );
 			if ( thrdParam[i].reply.size() > 0 ) {
@@ -567,4 +611,15 @@ void omserver::addQueryVote( const sstr &trxnId, int votes )
 void omserver::getQueryVote( const sstr &trxnId, int &votes )
 {
 	votes = queryVote_[trxnId];
+}
+
+void omserver::doCleanup()
+{
+	// cleanup cache
+	waitCCount_.cleanup( 180 );
+	waitDCount_.cleanup( 180 );
+	dTimer_.cleanup(180);
+
+	cleanupTimer_->expires_at(cleanupTimer_->expiry() + boost::asio::chrono::seconds(300));
+	cleanupTimer_->async_wait(boost::bind(&omserver::doCleanup, this ));
 }

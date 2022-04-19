@@ -7,5 +7,6 @@
 #define OM_NUM_MAXSZ       20
 #define OM_NAME_MAXSZ      64
 #define OM_MSG_MAXSZ       256000
+#define OM_L2_MAX_NODES    1000000
 
 #endif

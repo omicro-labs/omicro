@@ -31,17 +31,20 @@ EXTERN_LOGGING
 
 OmicroTrxn::OmicroTrxn()
 {
-	hdr_ = "TT"; // plaintext, trxn
+	thdr_ = "TT"; // plaintext, trxn
 }
 
 OmicroTrxn::OmicroTrxn( const char *str )
 {
+	d("a23338 OmicroTrxn ctor from string");
+	d("a23338 str=[%s]", str);
+
 	int i=0;
 	OmStrSplit sp(str, '|');
-	hdr_ = sp[i++]; 
+	//hdr_ = sp[i++]; 
 	id_ = sp[i++];
 	beacon_ = sp[i++];
-	srvport_ = sp[i++];
+	//srvport_ = sp[i++];
 	sender_ = sp[i++];
 	receiver_ = sp[i++];
 	amount_ = sp[i++];
@@ -74,6 +77,17 @@ OmicroTrxn::OmicroTrxn( const char *str )
 	vote_ = sp[i++];
 	fence_ = sp[i++];
 	response_ = sp[i++];
+
+	thdr_ = sp[i++]; 
+	srvport_ = sp[i++];
+
+	#ifdef OM_DEBUG
+	nodepubkey_ = sp[i++];
+	#endif
+
+	if ( vote_.size() < 1 ) {
+		vote_ = "0";
+	}
 }
 
 OmicroTrxn::~OmicroTrxn()
@@ -82,17 +96,17 @@ OmicroTrxn::~OmicroTrxn()
 
 void OmicroTrxn::setInitTrxn()
 {
-	hdr_[TRXN_HEADER_START] = 'I'; 
+	thdr_[TRXN_HEADER_START] = 'I'; 
 }
 
 void OmicroTrxn::setNotInitTrxn()
 {
-	hdr_[TRXN_HEADER_START] = 'N'; 
+	thdr_[TRXN_HEADER_START] = 'N'; 
 }
 
 bool OmicroTrxn::isInitTrxn()
 {
-	if ( 'I' == hdr_[TRXN_HEADER_START] ) {
+	if ( 'I' == thdr_[TRXN_HEADER_START] ) {
 		return true;
 	} else {
 		return false;
@@ -101,23 +115,26 @@ bool OmicroTrxn::isInitTrxn()
 
 void OmicroTrxn::setID()
 {
+	/***
     char s[16];
     std::uniform_int_distribution<uint64_t> distribution;
     std::mt19937_64   engine(std::random_device{}());
     uint64_t r1 = distribution(engine);
     sprintf(s, "%lx", r1 );
     id_ = s;
+	***/
+	id_ = "omtrxnid"; // todo
 }
 
 //2nd byte
 void  OmicroTrxn::setXit( Byte xit)
 {
-	hdr_[TRXN_HEADER_START+1] = xit;
+	thdr_[TRXN_HEADER_START+1] = xit;
 }
 
 Byte OmicroTrxn::getXit()
 {
-	return hdr_[TRXN_HEADER_START+1];
+	return thdr_[TRXN_HEADER_START+1];
 }
 
 void OmicroTrxn::setBeacon()
@@ -131,6 +148,7 @@ void OmicroTrxn::setBeacon()
 
 double OmicroTrxn::getAmountDouble()
 {
+	if ( amount_.size() < 1 ) return 0.0;
 	double f = atof(amount_.c_str());
 	return f;
 }
@@ -147,12 +165,15 @@ void OmicroTrxn::setNowTimeStamp()
 
 ulong OmicroTrxn::getTimeStampUS()
 {
+	if ( timestamp_.size() < 1 ) return 0;
+
 	return atol(timestamp_.c_str());
 	// microseconds since epoch
 }
 
 int OmicroTrxn::getVoteInt()
 {
+	if ( vote_.size() < 1 ) return 0;
 	int num = atoi(vote_.c_str());
 	return num;
 }
@@ -182,16 +203,18 @@ void OmicroTrxn::minusVote(int vote)
 
 void OmicroTrxn::makeNodeSignature( const sstr &nodePubKey)
 {
-	sstr data;
-	getTrxnData( data );
-	OmicroNodeKey::signSB3( data, nodePubKey, cipher_, signature_ );
-	/**
-	// debug
-	d("a222128 makeNodeSignature trxndata=[%s]", s(data) );
+	sstr trxndata;
+	getTrxnData( trxndata );
+	OmicroNodeKey::signSB3( trxndata, nodePubKey, cipher_, signature_ );
+
+	#ifdef OM_DEBUG
+	nodepubkey_ = nodePubKey;
+	d("a222128 makeNodeSignature trxndata=[%s]", s(trxndata) );
 	d("a222128 makeNodeSignature cipher=[%s]", s(cipher_) );
 	d("a222128 makeNodeSignature signature=[%s]", s(signature_) );
+	d("a222128 makeNodeSignature nodepubkey=[%s]", s(nodePubKey) );
 	d("done makeNodeSignature\n");
-	**/
+	#endif
 }
 
 void OmicroTrxn::allstr( sstr &alldata )
@@ -200,7 +223,11 @@ void OmicroTrxn::allstr( sstr &alldata )
 	getTrxnData( data );
 	alldata = data + "|" + cipher_ + "|" + signature_ + "|" 
 	          + userPubkey_ + "|" + userSignature_ + "|" + vote_ + "|" + fence_
-			  + "|" + response_;
+			  + "|" + response_ + "|" + thdr_ + "|" + srvport_;
+
+	#ifdef OM_DEBUG
+	alldata += sstr("|") + nodepubkey_;
+	#endif
 }
 
 void OmicroTrxn::getTrxnID( sstr &id )
@@ -229,27 +256,38 @@ bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 	}
 
 	// signature verification
-	sstr data;
-	getTrxnData( data );
-	bool rc = OmicroNodeKey::verifySB3(data, signature_, cipher_, secretKey);
+	sstr trxndata;
+	getTrxnData( trxndata );
+	bool rc = OmicroNodeKey::verifySB3( trxndata, signature_, cipher_, secretKey);
 	if ( ! rc ) {
-		d("a34408 nodekey verify false");
-		d("a34408 secretKey=[%s]", s(secretKey) );
-		d("a34408 data=[%s]", s(data) );
-		d("a34408 signature_=[%s]", s(signature_) );
-		d("a34408 cipher_=[%s]", s(cipher_) );
+		i("E34408 node verify false");
+		i("E34408 trxntype_=[%s]", s(trxntype_) );
+		i("E34408 sender_=[%s] receiver_=[%s]", s(sender_), s(receiver_) );
+		i("E34408 node secretkey=[%s]", s(secretKey) );
+		#ifdef OM_DEBUG
+		i("E34408 node pubkey=[%s]", s(nodepubkey_) );
+		#endif
+		i("E34408 data=[%s]", s(trxndata) );
+		i("E34408 signature_=[%s]", s(signature_) );
+		i("E34408 cipher_=[%s]", s(cipher_) );
 		return false;
 	}
-	/**
-	d("a22208 trxndata=[%s] len=%d  rc=%d", s(data), data.size(), rc );
-	d("a22208 secretKey=[%s] len=%d", s(secretKey), secretKey.size() );
-	d("a22208 cipher=[%s] len=%d", s(cipher), cipher.size() );
-	d("a22208 signature=[%s] len=%d", s(signature), signature.size() );
-	**/
+
+	#ifdef OM_DEBUG
+		i("E34408 node verify true");
+		i("E34408 trxntype_=[%s]", s(trxntype_) );
+		i("E34408 sender_=[%s] receiver_=[%s]", s(sender_), s(receiver_) );
+		i("E34408 node secretkey=[%s]", s(secretKey) );
+		i("E34408 node pubkey=[%s]", s(nodepubkey_) );
+		i("E34408 data=[%s]", s(trxndata) );
+		i("E34408 signature_=[%s]", s(signature_) );
+		i("E34408 cipher_=[%s]", s(cipher_) );
+	#endif
+
 
 	rc = OmicroUserKey::verifyDL5(userSignature_, userPubkey_ );
 	if ( ! rc ) {
-		d("a34438 userkey verify false");
+		i("E34438 userkey verify false");
 		return false;
 	}
 	/***
@@ -260,7 +298,7 @@ bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 	if ( trxntype_ == OM_PAYMENT ) {
 		double amt = getAmountDouble();
 		if ( amt <= 0.0001 ) {
-			d("a31538 amt=%.6g too small", amt );
+			i("E31538 amt=%.6g too small", amt );
 			return false;
 		}
 	}
@@ -270,10 +308,8 @@ bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 
 void OmicroTrxn::getTrxnData( sstr &data )
 {
-	data = hdr_ +
-	      + "|" + id_ 
+	data = id_ 
 	      + "|" + beacon_ 
-	      + "|" + srvport_ 
 	      + "|" + sender_ 
 	      + "|" + receiver_ 
 	      + "|" + amount_ 
@@ -306,9 +342,9 @@ void  OmicroTrxn::makeSimpleTrxn( const sstr &nodePubkey,
 		const sstr &userSecretKey, const sstr &userPublicKey,
 		const sstr &from, const sstr &to, const sstr &amt)
 {
-	hdr_ = "IT";
+	thdr_ = "IT";
+	setID();
 
-	//beacon_ = "12345678";
 	setBeacon();
 	srvport_ = "127.0.0.1:client";
 
@@ -339,9 +375,9 @@ void OmicroTrxn::makeNewAcctTrxn( const sstr &nodePubkey,
 	}
 	d("a43071 makeNewAcctTrxn userId=[%s]", s(userId) );
 
-	hdr_ = "IT";
+	thdr_ = "IT";
+	setID();
 
-	//beacon_ = "12345678";
 	setBeacon();
 	srvport_ = "127.0.0.1:client";
 
@@ -370,9 +406,9 @@ void OmicroTrxn::makeNewTokenTrxn( const sstr &nodePubkey,
 {
 	d("a41071 makeNewTokenTrxn ownerId=[%s]", s(ownerId) );
 
-	hdr_ = "IT";
+	thdr_ = "IT";
+	setID();
 
-	//beacon_ = "12345678";
 	setBeacon();
 	srvport_ = "127.0.0.1:client";
 
@@ -415,7 +451,8 @@ void OmicroTrxn::makeUserSignature( const sstr &userSecretKey, const sstr &usrPu
 void OmicroTrxn::makeAcctQuery( const sstr &nodePubkey, const sstr &secretKey, 
 								const sstr &publicKey, const sstr &fromId )
 {
-	hdr_ = "IT";
+	thdr_ = "IT";
+	setID();
 	setBeacon();
 	srvport_ = "127.0.0.1:client";
 
@@ -442,7 +479,8 @@ void OmicroTrxn::makeAcctQuery( const sstr &nodePubkey, const sstr &secretKey,
 void OmicroTrxn::makeTokensQuery( const sstr &nodePubkey, const sstr &secretKey, 
 								const sstr &publicKey, const sstr &fromId )
 {
-	hdr_ = "IT";
+	thdr_ = "IT";
+	setID();
 	setBeacon();
 	srvport_ = "127.0.0.1:client";
 
@@ -470,7 +508,8 @@ void OmicroTrxn::makeTokensQuery( const sstr &nodePubkey, const sstr &secretKey,
 void OmicroTrxn::makeOneTokenQuery( const sstr &nodePubkey, const sstr &secretKey, 
 								const sstr &publicKey, const sstr &fromId, const sstr &tokenName  )
 {
-	hdr_ = "IT";
+	thdr_ = "IT";
+	setID();
 	setBeacon();
 	srvport_ = "127.0.0.1:client";
 
@@ -502,9 +541,9 @@ void  OmicroTrxn::makeTokenTransfer( const sstr &nodePubkey,
 		const sstr &userSecretKey, const sstr &userPublicKey,
 		const sstr &from, const sstr &tokenJson, const sstr &to, const sstr &amt)
 {
-	hdr_ = "IT";
+	thdr_ = "IT";
+	setID();
 
-	//beacon_ = "12345678";
 	setBeacon();
 	srvport_ = "127.0.0.1:client";
 

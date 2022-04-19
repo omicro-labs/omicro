@@ -51,6 +51,14 @@ omsession::omsession(boost::asio::io_context& io_context, omserver &srv, tcp::so
 void omsession::start()
 {
     do_read();
+	//printf("a33303 session start() done\n");
+	//fflush( stdout );
+}
+
+omsession::~omsession()
+{
+	//printf("a33308 omsession dtor called\n");
+	//fflush( stdout );
 }
 
 void omsession::do_read()
@@ -95,7 +103,7 @@ void omsession::do_read()
 					socket_.close();
 				}
             } else {
-                d("a82838 srv do read read no data error=[%s]", ec.message().c_str());
+                d("a82838 srv do read read no data info=[%s]", ec.message().c_str());
 			}
     });
 }
@@ -134,6 +142,8 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 	sstr id_ = serv_.id_;
 
 	OmicroTrxn t(msg);
+	d("a1000 doTrxnL2 from=[%s] trxntype=[%s] srvport=%s", s(t.sender_), s(t.trxntype_), s(serv_.srvport_)  );
+
 	/**
 	bool isInitTrxn1 = t.isInitTrxn();
 	d("a71002 isInitTrxn1=%d", isInitTrxn1 );
@@ -147,7 +157,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 	t.getTrxnID( trxnId );
 
 	sstr err;
-	bool validTrxn = validateTrxn( t, isInitTrxn, err );
+	bool validTrxn = validateTrxn( trxnId, t, isInitTrxn, err );
 	if ( ! validTrxn ) {
 		// sstr m = sstr("INVALID_TRXN|") + id_ + "|" + err;
 		sstr m;
@@ -161,14 +171,19 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 	sstr pfrom = t.srvport_;
 
 	if ( isInitTrxn ) {
-		t.setID();
+		//t.setID();
 		// t.getTrxnID( trxnId );
 		d("a43713 init trxnId=[%s]", s(trxnId) );
 		d("a333301  i am clientproxy, launching initTrxn ..." );
 		// add fence_ of sender
-		sstr fence;
-		serv_.blockMgr_.getFence( t.sender_, fence );
-		t.fence_ = fence;
+
+		if ( t.trxntype_ != OM_NEWACCT ) {
+			sstr fence;
+			serv_.blockMgr_.getFence( t.sender_, fence );
+			t.fence_ = fence;
+			d("a93910 isInitTrxn  assign t.fence_=[%s]", s(fence) );
+		}
+
 		rc = initTrxn( t );
 		d("a333301  i am clientproxy, launched initTrxn rc=%d", rc );
 		sstr m;
@@ -199,16 +214,16 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 				// state to A
 				bool toAgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_i );
 				if ( toAgood ) {
-					d("a00233 XIT_i toAgood true");
+					d("a00233 XIT_i toAgood true trxnId=[%s]", s(trxnId) );
 
 					// send XIT_j to all followers in this leader zone
 					bool toBgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_j );
-					d("a21200 iAmLeader XIT_j  toBgood=%d", toBgood );
+					d("a21200 iAmLeader XIT_j  toBgood=%d trxnId=%s", toBgood, s(trxnId) );
 
 					t.setXit( XIT_j );
 					strvec replyVec;
 					d("a31112 %s multicast XIT_j followers for vote expect reply ..", s(sid_));
-					pvec( followers );
+					//pvec( followers );
 					t.srvport_ = serv_.srvport_;
 					sstr alld; t.allstr(alld);
 					serv_.multicast( OM_TXN,  followers, alld, true, replyVec );
@@ -218,7 +233,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 					bool toCgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_k );
 					if ( toCgood ) {
 						// d("a55550 recv XIT_k toCgood true");
-						d("a55550 received all replies of XITT_j toCgood true");
+						d("a55550 received all replies of XITT_j toCgood true, trxnId=%s", s(trxnId) );
 						if ( serv_.level_ == 2 ) {
 							int votes = replyVec.size(); // how many replied
 							t.setVoteInt( votes );
@@ -227,7 +242,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 							strvec otherLeaders;
 							circ.getOtherLeaders( beacon, id_, otherLeaders );
 							d("a31102 %s round-1 multicast XIT_l otherLeaders noreplyexpected ..", s(sid_));
-							pvec(otherLeaders);
+							//pvec(otherLeaders);
 							// txn.setSrvPort( serv_.srvport_.c_str() );
 							sstr dat; t.allstr(dat);
 							serv_.multicast( OM_TXN, otherLeaders, dat, false, replyVec );
@@ -254,22 +269,32 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 		} else if ( xit == XIT_j ) {
 			// I am follower, give my vote to leader
 			d("a5501 received XIT_j from [%s] reply back good", s(pfrom));
-			// sstr m = sstr("GOOD_TRXN|XIT_j|")+id_ + "|" + sid_;;
 			sstr m;
 			okResponse(trxnId, "XIT_j", m );
 			d("a555550 ok m=[%s]", m.c_str() );
 			reply(m, socket_);
 		} else if ( xit == XIT_l ) {
 			d("a92822 %s received XIT_l from [%s] ...", s(sid_), s(pfrom) );
-			serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t );
+			//serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t );
+			OmicroTrxn t2 = t;
+			serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t2 );
 		} else if ( xit == XIT_m ) {
 		    // received one XIT_m, there may be more XIT_m in next 3 seconds
 			d("a54103 %s got XIT_m from [%s]", s(id_), s(pfrom) );
-			serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t );
+			//serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t );
+			OmicroTrxn t2 = t;
+			serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t2 );
 		} else if ( xit == XIT_n ) {
 			// follower gets a trxn commit message
-			d("a9999 follower commit a TRXN %s from [%s]", s(trxnId), s(pfrom));
-			serv_.blockMgr_.receiveTrxn( t );
+			Byte curState; 
+			serv_.trxnState_.getState( trxnId, curState );
+			if ( curState != ST_F ) {
+				d("a9999 follower commit a TRXN %s from [%s]", s(trxnId), s(pfrom));
+				serv_.trxnState_.setState( trxnId, ST_F );  // to ST_F
+				serv_.blockMgr_.receiveTrxn( t );
+			} else {
+				d("a9999 follower no-commit curState is already ST_F from=[%s] for trxnid", s(pfrom));
+			}
 		} else if ( xit == XIT_z ) {
 			/***
 			// query trxn status
@@ -281,7 +306,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 		}
     }
 
-	d("a555023 doTrxnL2 done clientIP_=[%s]", s(clientIP_));
+	d("a1000 doTrxnL2 from=[%s] trxntype=[%s] done %s", s(t.sender_), s(t.trxntype_), s(serv_.srvport_)  );
 }
 
 void omsession::doSimpleQuery(const char *msg, int msglen)
@@ -371,7 +396,7 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 
 	strvec replyVec;
 	d("a31181 multicast to ZoneLeaders expectReply=false ...");
-	pvec( hostVec );
+	//pvec( hostVec );
 	txn.srvport_ = serv_.srvport_;
 	sstr dat; txn.allstr(dat);
 	int connected = serv_.multicast( OM_TXN, hostVec, dat, false, replyVec );
@@ -396,12 +421,17 @@ void omsession::makeSessionID()
 	sid_ = buf;
 }
 
-bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn, sstr &err )
+bool omsession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 {
+	d("a17621 omsession::validateTrxn serv_.address=[%s] serv_.port=[%s]", s(serv_.address_), s(serv_.port_) );
+	d("22206 my serv_.pubKey_=[%s]", s(serv_.pubKey_) );
+	d("22206 my serv_.secKey_=[%s]", s(serv_.secKey_) );
+
 	bool validTrxn = txn.validateTrxn( serv_.secKey_ );
 	if ( ! validTrxn ) {
-		i("E30290 trxn is not valid");
-		err = "Transaction object invalid";
+		i("E30290 trxn is invalid. I am node: %s  trxnid=[%s]", s(serv_.srvport_), s(trxnId)  );
+		i("E30290 trxn invalid. sender node: %s", s(txn.srvport_) );
+		err = sstr("Transaction object invalid ") + serv_.address_ + ":" + serv_.port_;
 		return false;
 	}
 
@@ -410,8 +440,8 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 		sstr pubkey;
 		int rc = serv_.blockMgr_.getBalanceAndPubkey( txn.sender_, bal, pubkey );
 		if ( rc < 0 ) {
-            i("E32018 from=[%s] invalid rc=%d", s(txn.sender_), rc );
-			err = "Unable to get balance and public key of sender";
+            i("E32018 error from=[%s] invalid rc=%d", s(txn.sender_), rc );
+			err = sstr("Unable to get balance and public key of sender [") + txn.sender_ + "] in PAYMENT";
             return false;
 		}
 
@@ -435,7 +465,7 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 			sstr fromFence;
 			serv_.blockMgr_.getFence( txn.sender_, fromFence);
 			if ( txn.fence_ != fromFence ) {
-            	i("E32012 from=[%s] txn.fence_=[%s] != fromFence=[%s]", s(txn.sender_), s(txn.fence_), s(fromFence) );
+           		i("E32012 error from=[%s] txn.fence_=[%s] != fromFence=[%s]", s(txn.sender_), s(txn.fence_), s(fromFence) );
 				err = "Fencing error";
 				return false;
 			}
@@ -452,7 +482,7 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 			sstr fromFence;
 			serv_.blockMgr_.getFence( txn.sender_, fromFence);
 			if ( txn.fence_ != fromFence ) {
-            	i("E32014 from=[%s] txn.fence_=[%s] != fromFence=[%s]", s(txn.sender_), s(txn.fence_), s(fromFence) );
+            	i("E32014 error from=[%s] txn.fence_=[%s] != fromFence=[%s]", s(txn.sender_), s(txn.fence_), s(fromFence) );
 				err = "Xfer token Fencing error";
 				return false;
 			}
@@ -464,6 +494,10 @@ bool omsession::validateTrxn( OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 
 bool omsession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitTrxn, sstr &err )
 {
+	d("a82220 enter omsession::validateQuery");
+	d("22208 my serv_.pubKey_=[%s]", s(serv_.pubKey_) );
+	d("22208 my serv_.secKey_=[%s]", s(serv_.secKey_) );
+
 	bool validTrxn = txn.validateTrxn( serv_.secKey_ );
 	if ( ! validTrxn ) {
 		i("E20290 query is not valid");
@@ -536,7 +570,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 	sstr m;
 
 	if ( isInitTrxn ) {
-		t.setID();
+		//t.setID();
 		d("a41713 initquery trxnId=[%s]", s(trxnId) );
 		rc = initQuery( t );
 		OmResponse resp;
@@ -566,16 +600,16 @@ void omsession::doQueryL2(const char *msg, int msglen)
 				// state to A
 				bool toAgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_i );
 				if ( toAgood ) {
-					d("a01233 XIT_i toAgood true");
+					d("a01233 XIT_i toAgood ST_A true trxnid=[%s]", s(trxnId));
 
 					// send XIT_j to all followers in this leader zone
 					bool toBgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_j );
-					d("a22200 iAmLeader XIT_j  toBgood=%d", toBgood );
+					d("a22200 iAmLeader XIT_j  toBgood=%d trxnid=[%s]", toBgood, s(trxnId) );
 
 					t.setXit( XIT_j );
 					strvec replyVec;
 					d("a32112 %s multicast XIT_j followers for vote expect reply ..", s(sid_));
-					pvec( followers );
+					//pvec( followers );
 					t.srvport_ = serv_.srvport_;
 					sstr alld; t.allstr(alld);
 					serv_.multicast( OM_XNQ, followers, alld, true, replyVec );
@@ -602,7 +636,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 		}
     }
 
-	d("a555023 doQueryL2 done clientIP_=[%s]", s(clientIP_));
+	d("a555024 doQueryL2 done clientIP_=[%s]", s(clientIP_));
 }
 
 bool omsession::initQuery( OmicroTrxn &txn )
@@ -626,18 +660,19 @@ bool omsession::initQuery( OmicroTrxn &txn )
 
 	txn.setNotInitTrxn();
 	txn.setXit( XIT_i );
+	txn.srvport_ = serv_.srvport_;
 
 	strvec replyVec;
 	d("a31182 multicast to ZoneLeaders expectReply=false ...");
-	pvec( hostVec );
+	//pvec( hostVec );
 	txn.srvport_ = serv_.srvport_;
-	sstr dat; txn.allstr(dat);
 
 	int connected;
 	uint twofp1;
 	bool expectReply = false;
 
-	connected = serv_.multicast( OM_XNQ, hostVec, dat, expectReply, replyVec );
+	sstr alldat; txn.allstr(alldat);
+	connected = serv_.multicast( OM_XNQ, hostVec, alldat, expectReply, replyVec );
 	if ( expectReply ) {
 		twofp1 = twofplus1(replyVec.size());
 	} else {

@@ -10,9 +10,10 @@
 #include "trxnstate.h"
 #include "ommsghdr.h"
 #include "blockmgr.h"
+#include "omwaitcount.h"
+#include "omtimer.h"
 
 using boost::asio::ip::tcp;
-using btimer = boost::asio::steady_timer;
 
 struct ThreadParam
 {
@@ -33,8 +34,11 @@ class omserver
     omserver(boost::asio::io_context &io_context, const sstr &srvip, const sstr &port);
 	~omserver();
 
-	void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
-	void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
+	//void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
+	//void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
+	void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
+	void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
+
 	//void onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
 	int multicast( char msgType, const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
 	void getPubkey( const sstr &srvport, sstr &pubkey );
@@ -55,14 +59,14 @@ class omserver
 
 	// debug only
 	sstr srvport_;
-	int  waitCCount_;
-	int  waitDCount_;
-	int  waitQCount_;
-	// debug only
+
+	OmWaitCount  waitCCount_;
+	OmWaitCount  waitDCount_;
 
 	BlockMgr  blockMgr_;
 	sstr pubKey_;
 	sstr secKey_;
+	sstr address_, port_;
 
 
   private:
@@ -82,12 +86,18 @@ class omserver
 	void doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
 				  const strvec &otherLeaders,  const strvec &followers, OmicroTrxn &t );
 
+	void doCleanup();
+
 	boost::asio::io_context &io_context_;
+	OmTimer  cTimer_;
+	OmTimer  dTimer_;
     tcp::acceptor acceptor_;
-	sstr address_, port_;
-	btimer *timer1_; // ST_C
-	btimer *timer2_; // ST_D
-	btimer *timer3_; // query
+
+	//btimer *timer1_; // ST_C
+	//btimer *timer2_; // ST_D
+	//btimer *timer3_; // query
+
+	btimer *cleanupTimer_; // cleanup cached trxn items
 
 
 };

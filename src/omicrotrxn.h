@@ -13,6 +13,8 @@
 #define OM_SECURE_CONTRACT "S"
 #define OM_QUERY           "Q"
 
+//#define OM_DEBUG           1
+
 class OmicroTrxn
 {
   public:
@@ -69,35 +71,43 @@ class OmicroTrxn
 	void makeUserSignature( const std::string &userSecretKey, const std::string &usrPubkey );
 
 	// data members
-	std::string hdr_;            // 0
-	std::string id_;             // 1
-	std::string beacon_;         // 2
-	std::string srvport_;        // 3
-	std::string sender_;         // 4
-	std::string receiver_;       // 5
-	std::string amount_;         // 6
-	std::string timestamp_;      // 7
+	// If order is changed, update BlockMgr::readTrxns() too
+	// trxn data
+	std::string id_;
+	std::string beacon_;
+	std::string sender_;
+	std::string receiver_;
+	std::string amount_;
+	std::string timestamp_;
 	std::string trxntype_;       // P: payment  A: user account creation
-	std::string assettype_;      // 9
-	std::string request_;        // 10
-	std::string pad1_;           // 11
-	std::string pad2_;           // 12
-	std::string pad3_;           // 13
-	std::string pad4_;           // 14
-	std::string pad5_;           // 15
-	std::string pad6_;           // 16
-	std::string pad7_;           // 17
-	std::string pad8_;           // 18
-	std::string pad9_;           // 19
-	std::string pad10_;          // 20
-	std::string cipher_;         // 21
-	std::string signature_;      // 22
-	std::string userPubkey_;     // 23
-	std::string userSignature_;  // 24
-	std::string vote_;           // 25
-	std::string fence_;          // 26
-	std::string response_;       // 27
+	std::string assettype_;
+	std::string request_;
+	std::string pad1_;
+	std::string pad2_;
+	std::string pad3_;
+	std::string pad4_;
+	std::string pad5_;
+	std::string pad6_;
+	std::string pad7_;
+	std::string pad8_;
+	std::string pad9_;
+	std::string pad10_;
 
+	// non-trxn data
+	std::string cipher_;
+	std::string signature_;
+	std::string userPubkey_;
+	std::string userSignature_;
+	std::string vote_;
+	std::string fence_;
+	std::string response_;
+
+	std::string thdr_;
+	std::string srvport_;
+
+	#ifdef OM_DEBUG
+	std::string nodepubkey_;      // 28  for debug only
+	#endif
 };
 
 #endif
