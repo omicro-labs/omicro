@@ -151,7 +151,7 @@ bool OmicroNodeKey::verifySB3(const sstr &msg, const sstr &signature, const sstr
 		**/
 		return true;
 	} else {
-		d("a22272838 re-computed hashStr=[%s] embeddedhashstr=[%s]  NEQ", s(hashStr), s(hashPlain) );
+		i("E330126 error recomputed hashStr=[%s] embeddedhashstr=[%s]  NEQ", s(hashStr), s(hashPlain) );
 		return false;
 	}
 }

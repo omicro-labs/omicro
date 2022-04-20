@@ -302,38 +302,38 @@ void omserver::doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 {
 
 
-	d("a5549381 onRecvL check that server is in ST_C, go ahead");
+	d("a5549381 from=%s onRecvL check that server is in ST_C, go ahead", s(t.sender_) );
 	collectTrxn_[trxnId].push_back(1);
 	totalVotes_[trxnId] += t.getVoteInt();
-	d("a3733 got XIT_l am leader increment collectTrxn[trxnId]");
+	d("a3733 from=%s got XIT_l am leader increment collectTrxn[trxnId]", s(t.sender_));
 		
 	uint twofp1 = twofplus1( otherLeaders.size() + 1);
-	d("a53098 twofp1=%d otherleaders=%d", twofp1, otherLeaders.size() );
+	d("a53098 doRecvL from=%s twofp1=%d otherleaders=%d", s(t.sender_), twofp1, otherLeaders.size() );
 	uint recvcnt = collectTrxn_[trxnId].size();
 	if ( recvcnt >= twofp1 ) { 
-		d("a2234 %s got XIT_l, good, a leader,  rcvcnt=%d >= twofp1=%d", s(id_), recvcnt, twofp1 );
+		d("a2234 from=%s %s got XIT_l, good, a leader,  rcvcnt=%d >= twofp1=%d", s(t.sender_), s(id_), recvcnt, twofp1 );
 		// state to D
 		bool toDgood = trxnState_.goState( level_, trxnId, XIT_l );
 		if ( toDgood ) {
-			d("a331208 from XIT_l to toDgood true");
+			d("a331208 from=%s XIT_l to toDgood true", s(t.sender_));
 			// todo L2 L3
 			t.setXit( XIT_m );
 			t.setVoteInt( totalVotes_[trxnId] );
 			strvec nullvec;
 			//pvec(otherLeaders);
 			t.srvport_ = srvport_; 
-			sstr dat; t.allstr(dat);
+			sstr alldat; t.allstr(alldat);
 			//d("a33221 %s round-2 multicast otherLeaders trnmsg=[%s] ...", s(id_), s(dat) );
-			multicast( OM_TXN, otherLeaders, dat, false, nullvec );
-			d("a33221 %s round-2 multicast otherLeaders done", s(id_));
+			multicast( OM_TXN, otherLeaders, alldat, false, nullvec );
+			d("a33221 from=%s %s round-2 multicast otherLeaders done t.srvport_=[%s]", s(t.sender_), s(id_), s(t.srvport_) );
 		} else {
-			d("a4457 %s XIT_l toDgood is false", s(id_));
+			d("a4457 from=%s %s XIT_l toDgood is false", s(t.sender_), s(id_));
 		}
 		collectTrxn_.erase(trxnId);
 		totalVotes_.erase(trxnId);
 	} else {
 		// d("a2234 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d, nostart round-2", s(id_), recvcnt, twofp1 );
-		d("a22342 %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d", s(id_), recvcnt, twofp1 );
+		d("a22342 from=%s %s got XIT_l, a leader, but rcvcnt=%d < twofp1=%d", s(t.sender_), s(id_), recvcnt, twofp1 );
 	}
 }
 
@@ -404,39 +404,44 @@ void omserver::doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	ulong v2fp1 = twofplus1( avgVotes );
 
 	uint twofp1 = twofplus1( otherLeaders.size() + 1);
-	d("a33039 avgVotes=%d v2fp1=%d twofp1=%d", avgVotes, v2fp1, twofp1 );
+	d("a33039 doRecvM  from=%s avgVotes=%d v2fp1=%d twofp1=%d", s(t.sender_), avgVotes, v2fp1, twofp1 );
 
-	if ( collectTrxn_[trxnId].size() >= twofp1 && nodeList_.size() >= v2fp1 ) { 
+	if ( collectTrxn_[trxnId].size() >= twofp1 && nodeList_.size() >= v2fp1 ) {
 		// state to E
 		bool toEgood = trxnState_.goState( level_, trxnId, XIT_m );
 		if ( toEgood ) {
-			d("a02227 from XIT_m toEgood true");
+			d("a02227 from=%s XIT_m toEgood true", s(t.sender_));
 			// todo L2 L3
 			t.setXit( XIT_n );
 			t.setVoteInt( avgVotes );
 			strvec nullvec;
-			d("a33281 %s multicast XIT_n followers ...", s(id_));
-			//pvec(followers);
+			d("a33281 from=%s %s multicast XIT_n followers ...", s(t.sender_), s(id_));
+
+			i("a99390 todo followers:");
+			pvectag("tagfollower:srv", followers);
+
 			t.srvport_ = srvport_;
-			sstr dat; t.allstr(dat);
-			omserver::multicast( OM_TXN, followers, dat, false, nullvec );
-			d("a33281 %s multicast XIT_n followers done", s(id_));
+			sstr alldat; t.allstr(alldat);
+			omserver::multicast( OM_TXN, followers, alldat, false, nullvec );
+			d("a33281 from=%s %s multicast XIT_n followers done", s(t.sender_), s(id_));
 
 			// i do commit too to state F
 			// block_.add( t );
 			trxnState_.goState( level_, trxnId, XIT_n );  // to ST_F
 			blockMgr_.receiveTrxn( t );
-			d("a9999 leader commit a TRXN %s ", s(trxnId));
+			d("a9999 leader to XIT_n:ST_F from=[%s] commit a TRXN %s peer:[%s] ", s(t.sender_), s(trxnId), s(t.srvport_) );
 			// reply back to client
 			// d("a99992 conv=%ld clientconv=%ld\n", conv,  clientConv_[trxnId] );
 			// sstr m( sstr("GOOD_TRXN|") + id_);
 			// d("a4002 reply back good trxn...");
 			// kcp_server_->send_msg(clientConv_[trxnId], m);
 		} else {
-			d("a72128 from XIT_m toEgood false");
+			d("a72128 from=%s XIT_m toEgood false", s(t.sender_));
 		}
 		collectTrxn_.erase(trxnId);
 		totalVotes_.erase(trxnId);
+	} else {
+		d("a72228 from=%s quorum notmet, XIT_n not sent ", s(t.sender_));
 	}
 
 }
@@ -456,34 +461,43 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 	pthread_t thrd[len];
 	ThreadParam thrdParam[len];
 	sstr srvport, pubkey, dat;
-	bool useThreads = false;
-	for ( int i=0; i < len; ++i ) {
-		NodeList::getData( hostVec[i], id, ip, port);
-		thrdParam[i].srv = ip;
-		thrdParam[i].port = atoi(port.c_str());
-		thrdParam[i].msgType = msgType;
+	bool useThreads = true;
+	int trc;
+
+	for ( int j=0; j < len; ++j ) {
+		NodeList::getData( hostVec[j], id, ip, port);
+		thrdParam[j].srv = ip;
+		thrdParam[j].port = atoi(port.c_str());
+		thrdParam[j].msgType = msgType;
 		srvport = ip + ":" + port;
 
 		getPubkey( srvport, pubkey );
-		d("a10827 get target srvport pubkey %s:%s", s(ip), s(port) );
-		d("a10827 pubkey [%s]", s(pubkey) );
 		OmicroTrxn t( trxnMsg.c_str() );
 		t.makeNodeSignature(pubkey);
+
+		d("a10827 from=%s in multicast get target srvport pubkey of target: %s:%s", s(t.sender_), s(ip), s(port) );
+		//d("a10827 pubkey [%s]", s(pubkey) );
+		d("a30062 from=%s in multicast my t.srvport_=[%s]", s(t.sender_), s(t.srvport_) );
 
 		#ifdef OM_DEBUG
 		sstr trxndata; t.getTrxnData(trxndata);
 		bool rc1 = OmicroNodeKey::verifySB3( trxndata, t.signature_, t.cipher_, secKey_);
-		d("a2999 in multicase after t.makeNodeSignature verifySB3 rc1=%d", rc1 );
+		d("a2999 in multicast after t.makeNodeSignature verifySB3 rc1=%d", rc1 );
 		bool rc = t.validateTrxn( secKey_ );
-		d("a2999 in multicase after t.makeNodeSignature t.validateTrxn rc=%d", rc );
+		d("a2999 in multicast after t.makeNodeSignature t.validateTrxn rc=%d", rc );
 		#endif
 
-		t.allstr(thrdParam[i].trxn);
-		thrdParam[i].expectReply = expectReply;
+		t.allstr(thrdParam[j].trxn);
+		thrdParam[j].expectReply = expectReply;
 		if ( useThreads ) {
-			pthread_create(&thrd[i], NULL, &threadSendMsg, (void *)&thrdParam[i]);
+			trc = pthread_create(&thrd[j], NULL, &threadSendMsg, (void *)&thrdParam[j]);
+			if ( 0 == trc ) {
+				d("a43308 create thread OK trc=%d", trc );
+			} else {
+				i("E43308 failed to create thread trc=%d", trc );
+			}
 		} else {
-			threadSendMsg( (void *)&thrdParam[i] );
+			threadSendMsg( (void *)&thrdParam[j] );
 		}
 	}
 
@@ -491,19 +505,19 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 	//sleep(5);
 
 	int connected = 0;
-	for ( int i=0; i < len; ++i ) {
+	for ( int j=0; j < len; ++j ) {
 		if ( useThreads ) {
-			pthread_join( thrd[i], NULL );
+			pthread_join( thrd[j], NULL );
 		}
 
 		if ( expectReply ) {
 			d("a59031 pthread_join i=%d done expectReply=1", i );
-			if ( thrdParam[i].reply.size() > 0 ) {
-				replyVec.push_back( thrdParam[i].reply );
+			if ( thrdParam[j].reply.size() > 0 ) {
+				replyVec.push_back( thrdParam[j].reply );
 			}
 		}
 
-		if ( thrdParam[i].reply != "NOCONN" ) {
+		if ( thrdParam[j].reply != "NOCONN" ) {
 			++connected;
 		}
 	}

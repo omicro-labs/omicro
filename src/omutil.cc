@@ -134,6 +134,13 @@ void pvec( const strvec &vec )
 	}
 }
 
+void pvectag( const char *tag, const strvec &vec )
+{
+	for ( const auto &r : vec ) {
+		i("%s: %s", tag, s(r));
+	}
+}
+
 void dpvec( const strvec &vec )
 {
 	for ( const auto &r : vec ) {

@@ -16,8 +16,9 @@
 #include "omicrodef.h" 
 #include "omlog.h" 
 #include "omresponse.h" 
-
 EXTERN_LOGGING
+
+static unsigned long OM_WAIT_MS = 5000;
 
 OmicroClient::OmicroClient( const char *srv, int port )
 {
@@ -54,7 +55,7 @@ OmicroClient::OmicroClient( const char *srv, int port )
         return;
     }
 
-	d("a4088 connect to [%s] [%d] ...", srv, port );
+	d("a4088 connect to %s:%d ...", srv, port );
     int connectR = connect(sockFD, p->ai_addr, p->ai_addrlen);
     if (connectR == -1) {
         close(sockFD);
@@ -176,8 +177,7 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 	q.setSender( t.sender_ );
 	q.setTimeStamp( t.timestamp_ );
 
-	int WAIT_MS = 50;
-	int waitCnt = waitSeconds*(1000/WAIT_MS);
+	int waitCnt = waitSeconds*(1000/OM_WAIT_MS);
 	int cnt = 0;
 
 	sstr data; q.str("QT", data);
@@ -194,7 +194,7 @@ sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
 			break;
 		}
 
-		usleep(1000*WAIT_MS);
+		usleep(1000*OM_WAIT_MS);
 		++cnt;
 		if ( cnt > waitCnt ) {
 			break;
@@ -227,8 +227,7 @@ sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
 	q.setSender( t.sender_ );
 	q.setTimeStamp( t.timestamp_ );
 
-	int WAIT_MS = 50;
-	int waitCnt = waitSeconds*(1000/WAIT_MS);
+	int waitCnt = waitSeconds*(1000/OM_WAIT_MS);
 	int cnt = 0;
 	sstr data; q.str("QQ", data);
 
@@ -245,7 +244,7 @@ sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
 			break;
 		}
 
-		usleep(1000*WAIT_MS);
+		usleep(1000*OM_WAIT_MS);
 		++cnt;
 		if ( cnt > waitCnt ) {
 			break;
@@ -260,8 +259,7 @@ sstr OmicroClient::reqPublicKey( int waitSeconds)
 	OmicroSimpleQuery q;
 	q.setTrxnId( "1" );
 
-	int WAIT_MS = 50;
-	int waitCnt = waitSeconds*(1000/WAIT_MS);
+	int waitCnt = waitSeconds*(1000/OM_WAIT_MS);
 	int cnt = 0;
 	sstr cmd, reply;
 
@@ -280,7 +278,7 @@ sstr OmicroClient::reqPublicKey( int waitSeconds)
 			return resp.DAT_;
 		}
 
-		usleep(1000*WAIT_MS);
+		usleep(1000*OM_WAIT_MS);
 		++cnt;
 		if ( cnt > waitCnt ) {
 			break;

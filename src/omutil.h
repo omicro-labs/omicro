@@ -37,6 +37,8 @@ const char *s(const sstr &str);
 // print a vector
 void pvec( const strvec &vec );
 
+void pvectag( const char *tag, const strvec &vec );
+
 // debug print a vector
 void dpvec( const strvec &vec );
 

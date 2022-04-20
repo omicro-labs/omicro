@@ -45,7 +45,7 @@ omsession::omsession(boost::asio::io_context& io_context, omserver &srv, tcp::so
 	clientIP_ = socket_.remote_endpoint().address().to_string();
 	makeSessionID();
 	hdr_[OMHDR_SZ] = '\0';
-	d("a00001 newsession sid_=[%s]", s(sid_) );
+	i("I0001 accepted new client sid_=[%s] from %s:%d", s(sid_), s(clientIP_), socket_.remote_endpoint().port() );
 }
 
 void omsession::start()
@@ -142,7 +142,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 	sstr id_ = serv_.id_;
 
 	OmicroTrxn t(msg);
-	d("a1000 doTrxnL2 from=[%s] trxntype=[%s] srvport=%s", s(t.sender_), s(t.trxntype_), s(serv_.srvport_)  );
+	Byte xit = t.getXit();
 
 	/**
 	bool isInitTrxn1 = t.isInitTrxn();
@@ -156,36 +156,43 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 	bool isInitTrxn = t.isInitTrxn();
 	t.getTrxnID( trxnId );
 
+	d("a1000 doTrxnL2 from=[%s] trxntype=[%s] my srvport=%s peer=%s xit=%c txnid=%s isInitTrxn=%d", 
+		s(t.sender_), s(t.trxntype_), s(serv_.srvport_), s(t.srvport_), xit, s(trxnId), isInitTrxn );
+
 	sstr err;
 	bool validTrxn = validateTrxn( trxnId, t, isInitTrxn, err );
 	if ( ! validTrxn ) {
-		// sstr m = sstr("INVALID_TRXN|") + id_ + "|" + err;
-		sstr m;
-		errResponse( trxnId, "INVALID_TRXN", id_ + " " + err, m );
-		reply(m, socket_);
+		if ( xit != XIT_i && xit != XIT_l && xit != XIT_m && xit != XIT_n ) {
+			d("a334408 xit=%c not XIT_m XIT_n reply back", xit);
+			sstr m;
+			errResponse( trxnId, "INVALID_TRXN", id_ + " " + err, m );
+			reply(m, socket_);
+		}
 		i("E40282 INVALID_TRXN ignore isInitTrxn=%d", isInitTrxn );
+		d("a1000 doTrxnL2 INVALID from=[%s] srvport=%s", s(t.sender_), s(serv_.srvport_)  );
 		return;
 	}
 
 	bool rc;
-	sstr pfrom = t.srvport_;
+	sstr peer = t.srvport_;
+	sstr from = t.sender_;
 
 	if ( isInitTrxn ) {
 		//t.setID();
 		// t.getTrxnID( trxnId );
-		d("a43713 init trxnId=[%s]", s(trxnId) );
+		d("a43713 init from=%s trxnId=[%s]", s(from), s(trxnId) );
 		d("a333301  i am clientproxy, launching initTrxn ..." );
 		// add fence_ of sender
 
 		if ( t.trxntype_ != OM_NEWACCT ) {
 			sstr fence;
-			serv_.blockMgr_.getFence( t.sender_, fence );
+			serv_.blockMgr_.getFence( from, fence );
 			t.fence_ = fence;
-			d("a93910 isInitTrxn  assign t.fence_=[%s]", s(fence) );
+			d("a93910 isInitTrxn from=%s trxnid=%s  assign t.fence_=[%s]", s(from), s(trxnId), s(fence) );
 		}
 
 		rc = initTrxn( t );
-		d("a333301  i am clientproxy, launched initTrxn rc=%d", rc );
+		d("a333301  i am clientproxy, from=%s launched initTrxn rc=%d", s(from), rc );
 		sstr m;
 		if ( rc ) {
 			//m = sstr("GOOD_TRXN|initTrxn|") +trxnId + "|t33093|" + sid_;
@@ -195,17 +202,16 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 			errResponse( trxnId, "INVALID_TRXN", "initTrxn", m );
 		}
 
-		d("a333301 reply to endclient %s", s(m) );
+		d("a333301 reply to endclient %s ...", s(m) );
 		reply(m, socket_);
-		d("a333301 reply to endclient %s done", s(m) );
+		d("a333301 from=%s reply to endclient %s done", s(from), s(m) );
 	} else {
 		//t.getTrxnID( trxnId );
-		d("a43714 exist trxnId=[%s]", s(trxnId) );
-		Byte xit = t.getXit();
+		d("a43714 from=%s exist trxnId=[%s]", s(from), s(trxnId) );
 		sstr beacon = t.beacon_;
 		if ( xit == XIT_i ) {
 
-			d("a82208 %s recved XIT_i", s(sid_));
+			d("a82208 from=%s %s recved XIT_i", s(from), s(sid_));
 			// I got 'i', I must be a leader
 			DynamicCircuit circ( serv_.nodeList_);
 			strvec followers;
@@ -214,26 +220,29 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 				// state to A
 				bool toAgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_i );
 				if ( toAgood ) {
-					d("a00233 XIT_i toAgood true trxnId=[%s]", s(trxnId) );
+					d("a00233 from=%s XIT_i toAgood true trxnId=[%s]", s(from), s(trxnId) );
 
 					// send XIT_j to all followers in this leader zone
 					bool toBgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_j );
-					d("a21200 iAmLeader XIT_j  toBgood=%d trxnId=%s", toBgood, s(trxnId) );
+					d("a21200 from=%s iAmLeader XIT_j  toBgood=%d trxnId=%s", s(from), toBgood, s(trxnId) );
 
 					t.setXit( XIT_j );
 					strvec replyVec;
-					d("a31112 %s multicast XIT_j followers for vote expect reply ..", s(sid_));
+					d("a31112 from=%s %s multicast XIT_j followers for vote expect reply ..", s(from), s(sid_));
 					//pvec( followers );
+					i("a949444 debug: followers:" );
+					pvectag( "tagfollower", followers );
+
 					t.srvport_ = serv_.srvport_;
-					sstr alld; t.allstr(alld);
-					serv_.multicast( OM_TXN,  followers, alld, true, replyVec );
-					d("a31112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(sid_), replyVec.size() );
+					sstr alldat; t.allstr(alldat);
+					serv_.multicast( OM_TXN,  followers, alldat, true, replyVec );
+					d("a31112 from=%s %s multicast XIT_j followers for vote done replyVec=%d\n", s(from), s(sid_), replyVec.size() );
 
 					// got replies from followers, state to C
 					bool toCgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_k );
 					if ( toCgood ) {
 						// d("a55550 recv XIT_k toCgood true");
-						d("a55550 received all replies of XITT_j toCgood true, trxnId=%s", s(trxnId) );
+						d("a55550 from=%s received all replies of XITT_j toCgood true, trxnId=%s", s(from), s(trxnId) );
 						if ( serv_.level_ == 2 ) {
 							int votes = replyVec.size(); // how many replied
 							t.setVoteInt( votes );
@@ -241,59 +250,66 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 							t.setXit( XIT_l );
 							strvec otherLeaders;
 							circ.getOtherLeaders( beacon, id_, otherLeaders );
-							d("a31102 %s round-1 multicast XIT_l otherLeaders noreplyexpected ..", s(sid_));
+							d("a31102 from=%s %s round-1 multicast XIT_l otherLeaders noreplyexpected ..", s(from), s(sid_));
 							//pvec(otherLeaders);
 							// txn.setSrvPort( serv_.srvport_.c_str() );
-							sstr dat; t.allstr(dat);
-							serv_.multicast( OM_TXN, otherLeaders, dat, false, replyVec );
+
+							i("a203030 other leaders:");
+							pvectag("tagotherleader", otherLeaders );
+
+							sstr adat; t.allstr(adat);
+							serv_.multicast( OM_TXN, otherLeaders, adat, false, replyVec );
 							d("a31102 %s round-1 multicast XIT_l otherLeaders done replyVec=%d\n", s(sid_), replyVec.size() );
 							// XIT_m should be in reply
-							// if there are enough replies, multicase XIT_n to followers
-							d("a43330 XIT_m should be in reply multicase XIT_n to followers ...");
+							// if there are enough replies, multicast XIT_n to followers
+							d("a43330 from=%s XIT_m should be in reply multicast XIT_n to followers done", s(from));
 						} else {
 							// level_ == 3  todo
 							d("a63311 error level_ == 2 false");
 						}
 
 					} else {
-						d("a3305 XIT_j toCgood is false");
+						d("a3305 from=%s XIT_j toCgood is false", s(from));
 					}
 				} else {
-					d("a3306 XIT_i to state A toAgood is false");
+					d("a3306 from=%s XIT_i to state A toAgood is false", s(from));
 				}
 			} else {
 				// bad
-				d("a3308 i [%s] am not leader, ignore XIT_i", s(sid_));
+				d("a3308 i [%s] am not leader, from=%s ignore XIT_i", s(sid_), s(from));
 			}
 			// else i am not leader, igore 'i' xit
 		} else if ( xit == XIT_j ) {
 			// I am follower, give my vote to leader
-			d("a5501 received XIT_j from [%s] reply back good", s(pfrom));
+			d("a55031 from=%s received XIT_j peer:[%s] reply back good", s(from), s(peer) );
 			sstr m;
 			okResponse(trxnId, "XIT_j", m );
-			d("a555550 ok m=[%s]", m.c_str() );
+			d("a55031 from=%s ok m=[%s]", s(from), m.c_str() );
 			reply(m, socket_);
 		} else if ( xit == XIT_l ) {
-			d("a92822 %s received XIT_l from [%s] ...", s(sid_), s(pfrom) );
+			d("a92822 from=%s %s received XIT_l peer:[%s] ...", s(from), s(sid_), s(peer) );
 			//serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t );
 			OmicroTrxn t2 = t;
 			serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t2 );
+			d("a92822 from=%s %s received XIT_l peer:[%s] done", s(from), s(sid_), s(peer) );
 		} else if ( xit == XIT_m ) {
 		    // received one XIT_m, there may be more XIT_m in next 3 seconds
-			d("a54103 %s got XIT_m from [%s]", s(id_), s(pfrom) );
+			d("a54103 from=%s %s got XIT_m peer:[%s]", s(from), s(id_), s(peer) );
 			//serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t );
 			OmicroTrxn t2 = t;
 			serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t2 );
+			d("a54103 from=%s %s got XIT_m peer:[%s] done", s(from), s(id_), s(peer) );
 		} else if ( xit == XIT_n ) {
 			// follower gets a trxn commit message
 			Byte curState; 
 			serv_.trxnState_.getState( trxnId, curState );
 			if ( curState != ST_F ) {
-				d("a9999 follower commit a TRXN %s from [%s]", s(trxnId), s(pfrom));
+				d("a99990 got XIT_n follower from=[%s] commit a TRXN:%s peer:[%s] ...", s(from), s(trxnId), s(peer) );
 				serv_.trxnState_.setState( trxnId, ST_F );  // to ST_F
 				serv_.blockMgr_.receiveTrxn( t );
+				// d("a99990 got XIT_n follower from=[%s] commit a TRXN:%s peer:[%s] done", s(from), s(trxnId), s(peer) );
 			} else {
-				d("a9999 follower no-commit curState is already ST_F from=[%s] for trxnid", s(pfrom));
+				d("a99991 from=%s follower no-commit curState is already ST_F peer=[%s] for trxnid", s(from), s(peer));
 			}
 		} else if ( xit == XIT_z ) {
 			/***
@@ -303,10 +319,14 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 			reply( res, socket_ ); 
 			d("a40088 received XIT_z return res");
 			***/
+			d("a200 doTrxnL2 from=[%s] xit is XIT_z, ignore peer:%s ", s(from), s(serv_.srvport_)  );
+		} else {
+			d("a200 doTrxnL2 from=[%s] xit is unknown [%c] peer:%s ", s(from), xit, s(serv_.srvport_)  );
 		}
     }
 
-	d("a1000 doTrxnL2 from=[%s] trxntype=[%s] done %s", s(t.sender_), s(t.trxntype_), s(serv_.srvport_)  );
+	d("a1000 doTrxnL2 from=[%s] trxntype=[%s] my srvport=%s peer=%s xit=%c txnid=%s isInitTrxn=%d Done", 
+		s(t.sender_), s(t.trxntype_), s(serv_.srvport_), s(t.srvport_), xit, s(trxnId), isInitTrxn );
 }
 
 void omsession::doSimpleQuery(const char *msg, int msglen)
@@ -398,8 +418,8 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	d("a31181 multicast to ZoneLeaders expectReply=false ...");
 	//pvec( hostVec );
 	txn.srvport_ = serv_.srvport_;
-	sstr dat; txn.allstr(dat);
-	int connected = serv_.multicast( OM_TXN, hostVec, dat, false, replyVec );
+	sstr alldat; txn.allstr(alldat);
+	int connected = serv_.multicast( OM_TXN, hostVec, alldat, false, replyVec );
 	d("a31183 multicast to ZoneLeaders done connected=%d", connected);
 
 	uint twofp1 = twofplus1(hostVec.size());
@@ -424,8 +444,8 @@ void omsession::makeSessionID()
 bool omsession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 {
 	d("a17621 omsession::validateTrxn serv_.address=[%s] serv_.port=[%s]", s(serv_.address_), s(serv_.port_) );
-	d("22206 my serv_.pubKey_=[%s]", s(serv_.pubKey_) );
-	d("22206 my serv_.secKey_=[%s]", s(serv_.secKey_) );
+	//d("22206 my serv_.pubKey_=[%s]", s(serv_.pubKey_) );
+	//d("22206 my serv_.secKey_=[%s]", s(serv_.secKey_) );
 
 	bool validTrxn = txn.validateTrxn( serv_.secKey_ );
 	if ( ! validTrxn ) {
@@ -465,7 +485,8 @@ bool omsession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitT
 			sstr fromFence;
 			serv_.blockMgr_.getFence( txn.sender_, fromFence);
 			if ( txn.fence_ != fromFence ) {
-           		i("E32012 error from=[%s] txn.fence_=[%s] != fromFence=[%s]", s(txn.sender_), s(txn.fence_), s(fromFence) );
+           		i("E32012 error from=[%s] txn.fence_=[%s] NE fromFence=[%s] trxnid=%s", s(txn.sender_), s(txn.fence_), s(fromFence), s(trxnId) );
+           		i("E32012 error from=[%s] fence txn.srvport_=[%s]", s(txn.sender_), s(txn.srvport_) );
 				err = "Fencing error";
 				return false;
 			}
@@ -482,7 +503,8 @@ bool omsession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitT
 			sstr fromFence;
 			serv_.blockMgr_.getFence( txn.sender_, fromFence);
 			if ( txn.fence_ != fromFence ) {
-            	i("E32014 error from=[%s] txn.fence_=[%s] != fromFence=[%s]", s(txn.sender_), s(txn.fence_), s(fromFence) );
+            	i("E32014 error from=[%s] txn.fence_=[%s] NE fromFence=[%s] trxnId=%s", s(txn.sender_), s(txn.fence_), s(fromFence), s(trxnId) );
+           		i("E32014 error from=[%s] fence txn.srvport_=[%s]", s(txn.srvport_) );
 				err = "Xfer token Fencing error";
 				return false;
 			}
@@ -566,7 +588,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 	}
 
 	bool rc;
-	sstr pfrom = t.srvport_;
+	sstr peer = t.srvport_;
 	sstr m;
 
 	if ( isInitTrxn ) {
@@ -609,10 +631,13 @@ void omsession::doQueryL2(const char *msg, int msglen)
 					t.setXit( XIT_j );
 					strvec replyVec;
 					d("a32112 %s multicast XIT_j followers for vote expect reply ..", s(sid_));
-					//pvec( followers );
+
+					i("a949449 debug: followers:" );
+					pvectag( "tagfollower", followers );
+
 					t.srvport_ = serv_.srvport_;
-					sstr alld; t.allstr(alld);
-					serv_.multicast( OM_XNQ, followers, alld, true, replyVec );
+					sstr alldata; t.allstr(alldata);
+					serv_.multicast( OM_XNQ, followers, alldata, true, replyVec );
 					d("a32112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(sid_), replyVec.size() );
 
 					int votes = replyVec.size(); // how many replied
@@ -627,7 +652,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 			}
 		} else if ( xit == XIT_j ) {
 			// I am follower, give my vote to leader
-			d("a5502 received XIT_j from [%s] reply back good", s(pfrom));
+			d("a5502 received XIT_j from [%s] reply back good", s(peer));
 			sstr json;
 			okResponse( trxnId, "XIT_j", json);
 			reply(json, socket_);
@@ -654,6 +679,7 @@ bool omsession::initQuery( OmicroTrxn &txn )
 	strvec hostVec;
 	circ.getZoneLeaders( beacon, hostVec );
 
+	// todo
 	for ( auto &id: hostVec ) {
 		d("a20122 initTrxn send XIT_i to leader [%s]", s(id) );
 	}

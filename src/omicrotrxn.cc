@@ -36,15 +36,13 @@ OmicroTrxn::OmicroTrxn()
 
 OmicroTrxn::OmicroTrxn( const char *str )
 {
-	d("a23338 OmicroTrxn ctor from string");
-	d("a23338 str=[%s]", str);
+	//d("a23338 OmicroTrxn ctor from string");
+	//d("a23338 str=[%s]", str);
 
 	int i=0;
 	OmStrSplit sp(str, '|');
-	//hdr_ = sp[i++]; 
 	id_ = sp[i++];
 	beacon_ = sp[i++];
-	//srvport_ = sp[i++];
 	sender_ = sp[i++];
 	receiver_ = sp[i++];
 	amount_ = sp[i++];
@@ -115,15 +113,7 @@ bool OmicroTrxn::isInitTrxn()
 
 void OmicroTrxn::setID()
 {
-	/***
-    char s[16];
-    std::uniform_int_distribution<uint64_t> distribution;
-    std::mt19937_64   engine(std::random_device{}());
-    uint64_t r1 = distribution(engine);
-    sprintf(s, "%lx", r1 );
-    id_ = s;
-	***/
-	id_ = "omtrxnid"; // todo
+	id_ = "V1"; // prodID
 }
 
 //2nd byte
@@ -249,9 +239,8 @@ bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 
 	ulong trxnTime = getTimeStampUS();
 	unsigned long nowt = getNowTimeUS();
-	if ( nowt - trxnTime > 60000000 ) {
-		// lag of 60 seconds
-		i("a303376 warn validateTrxn() nowt=%ld trxnTime=%ld more than 60 seconds", nowt, trxnTime);
+	if ( nowt - trxnTime > 3*60000000 ) {
+		i("E303376 error validateTrxn() nowt=%ld trxnTime=%ld more than 180 seconds", nowt, trxnTime);
 		return false;
 	}
 
@@ -260,7 +249,7 @@ bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 	getTrxnData( trxndata );
 	bool rc = OmicroNodeKey::verifySB3( trxndata, signature_, cipher_, secretKey);
 	if ( ! rc ) {
-		i("E34408 node verify false");
+		i("E34408 error node verify false");
 		i("E34408 trxntype_=[%s]", s(trxntype_) );
 		i("E34408 sender_=[%s] receiver_=[%s]", s(sender_), s(receiver_) );
 		i("E34408 node secretkey=[%s]", s(secretKey) );

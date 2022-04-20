@@ -31,8 +31,8 @@ class BlockMgr
   protected:
     void initDirs();
 	int saveTrxn( OmicroTrxn &trxn);
-	FILE *appendToBlockchain( OmicroTrxn &t, const sstr &userId, char ttype, const sstr &ymdh );
-	void rollbackFromBlockchain( OmicroTrxn &t, const sstr &userId, const sstr &yyyymmddhh );
+	FILE *appendToBlockchain( OmicroTrxn &t, const sstr &userId, char ttype, const sstr &ymdh, long &fpos );
+	void rollbackFromBlockchain( OmicroTrxn &t, const sstr &userId, const sstr &yyyymmddhh, long fpos );
 	int updateAcctBalances( OmicroTrxn &trxn);
 	int createAcct( OmicroTrxn &trxn);
 	int createToken( OmicroTrxn &trxn);
