@@ -18,7 +18,7 @@
 #include "omresponse.h" 
 EXTERN_LOGGING
 
-static unsigned long OM_WAIT_MS = 200;
+static unsigned long OM_WAIT_MS = 500;
 
 OmicroClient::OmicroClient( const char *srv, int port )
 {

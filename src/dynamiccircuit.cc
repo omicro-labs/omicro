@@ -253,3 +253,44 @@ bool DynamicCircuit::getOtherLeadersAndThisFollowers( const sstr &beacon, const 
 
 	return idIsLeader;
 }
+
+
+// L2
+// Get leader of a follower
+// return true if srvid is a leader
+bool DynamicCircuit::getLeader( const sstr &beacon, const sstr &srvid, strvec &leader )
+{
+	int numFullZones = getNumFullZones();
+	XXH64_hash_t hash;
+	int seed = atoi( beacon.c_str() );
+	int zone;
+
+	uint len = nodeList_.size();
+	uint dd = len/numFullZones;
+
+	hash = XXH64( srvid.c_str(), srvid.size(), seed ) % len;
+	int zoneid =  hash / dd;
+	d("a40025 srvid=%s zoneid=%d", s(srvid), zoneid );
+
+	bool idIsLeader = false;
+	bool first = true;
+	for ( unsigned int i=0; i < len; ++i ) {
+		const sstr &rec  = nodeList_[i];
+		hash = XXH64( rec.c_str(), rec.size(), seed ) % len;
+		zone = hash / dd;
+
+		if ( zoneid == zone ) {
+			// same zone
+			if ( first ) {
+				if ( srvid == rec ) {
+					idIsLeader = true;
+				}
+				first = false;
+				leader.push_back( rec );
+				break;  // leader
+			}
+		} 
+	}
+
+	return idIsLeader;
+}

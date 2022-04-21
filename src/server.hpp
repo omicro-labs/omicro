@@ -35,6 +35,7 @@ class omserver
     omserver(boost::asio::io_context &io_context, const sstr &srvip, const sstr &port);
 	~omserver();
 
+	void onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
 	void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
 	void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
 
@@ -43,10 +44,15 @@ class omserver
 	void addQueryVote( const sstr &trxnId, int votes );
 	void getQueryVote( const sstr &trxnId, int &votes );
 
+	OmWaitCount  collectKTrxn_;
+	OmWaitCount  totalKVotes_;
+
 	OmWaitCount  collectLTrxn_;
 	OmWaitCount  totalLVotes_;
+
 	OmWaitCount  collectMTrxn_;
 	OmWaitCount  totalMVotes_;
+
 
 	std::unordered_map<sstr, sstr> srvport_pubkey_;
 
@@ -74,10 +80,6 @@ class omserver
 	void readSeckey();
 	void readSrvportPubkey();
 	sstr getDataDir() const;
-	void doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
-				  const strvec &otherLeaders,  OmicroTrxn &t );
-	void doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
-				  const strvec &otherLeaders,  const strvec &followers, OmicroTrxn &t );
 
 	void doCleanup();
 

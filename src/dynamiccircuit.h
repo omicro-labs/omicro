@@ -16,6 +16,7 @@ class DynamicCircuit
 	bool isLeader( const sstr &beacon, const sstr &srvid,  bool getFollowers, strvec &followers  );
 	bool getOtherLeaders( const sstr &beacon, const sstr &id, strvec &vec );
 	bool getOtherLeadersAndThisFollowers( const sstr &beacon, const sstr &id, strvec &leaders, strvec &followers );
+	bool getLeader( const sstr &beacon, const sstr &id, strvec &leader );
 
   protected:
   	int level_;
