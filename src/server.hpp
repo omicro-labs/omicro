@@ -11,6 +11,7 @@
 #include "ommsghdr.h"
 #include "blockmgr.h"
 #include "omwaitcount.h"
+#include "omwaitstr.h"
 #include "omtimer.h"
 
 using boost::asio::ip::tcp;
@@ -34,23 +35,23 @@ class omserver
     omserver(boost::asio::io_context &io_context, const sstr &srvip, const sstr &port);
 	~omserver();
 
-	//void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
-	//void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
 	void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
 	void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
 
-	//void onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn &t);
 	int multicast( char msgType, const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
 	void getPubkey( const sstr &srvport, sstr &pubkey );
 	void addQueryVote( const sstr &trxnId, int votes );
 	void getQueryVote( const sstr &trxnId, int &votes );
 
+	OmWaitCount  collectLTrxn_;
+	OmWaitCount  totalLVotes_;
+	OmWaitCount  collectMTrxn_;
+	OmWaitCount  totalMVotes_;
 
-	std::unordered_map<sstr, std::vector<uint>> collectTrxn_;
-	std::unordered_map<sstr, ulong> totalVotes_;
 	std::unordered_map<sstr, sstr> srvport_pubkey_;
-	std::unordered_map<sstr, ulong> queryVote_;
-	std::unordered_map<sstr, sstr> result_;
+
+	OmWaitCount queryVote_;
+	OmWaitStr   qResult_;
 
 	TrxnState trxnState_;
 	NodeList nodeList_;
@@ -59,9 +60,6 @@ class omserver
 
 	// debug only
 	sstr srvport_;
-
-	OmWaitCount  waitCCount_;
-	OmWaitCount  waitDCount_;
 
 	BlockMgr  blockMgr_;
 	sstr pubKey_;
@@ -76,29 +74,18 @@ class omserver
 	void readSeckey();
 	void readSrvportPubkey();
 	sstr getDataDir() const;
-	void tryRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
-				  const strvec &otherLeaders,  OmicroTrxn &t );
 	void doRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
 				  const strvec &otherLeaders,  OmicroTrxn &t );
-
-	void tryRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
-				  const strvec &otherLeaders, const strvec &followers, OmicroTrxn &t );
 	void doRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, 
 				  const strvec &otherLeaders,  const strvec &followers, OmicroTrxn &t );
 
 	void doCleanup();
 
 	boost::asio::io_context &io_context_;
-	OmTimer  cTimer_;
-	OmTimer  dTimer_;
+	//OmTimer  cTimer_;
     tcp::acceptor acceptor_;
 
-	//btimer *timer1_; // ST_C
-	//btimer *timer2_; // ST_D
-	//btimer *timer3_; // query
-
 	btimer *cleanupTimer_; // cleanup cached trxn items
-
 
 };
 

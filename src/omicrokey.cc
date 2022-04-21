@@ -158,16 +158,8 @@ bool OmicroNodeKey::verifySB3(const sstr &msg, const sstr &signature, const sstr
 
 void OmicroNodeKey::getHash( const std::string &msg, std::string &hashStr )
 {
-	/***
-	char buf[24];
-	XXH64_hash_t hashv = XXH64(msg.c_str(), msg.size(), 0 ) % 100000000;
-	sprintf(buf, "%08lu:xxh64hh", hashv);
-	hashStr = buf;
-	***/
-
 	char buf[48];
 	XXH64_hash_t hashv = XXH64(msg.c_str(), msg.size(), 0 );
-	//sprintf(buf, "xxhash:%lx:yy", hashv);
 	sprintf(buf, "z%lx", hashv);
 	hashStr = buf;
 }

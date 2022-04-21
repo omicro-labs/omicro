@@ -686,7 +686,7 @@ void BlockMgr::getFence( const sstr &from, sstr &fence )
 	OmAccount fromAcct( fromrec );
 	fence = fromAcct.out_;
 	//d("a62201 BlockMgr::getFence from=[%s] fromrec=[%s]", s(from), s(fromrec), s(fence) );
-	d("a62201 BlockMgr::getFence from=[%s] fence=out_=[%s]", s(from), s(fence) );
+	//d("a62201 BlockMgr::getFence from=[%s] fence=out_=[%s]", s(from), s(fence) );
 }
 
 int BlockMgr::runQuery( OmicroTrxn &trxn, sstr &res )
@@ -1392,7 +1392,7 @@ int BlockMgr::validateReqTokens( const sstr &from, sstr &requestJson )
 				return -50;
 			}
 
-			if ( atoi( max.c_str() ) == 1 ) {
+			if ( max.size() >0 && atoi( max.c_str() ) == 1 ) {
 				itr = v.FindMember("owner");
 					v.AddMember("owner", from, dom.GetAllocator() );
 				if (  itr == v.MemberEnd() ) {

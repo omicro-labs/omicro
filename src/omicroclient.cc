@@ -18,7 +18,7 @@
 #include "omresponse.h" 
 EXTERN_LOGGING
 
-static unsigned long OM_WAIT_MS = 5000;
+static unsigned long OM_WAIT_MS = 200;
 
 OmicroClient::OmicroClient( const char *srv, int port )
 {
@@ -65,9 +65,9 @@ OmicroClient::OmicroClient( const char *srv, int port )
 
 	socket_ = sockFD;
 	struct timeval tv;
-	tv.tv_sec = 5;  // 10 Secs Timeout
+	tv.tv_sec = 60;
 	tv.tv_usec = 0; 
-	//setsockopt(socket_, SOL_SOCKET, SO_SNDTIMEO,(struct timeval *)&tv, sizeof(struct timeval));
+	setsockopt(socket_, SOL_SOCKET, SO_SNDTIMEO,(struct timeval *)&tv, sizeof(struct timeval));
 	setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv, sizeof(struct timeval));
 
 	d("a70231 OmicroClient ctor connectOK_ srv=%s port=%d", srv, port);

@@ -27,6 +27,8 @@ class BlockMgr
 	void   getTokens( const sstr &from, sstr &tokens ) ;
 	int    isXferTokenValid( OmicroTrxn &trxn);
 	void   setSrvPort( const sstr &srv, const sstr &port);
+	int    readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, 
+	                 std::vector<sstr> &rec, char &tstat, sstr &err );
 
   protected:
     void initDirs();
@@ -38,7 +40,6 @@ class BlockMgr
 	int createToken( OmicroTrxn &trxn);
 	int transferToken( OmicroTrxn &trxn);
 	void markBlockchain(FILE *fp, OmicroTrxn &t, const sstr &userId, char stat );
-	int readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &rec, char &tstat, sstr &err );
 
 	sstr getUserPath( const sstr &userId );
 	sstr getAcctStoreFilePath( const sstr &userId);

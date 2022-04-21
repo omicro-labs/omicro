@@ -138,7 +138,7 @@ void omsession::reply( const sstr &str, tcp::socket &socket )
 void omsession::doTrxnL2(const char *msg, int msglen)
 {
 	//d("a71002 doTrxn msg.len=%d msg=[%s]", msglen, msg );
-	d("a71002 doTrxn msg.len=%d", msglen );
+	d("a71002 doTrxnL2 doTrxn msg.len=%d", msglen );
 	sstr id_ = serv_.id_;
 
 	OmicroTrxn t(msg);
@@ -156,7 +156,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 	bool isInitTrxn = t.isInitTrxn();
 	t.getTrxnID( trxnId );
 
-	d("a1000 doTrxnL2 from=[%s] trxntype=[%s] my srvport=%s peer=%s xit=%c txnid=%s isInitTrxn=%d", 
+	d("a1000 from=[%s] trxntype=[%s] my srvport=%s peer=%s xit=%c txnid=%s isInitTrxn=%d", 
 		s(t.sender_), s(t.trxntype_), s(serv_.srvport_), s(t.srvport_), xit, s(trxnId), isInitTrxn );
 
 	sstr err;
@@ -311,21 +311,12 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 			} else {
 				d("a99991 from=%s follower no-commit curState is already ST_F peer=[%s] for trxnid", s(from), s(peer));
 			}
-		} else if ( xit == XIT_z ) {
-			/***
-			// query trxn status
-			sstr res;
-			serv_.blockMgr_.queryTrxn( t.sender, trxnId, t.timestamp, res );
-			reply( res, socket_ ); 
-			d("a40088 received XIT_z return res");
-			***/
-			d("a200 doTrxnL2 from=[%s] xit is XIT_z, ignore peer:%s ", s(from), s(serv_.srvport_)  );
 		} else {
 			d("a200 doTrxnL2 from=[%s] xit is unknown [%c] peer:%s ", s(from), xit, s(serv_.srvport_)  );
 		}
     }
 
-	d("a1000 doTrxnL2 from=[%s] trxntype=[%s] my srvport=%s peer=%s xit=%c txnid=%s isInitTrxn=%d Done", 
+	d("a1000 doTrxnL2 from=[%s] trxntype=[%s] my srvport=%s peer=%s xit=%c txnid=%s isInitTrxn=%d Done\n", 
 		s(t.sender_), s(t.trxntype_), s(serv_.srvport_), s(t.srvport_), xit, s(trxnId), isInitTrxn );
 }
 
@@ -447,6 +438,15 @@ bool omsession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitT
 	//d("22206 my serv_.pubKey_=[%s]", s(serv_.pubKey_) );
 	//d("22206 my serv_.secKey_=[%s]", s(serv_.secKey_) );
 
+	// check state if ST_F then all done, ignore trxn
+	Byte curState;
+	serv_.trxnState_.getState( trxnId, curState );
+	if ( curState >= ST_F ) {
+		i("E30280 trxn is done in ST_F state.trxnid=[%s]", s(txn.sender_), s(trxnId)  );
+		err = sstr("Late transaction request ") + serv_.address_ + ":" + serv_.port_;
+		return false;
+	}
+
 	bool validTrxn = txn.validateTrxn( serv_.secKey_ );
 	if ( ! validTrxn ) {
 		i("E30290 trxn is invalid. I am node: %s  trxnid=[%s]", s(serv_.srvport_), s(trxnId)  );
@@ -485,10 +485,19 @@ bool omsession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitT
 			sstr fromFence;
 			serv_.blockMgr_.getFence( txn.sender_, fromFence);
 			if ( txn.fence_ != fromFence ) {
-           		i("E32012 error from=[%s] txn.fence_=[%s] NE fromFence=[%s] trxnid=%s", s(txn.sender_), s(txn.fence_), s(fromFence), s(trxnId) );
-           		i("E32012 error from=[%s] fence txn.srvport_=[%s]", s(txn.sender_), s(txn.srvport_) );
-				err = "Fencing error";
-				return false;
+				std::vector<sstr> vec;
+				char tstat;
+				sstr errmsg;
+				serv_.blockMgr_.readTrxns( txn.sender_, txn.timestamp_, trxnId, vec, tstat, errmsg );
+				if ( vec.size() > 0 ) {
+					d("a900123 fencing diff, and readTrxns is found, size=%d mean trxnId exist alreay, return false", vec.size() );
+					err = "Fencing error";
+           			i("E32012 error from=[%s] txn.fence_=[%s] NE fromFence=[%s] trxnid=%s", s(txn.sender_), s(txn.fence_), s(fromFence), s(trxnId) );
+           			i("E32012 error from=[%s] fence txn.srvport_=[%s]", s(txn.sender_), s(txn.srvport_) );
+					return false;
+				} else {
+					d("a900123 fencing diff, but blockMgr_.readTrxns not found brc=%d, go ahead errmsg=%s", s(errmsg));
+				}
 			}
 		}
 	} else if ( txn.trxntype_ == OM_XFERTOKEN ) {
@@ -503,10 +512,18 @@ bool omsession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitT
 			sstr fromFence;
 			serv_.blockMgr_.getFence( txn.sender_, fromFence);
 			if ( txn.fence_ != fromFence ) {
-            	i("E32014 error from=[%s] txn.fence_=[%s] NE fromFence=[%s] trxnId=%s", s(txn.sender_), s(txn.fence_), s(fromFence), s(trxnId) );
-           		i("E32014 error from=[%s] fence txn.srvport_=[%s]", s(txn.srvport_) );
-				err = "Xfer token Fencing error";
-				return false;
+				std::vector<sstr> vec;
+				char tstat;
+				sstr errmsg;
+				serv_.blockMgr_.readTrxns( txn.sender_, txn.timestamp_, trxnId, vec, tstat, errmsg );
+				if ( vec.size() > 0 ) {
+					err = "Fencing error";
+           			i("E32014 error from=[%s] txn.fence_=[%s] NE fromFence=[%s] trxnid=%s", s(txn.sender_), s(txn.fence_), s(fromFence), s(trxnId) );
+           			i("E32014 error from=[%s] fence txn.srvport_=[%s]", s(txn.sender_), s(txn.srvport_) );
+					return false;
+				} else {
+					d("a900124 fencing diff, but blockMgr_.readTrxns not found brc=%d, go ahead errmsg=%s", s(errmsg));
+				}
 			}
 		}
 	}
@@ -550,7 +567,7 @@ bool omsession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitT
 		return false;
 	} else {
 		d("a31400 after runQuery  txn.response_ == res OK ");
-		serv_.result_[trxnId] = res;
+		serv_.qResult_.add(trxnId, res);
 		d("a31400 after runQuery sid_=[%s]  trxnId=[%s] res=[%s]", s(sid_),  s(trxnId), s(res) );
 		return true;
 	}
@@ -579,6 +596,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 
 	sstr err;
 	bool validTrxn = validateQuery( t, trxnId, isInitTrxn, err );
+	// run query in validateQuery
 	if ( ! validTrxn ) {
 		sstr json;
 		errResponse( trxnId, "INVALID_QUERY", id_ + "|" + err, json );
@@ -719,19 +737,21 @@ bool omsession::initQuery( OmicroTrxn &txn )
 // res is json retured
 void omsession::getResult( const sstr &trxnId, const sstr &sender, sstr &res )
 {
-	auto itr = serv_.result_.find( trxnId );
 	OmResponse resp;
 	resp.TID_ = trxnId;
 	resp.UID_ = sender;
 	resp.NID_ = serv_.id_;
 
-	if ( itr == serv_.result_.end() ) {
+	res = "";
+	serv_.qResult_.get( trxnId, res );
+
+	if ( res.size() < 1 ) {
 		resp.STT_ = OM_RESP_ERR;
 		resp.RSN_ = "NOTFOUND";
 		d("a23309  sid_=[%s]  trxnId=[%s] not found", s(sid_), s(trxnId) );
 	} else {
 		resp.STT_ = OM_RESP_OK;
-		resp.DAT_ = itr->second;
+		resp.DAT_ = res;
 	}
 
 	resp.json( res );

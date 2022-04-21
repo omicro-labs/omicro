@@ -86,6 +86,10 @@ OmicroTrxn::OmicroTrxn( const char *str )
 	if ( vote_.size() < 1 ) {
 		vote_ = "0";
 	}
+
+	if ( beacon_.size() < 1 ) {
+		setBeacon();
+	}
 }
 
 OmicroTrxn::~OmicroTrxn()
