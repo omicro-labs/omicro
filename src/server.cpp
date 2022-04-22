@@ -249,6 +249,12 @@ void omserver::onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	}
 	d("a30024 onRecvK() i am leader client=[%s] sid=[%s] ...", s(clientIP), s(sid));
 
+	d("a344251 otherLeaders:");
+	pvectag("tagotherleader:", otherLeaders );
+
+	d("a344252 followers:");
+	pvectag("tagfollower:", followers );
+
 	Byte curState;
 	trxnState_.getState( trxnId, curState );
 	if ( curState >= ST_C ) {
@@ -269,6 +275,9 @@ void omserver::onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clie
 		trxnState_.setState( trxnId, ST_C );
 		d("a331808 from=%s XIT_k to toCgood true. mcast XIT_l to other leaders", s(t.sender_));
 		// todo L2 L3
+		// add L vote of myself
+		collectLTrxn_.add( trxnId, 1 );
+
 		t.setXit( XIT_l );
 		strvec nullvec;
 		t.srvport_ = srvport_; 
@@ -313,6 +322,9 @@ void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 		// state to D
 		trxnState_.setState( trxnId, ST_D );
 		d("a331208 from=%s XIT_l to toDgood true", s(t.sender_));
+
+		collectMTrxn_.add( trxnId, 1 );
+
 		// todo L2 L3
 		t.setXit( XIT_m );
 		strvec nullvec;
@@ -365,8 +377,8 @@ void omserver::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			strvec nullvec;
 			d("a33281 from=%s %s multicast XIT_n followers ...", s(t.sender_), s(id_));
 
-			//i("a99390 todo followers:");
-			//pvectag("tagfollower:srv", followers);
+			i("a99390 followers:");
+			pvectag("tagfollower:srv", followers);
 
 			t.srvport_ = srvport_;
 			sstr alldat; t.allstr(alldat);
@@ -403,6 +415,11 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 	int trc;
 
 	for ( int j=0; j < len; ++j ) {
+		if ( hostVec[j].size() < 1 ) {
+			d("a44012 zone=%d host is empty, skip", j );
+			continue;
+		}
+
 		NodeList::getData( hostVec[j], id, ip, port);
 		thrdParam[j].srv = ip;
 		thrdParam[j].port = atoi(port.c_str());

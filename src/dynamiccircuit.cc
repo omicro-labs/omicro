@@ -84,12 +84,15 @@ void DynamicCircuit::getLeaders( int numZones, int numFullZones,  const sstr &be
 	uint len = nodeList_.size();
 
 	uint dd = len/numFullZones;
+	d("a93930 getLeaders numZones=%d numFullZones=%d nodeList_.size=%d dd=%d", numZones, numFullZones, len, dd );
 
 	for ( unsigned int i=0; i < len; ++i ) {
 		hash = XXH64( nodeList_[i].c_str(), nodeList_[i].size(), seed ) % len ;
 		zone = hash / dd;
+		d("a3333 zone=%d", zone );
 		if ( leader[zone].size() < 1 ) {
 			leader[zone] = nodeList_[i];
+			d("a22337 zone=%d leader[%d] = [%s]", zone, zone, nodeList_[i].c_str() );
 		}
 	}
 	vec = leader;

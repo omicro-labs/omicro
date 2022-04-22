@@ -58,25 +58,6 @@ int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 	sstr yyyymmddhh = getYYYYMMDDHHFromTS(trxn.timestamp_);
 	d("a65701 receiveTrxn ...");
 
-	/***
-    	long pos1;
-    	FILE *fp1 = appendToBlockchain(trxn, trxn.sender_, '-', yyyymmddhh, pos1);
-    	if ( NULL == fp1 ) {
-    		return -1;
-    	}
-    
-    	FILE *fp2 = NULL; 
-    	if ( trxn.trxntype_ == OM_PAYMENT || trxn.trxntype_ == OM_XFERTOKEN ) {
-    		long pos2;
-    		fp2 = appendToBlockchain(trxn, trxn.receiver_, '+', yyyymmddhh, pos2);
-    		if ( NULL == fp2 ) {
-    			fclose( fp1 );
-    			rollbackFromBlockchain(trxn, trxn.sender_, yyyymmddhh, pos1 );
-    			return -2;
-    		}
-    	}
-	***/
-
 	int urc;
 	if ( trxn.trxntype_ == OM_PAYMENT ) {
 		urc = updateAcctBalances(trxn);
@@ -94,13 +75,7 @@ int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 	d("a23021 urc=%d 0 is OK", urc );
 
 	if ( urc < 0 ) {
-		// mark log failure 'F'
-		/***
-		fprintf(fp1, "F}");
-		if ( fp2 ) {
-			fprintf(fp2, "F}");
-		}
-		***/
+		d("a444401 urc < 0 error");
 	} else {
     	long pos1;
     	FILE *fp1 = appendToBlockchain(trxn, trxn.sender_, '-', yyyymmddhh, pos1);
@@ -150,7 +125,6 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 
 	OmstorePtr srcptr;
 	sstr fpath;
-	// sstr ts; trxn.getTrxnData(ts);
 
 	auto itr1 = acctStoreMap_.find( from );
 	if ( itr1 == acctStoreMap_.end() ) {
@@ -266,9 +240,6 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 	sstr ts; trxn.getTrxnData(ts);
 	double amt = trxn.getAmountDouble();
 
-	//int  fromstat = 0;
-	//int  tostat = 0;
-
 	char *fromrec = findSaveStore( from, srcptr );
 	if ( ! fromrec ) {
 		i("E22276 error user from=[%s] does not exist", s(from));
@@ -354,7 +325,6 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 // get a list of trxns of user from. If trxnId is not empty, get specific trxn
 int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &vec, char &tstat, sstr &err )
 {
-
 	sstr yyyymmddhh = getYYYYMMDDHHFromTS(timestamp);
 
 	sstr dir = dataDir_ + "/blocks/" + getUserPath(from) + "/" +  yyyymmddhh;

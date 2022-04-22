@@ -165,7 +165,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 		if ( xit != XIT_i && xit != XIT_l && xit != XIT_m && xit != XIT_n ) {
 			d("a334408 xit=%c not XIT_m XIT_n reply back", xit);
 			sstr m;
-			errResponse( trxnId, "INVALID_TRXN", id_ + " " + err, m );
+			errResponse( "INVALID_TRXN", trxnId, id_ + " " + err, m );
 			reply(m, socket_);
 		}
 		i("E40282 INVALID_TRXN ignore isInitTrxn=%d %s", isInitTrxn, s(err) );
@@ -193,7 +193,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 		if ( rc ) {
 			okResponse( trxnId, "initTrxn", m );
 		} else {
-			errResponse( trxnId, "INVALID_TRXN", "initTrxn", m );
+			errResponse( "INVALID_TRXN", trxnId, "initTrxn", m );
 		}
 
 		d("a333301 reply to endclient %s ...", s(m) );
@@ -221,15 +221,22 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 					t.setXit( XIT_j );
 					strvec replyVec;
 					d("a31112 from=%s %s multicast XIT_j followers for vote expect reply ..", s(from), s(sid_));
-					//pvec( followers );
 
-					//i("a949444 debug: followers:" );
-					//pvectag( "tagfollower", followers );
+					i("a949444 debug: followers:" );
+					pvectag( "tagfollower", followers );
+
+					// leader add vote first
+					serv_.collectKTrxn_.add(trxnId, 1);
 
 					t.srvport_ = serv_.srvport_;
 					sstr alldat; t.allstr(alldat);
 					serv_.multicast( OM_TXN,  followers, alldat, false, replyVec ); // XIT_j
 					d("a31112 from=%s %s multicast XIT_j followers for vote done replyVec=%d\n", s(from), s(sid_), replyVec.size() );
+					if ( followers.size() < 1 ) {
+						d("a33346 no followers, onRecvK and fire next-round");
+						serv_.onRecvK( beacon, trxnId, clientIP_, sid_, t );
+					}
+
 				} else {
 					d("a3306 from=%s XIT_i to state A toAgood is false", s(from));
 				}
@@ -302,7 +309,7 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
     if ( dom.HasParseError() ) {
         i("E43337 dom.HasParseError msg=[%s]\n", msg );
 		sstr m;
-		errResponse( "unknowTrxnId", "INVALID_QUERY", msg, m );
+		errResponse( "INVALID_QUERY", "notrxnid", msg, m );
 		reply( m, socket_ ); 
         return;
     }
@@ -350,7 +357,7 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 		**/
 	} else {
 		sstr m;
-		errResponse( trxnId, "INVALID_REQUEST", msg, m );
+		errResponse( "INVALID_REQUEST", trxnId, msg, m );
 		reply( m, socket_ ); 
 	}
 
@@ -374,6 +381,10 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 
 	for ( auto &id: hostVec ) {
 		d("a20112 initTrxn send XIT_i to leader [%s]", s(id) );
+		strvec followers;
+		bool rc =  circ.isLeader( beacon, id, true, followers  );
+		d("  %d leader %s has followers:", rc, s(id) );
+		pvectag("   tagfollower:", followers );
 	}
 
 	txn.setNotInitTrxn();
@@ -573,7 +584,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 	// run query in validateQuery
 	if ( ! validTrxn ) {
 		sstr json;
-		errResponse( trxnId, "INVALID_QUERY", id_ + "|" + err, json );
+		errResponse( "INVALID_QUERY", trxnId, id_ + "|" + err, json );
 		reply(json, socket_);
 		i("E40202 INVALID_TRXN query ignore" );
 		return;
@@ -626,13 +637,19 @@ void omsession::doQueryL2(const char *msg, int msglen)
 					strvec replyVec;
 					d("a32112 %s multicast XIT_j followers for vote expect reply ..", s(sid_));
 
-					//i("a949449 debug: followers:" );
-					//pvectag( "tagfollower", followers );
+					i("a949449 debug: followers:" );
+					pvectag( "tagfollower", followers );
+
+					serv_.collectQueryKTrxn_.add(trxnId, 1);
 
 					t.srvport_ = serv_.srvport_;
 					sstr alldata; t.allstr(alldata);
 					serv_.multicast( OM_XNQ, followers, alldata, false, replyVec ); // sending XIT_j
 					d("a32112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(sid_), replyVec.size() );
+					if ( followers.size() < 1 ) {
+						d("a422201 no followers, leader check onRecvQueryK and fire off next round");
+						serv_.onRecvQueryK( beacon, trxnId, clientIP_, sid_, t );
+					}
 				} else {
 					d("a3306 XIT_i to state A toAgood is false");
 				}
