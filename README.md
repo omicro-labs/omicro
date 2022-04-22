@@ -33,7 +33,7 @@ and fast.
 When quantum computers become available, current blockchains can be broken in their
 private and public key mechanics. Omicro uses post-quantum cryptography to protect
 account identity and transaction processing. User accounts are represented by
-quantum public and privae keys. Transaction messages are signed and verified with
+quantum public and private keys. Transaction messages are signed and verified with
 private and public keys of all participating nodes. This makes Omicro exceedingly secure.
 
 
@@ -41,5 +41,5 @@ private and public keys of all participating nodes. This makes Omicro exceedingl
 
 Any regular computer can be a backer node and contribute to Omicro network as long as it
 has reasonable amount of computer memory (DRAM), e.g. 8GB, 16GB, etc. Omicro nodes do not
-need GPU, hashing, nor burning electricity. It wll be made extremely easy for backers to join.
+need GPU, hashing, nor burn electricity. It wll be made extremely easy for backers to join.
 
