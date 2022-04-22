@@ -1,4 +1,5 @@
 #include <cstring>
+#include <netinet/tcp.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -18,8 +19,6 @@
 #include "omresponse.h" 
 EXTERN_LOGGING
 
-static unsigned long OM_WAIT_MS = 500;
-
 OmicroClient::OmicroClient( const char *srv, int port )
 {
 	char ps[32];
@@ -27,9 +26,9 @@ OmicroClient::OmicroClient( const char *srv, int port )
 
 	connectOK_ = false;
 
-    auto &ipAddress = srv;
-    auto &portNum   = ps;
-	srv_ = srv;
+    //auto &ipAddress = srv;
+    //auto &portNum   = ps;
+	srv_ = sstr(srv);
 	port_ = port;
 
     addrinfo hints, *p;
@@ -38,7 +37,7 @@ OmicroClient::OmicroClient( const char *srv, int port )
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags    = AI_PASSIVE;
 
-    int gAddRes = getaddrinfo(ipAddress, portNum, &hints, &p);
+    int gAddRes = getaddrinfo(srv, ps, &hints, &p);
     if (gAddRes != 0) {
 		i("E20031 getaddrinfo error %s", gai_strerror(gAddRes) );
         return;
@@ -69,6 +68,9 @@ OmicroClient::OmicroClient( const char *srv, int port )
 	tv.tv_usec = 0; 
 	setsockopt(socket_, SOL_SOCKET, SO_SNDTIMEO,(struct timeval *)&tv, sizeof(struct timeval));
 	setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv, sizeof(struct timeval));
+
+	int yes = 1;
+	setsockopt( socket_, IPPROTO_TCP, TCP_NODELAY, (void*)&yes, sizeof(yes));
 
 	d("a70231 OmicroClient ctor connectOK_ srv=%s port=%d", srv, port);
 	connectOK_ = true;
@@ -117,7 +119,6 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 	int cnt = 0;
 	sstr res;
 	if ( expectReply ) {
-		//sleep(3);
 		char hdr2[OMHDR_SZ+1];
 		OmMsgHdr mhdr2(hdr2, OMHDR_SZ, true);
 
@@ -150,61 +151,16 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 	return res;
 }
 
-sstr OmicroClient::sendTrxn( OmicroTrxn &t, int waitSeconds)
+sstr OmicroClient::sendTrxn( OmicroTrxn &t )
 {
 	t.setInitTrxn();
 	sstr alldata; t.allstr(alldata);
 
 	sstr reply = sendMessage( OM_TXN, alldata, true );
-	if ( reply.size() < 1 ) {
-		d("a11128 sendMessage empty");
-		return "";
-	}
-
-	d("14073 sendTrxn sendMessage reply=[%s]", s(reply));
-
-	OmResponse resp( reply );
-	d("a42128 sendTrxn reply=[%s]\n", s(reply));
-	sstr trxnId = resp.TID_;
-
-	if ( resp.STT_ == OM_RESP_ERR ) {
-		d("a322081 got OM_RESP_ERR from server [%s]", reply.c_str() );
-		return reply;
-	}
-
-	OmicroSimpleQuery q;
-	q.setTrxnId( trxnId );
-	q.setSender( t.sender_ );
-	q.setTimeStamp( t.timestamp_ );
-
-	int waitCnt = waitSeconds*(1000/OM_WAIT_MS);
-	int cnt = 0;
-
-	sstr data; q.str("QT", data);
-
-	while ( true ) {
-		reply = sendMessage( OM_RQ, data, true );
-		OmResponse resp( reply );
-		d("a423376 sendMessage OM_RQ reply=[%s]", s(reply) );
-		if ( resp.RSN_ == "FAILED" ) {
-			break;
-		}
-
-		if ( resp.RSN_ != "NOTFOUND" ) {
-			break;
-		}
-
-		usleep(1000*OM_WAIT_MS);
-		++cnt;
-		if ( cnt > waitCnt ) {
-			break;
-		}
-	}
-
 	return reply;
 }
 
-sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
+sstr OmicroClient::sendQuery( OmicroTrxn &t )
 {
 	t.setInitTrxn();
 	sstr alldata; t.allstr(alldata);
@@ -222,35 +178,14 @@ sstr OmicroClient::sendQuery( OmicroTrxn &t, int waitSeconds )
 		return resp.RSN_;
 	}
 
+	sleep(5);
 	OmicroSimpleQuery q;
 	q.setTrxnId( trxnId );
 	q.setSender( t.sender_ );
 	q.setTimeStamp( t.timestamp_ );
-
-	int waitCnt = waitSeconds*(1000/OM_WAIT_MS);
-	int cnt = 0;
 	sstr data; q.str("QQ", data);
 
-	while ( true ) {
-		reply = sendMessage( OM_RQ, data, true );
-		d("a73714 sendMessage got reply=[%s] ", reply.c_str() );
-
-		OmResponse resp( reply );
-		if ( resp.RSN_ == "FAILED" ) {
-			break;
-		}
-
-		if ( resp.RSN_ != "NOTFOUND" ) {
-			break;
-		}
-
-		usleep(1000*OM_WAIT_MS);
-		++cnt;
-		if ( cnt > waitCnt ) {
-			break;
-		}
-	}
-
+	reply = sendMessage( OM_RQ, data, true );
 	return reply;
 }
 
@@ -259,7 +194,7 @@ sstr OmicroClient::reqPublicKey( int waitSeconds)
 	OmicroSimpleQuery q;
 	q.setTrxnId( "1" );
 
-	int waitCnt = waitSeconds*(1000/OM_WAIT_MS);
+	int waitCnt = 30;
 	int cnt = 0;
 	sstr cmd, reply;
 
@@ -278,7 +213,7 @@ sstr OmicroClient::reqPublicKey( int waitSeconds)
 			return resp.DAT_;
 		}
 
-		usleep(1000*OM_WAIT_MS);
+		usleep(1000*100);
 		++cnt;
 		if ( cnt > waitCnt ) {
 			break;

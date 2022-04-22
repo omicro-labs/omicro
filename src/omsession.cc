@@ -77,7 +77,7 @@ void omsession::do_read()
 				if ( dlen <= OM_MSG_MAXSZ ) {
     				char *data = (char*)malloc( dlen+1 );
     				data[dlen] = '\0';
-    				d("a63003 a91838 srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
+    				i("a63003 async_read srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
     
     				bcode ec2;
     				int len2 =  boost::asio::read( socket_, boost::asio::buffer(data,dlen), ec2 );
@@ -97,6 +97,8 @@ void omsession::do_read()
     				}
     
     				free(data);
+    				i("a63003 async_read and processing done\n" );
+
     				do_read();
 				} else {
 					i("E398462 dlen=%d too big > %d  close socket", dlen, OM_MSG_MAXSZ );
@@ -191,7 +193,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 		d("a333301  i am clientproxy, from=%s launched initTrxn rc=%d", s(from), rc );
 		sstr m;
 		if ( rc ) {
-			okResponse( trxnId, "initTrxn", m );
+			okResponse( trxnId, "TrxnSubmitOK", m );
 		} else {
 			errResponse( "INVALID_TRXN", trxnId, "initTrxn", m );
 		}

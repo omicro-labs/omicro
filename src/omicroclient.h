@@ -11,8 +11,8 @@ class OmicroClient
   	OmicroClient( const char *host, int port );
   	~OmicroClient();
 
-	std::string sendTrxn( OmicroTrxn &t, int waitSeconds=60 );
-	std::string sendQuery( OmicroTrxn &t, int waitSeconds=60 );
+	std::string sendTrxn( OmicroTrxn &t  );
+	std::string sendQuery( OmicroTrxn &t );
 	std::string sendMessage( char mtype, const std::string &msg, bool expectReply );
 	std::string reqPublicKey( int waitSeconds);
 

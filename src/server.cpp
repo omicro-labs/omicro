@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <cstdlib>
 #include <pthread.h>
+#include <thread>
 #include <malloc.h>
 
 #include <memory>
@@ -408,11 +409,9 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 	d("a31303 multicast send msgs to nodes %d expectReply=%d ...", len, expectReply );
 	replyVec.clear();
 
-	pthread_t thrd[len];
 	ThreadParam thrdParam[len];
 	sstr srvport, pubkey, dat;
 	bool useThreads = true;
-	int trc;
 
 	for ( int j=0; j < len; ++j ) {
 		if ( hostVec[j].size() < 1 ) {
@@ -443,54 +442,26 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 		#endif
 
 		t.allstr(thrdParam[j].trxn);
-		thrdParam[j].expectReply = expectReply;
 		if ( useThreads ) {
-			trc = pthread_create(&thrd[j], NULL, &threadSendMsg, (void *)&thrdParam[j]);
-			if ( 0 == trc ) {
-				d("a43308 create thread OK trc=%d", trc );
-			} else {
-				i("E43308 failed to create thread trc=%d", trc );
-			}
+			std::thread t(threadSendMsg, thrdParam[j] );
+			t.detach();
 		} else {
-			threadSendMsg( (void *)&thrdParam[j] );
+			//threadSendMsg( (void *)&thrdParam[j] );
 		}
 	}
 
-	int connected = 0;
-	for ( int j=0; j < len; ++j ) {
-		if ( useThreads ) {
-			pthread_join( thrd[j], NULL );
-		}
-
-		if ( expectReply ) {
-			d("a59031 pthread_join i=%d done expectReply=1", i );
-			if ( thrdParam[j].reply.size() > 0 ) {
-				replyVec.push_back( thrdParam[j].reply );
-			}
-		}
-
-		if ( thrdParam[j].reply != "NOCONN" ) {
-			++connected;
-		}
-	}
-
-	d("a31303 multicast msgs to nodes %d done expectReply=%d replied=%d connected=%d", len, expectReply, replyVec.size(), connected );
-	return connected;
+	d("a31303 multicast msgs to nodes %d done replied=%d", len, replyVec.size() );
+	return 1;
 }
 
-void *threadSendMsg(void *arg)
+void threadSendMsg( ThreadParam p )
 {
-    ThreadParam *p = (ThreadParam*)arg;
-    OmicroClient cli( p->srv.c_str(), p->port);
+    OmicroClient cli( p.srv.c_str(), p.port);
 	if ( ! cli.connectOK() ) {
-		p->reply = "NOCONN";
-		return NULL;
+		return;
 	}
 
-	d("a30114 cli.sendMessage ... " );
-    p->reply = cli.sendMessage( p->msgType,  p->trxn.c_str(), p->expectReply );
-	d("a30114 cli.sendMessage returned p->expectReply=%d p->reply=[%s]", p->expectReply, s(p->reply) );
-    return NULL;
+    cli.sendMessage( p.msgType,  p.trxn.c_str(), 0);
 }
 
 void omserver::onRecvQueryK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )

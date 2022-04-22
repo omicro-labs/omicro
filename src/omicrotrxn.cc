@@ -302,21 +302,14 @@ void  OmicroTrxn::makeSimpleTrxn( const sstr &nodePubkey,
 {
 	thdr_ = "IT";
 	setID();
-
 	setBeacon();
 	srvport_ = "127.0.0.1:client";
-
 	sender_ = from;
 	receiver_ = to;
-
 	amount_ = amt;
-
 	setNowTimeStamp();
-
 	trxntype_ = OM_PAYMENT; // payment
-
 	assettype_ = "OC";
-
 	makeNodeSignature( nodePubkey );
 	makeUserSignature( userSecretKey, userPublicKey );
 }
@@ -334,12 +327,9 @@ void OmicroTrxn::makeNewAcctTrxn( const sstr &nodePubkey,
 
 	thdr_ = "IT";
 	setID();
-
 	setBeacon();
 	srvport_ = "127.0.0.1:client";
-
 	sender_ = userId;
-
 	receiver_ = "";
 	amount_ = "0";
 	setNowTimeStamp();

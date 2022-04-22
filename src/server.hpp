@@ -25,7 +25,7 @@ struct ThreadParam
 	char msgType;
     bool expectReply;
 };
-void *threadSendMsg(void *arg);
+void threadSendMsg( ThreadParam p);
 
 class OmicroTrxn;
 

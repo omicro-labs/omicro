@@ -519,33 +519,6 @@ void BlockMgr::initDirs()
 {
 	makedirPath( dataDir_ );
 	d("a44427 mkdir [%s]", dataDir_.c_str() );
-	/***
-	sstr topd = dataDir_;
-	sstr is, js, d;
-
-	sstr d1, d2, d3;
-    d1 = topd + "/23/45";
-    d2 = topd + "/408/23";
-    d3 = topd + "/278/785";
-	if ( 0 == ::access(d1.c_str(), R_OK|W_OK ) 
-	     && 0 == ::access(d2.c_str(), R_OK|W_OK )
-		 && 0 == ::access(d3.c_str(), R_OK|W_OK ) )
-	{
-		i("initDirs() was already done");
-		return;
-	}
-
-    for ( int i=0; i < DIR_LEVEL1_NUM; ++i ) {
-        is = std::to_string(i);
-        d = topd + "/" + is;
-        ::mkdir( d.c_str(), 0700 );
-        for ( int j=0; j < DIR_LEVEL2_NUM; ++j ) {
-            js = std::to_string(j);
-            d = topd + "/" + is + "/" + js;
-           	::mkdir( d.c_str(), 0700 );
-        }
-    }
-	***/
 }
 
 sstr BlockMgr::getUserPath( const sstr &userid )

@@ -27,14 +27,6 @@
 #include "omstrsplit.h"
 #include "omlog.h"
 
-/***
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/error/en.h>
-**/
-
-
 EXTERN_LOGGING
 
 unsigned int onefplus1( int N )
@@ -215,12 +207,16 @@ void makedirPath( const sstr &fullpath )
 
     sstr  path;
     OmStrSplit ar(fullpath, '/');
-    for ( int i=0; i<ar.length(); i++) {
+    for ( int k=0; k<ar.length(); ++k) {
         if (isabs ) path="/"; else path="";
-        for (int j=0; j<=i; j++) {
+        for (int j=0; j<=k; j++) {
             path += ar[j] + "/";
         }
-        ::mkdir( path.c_str(), 0700 );
+
+		if ( path != "../" && path != "../data/" ) {
+        	::mkdir( path.c_str(), 0700 );
+			i("a30341 mkdir(%s)", path.c_str() );
+		}
     }
 }
 
