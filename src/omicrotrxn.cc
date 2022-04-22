@@ -72,7 +72,6 @@ OmicroTrxn::OmicroTrxn( const char *str )
 	userPubkey_ = sp[i++];
 	userSignature_ = sp[i++];
 
-	vote_ = sp[i++];
 	fence_ = sp[i++];
 	response_ = sp[i++];
 
@@ -82,10 +81,6 @@ OmicroTrxn::OmicroTrxn( const char *str )
 	#ifdef OM_DEBUG
 	nodepubkey_ = sp[i++];
 	#endif
-
-	if ( vote_.size() < 1 ) {
-		vote_ = "0";
-	}
 
 	if ( beacon_.size() < 1 ) {
 		setBeacon();
@@ -165,36 +160,6 @@ ulong OmicroTrxn::getTimeStampUS()
 	// microseconds since epoch
 }
 
-int OmicroTrxn::getVoteInt()
-{
-	if ( vote_.size() < 1 ) return 0;
-	int num = atoi(vote_.c_str());
-	return num;
-}
-
-void OmicroTrxn::setVoteInt( int votes )
-{
-	char v[16];
-	sprintf(v, "%d", votes );
-	vote_ = v;
-}
-
-void OmicroTrxn::addVote(int vote)
-{
-	int v = getVoteInt();
-	v += vote;
-	setVoteInt( v );
-}
-
-void OmicroTrxn::minusVote(int vote)
-{
-	int v = getVoteInt();
-	v -= vote;
-	if ( v < 0 ) v = 0;
-	setVoteInt( v );
-}
-
-
 void OmicroTrxn::makeNodeSignature( const sstr &nodePubKey)
 {
 	sstr trxndata;
@@ -216,7 +181,7 @@ void OmicroTrxn::allstr( sstr &alldata )
 	sstr data;
 	getTrxnData( data );
 	alldata = data + "|" + cipher_ + "|" + signature_ + "|" 
-	          + userPubkey_ + "|" + userSignature_ + "|" + vote_ + "|" + fence_
+	          + userPubkey_ + "|" + userSignature_ + "|" + fence_
 			  + "|" + response_ + "|" + thdr_ + "|" + srvport_;
 
 	#ifdef OM_DEBUG
@@ -351,7 +316,6 @@ void  OmicroTrxn::makeSimpleTrxn( const sstr &nodePubkey,
 	trxntype_ = OM_PAYMENT; // payment
 
 	assettype_ = "OC";
-	setVoteInt(0);
 
 	makeNodeSignature( nodePubkey );
 	makeUserSignature( userSecretKey, userPublicKey );
@@ -382,7 +346,6 @@ void OmicroTrxn::makeNewAcctTrxn( const sstr &nodePubkey,
 
 	trxntype_ = OM_NEWACCT; // create acct
 	assettype_ = "";
-	setVoteInt(0);
 
 	// set request_
 	OmJson js;
@@ -413,7 +376,6 @@ void OmicroTrxn::makeNewTokenTrxn( const sstr &nodePubkey,
 
 	trxntype_ = OM_NEWTOKEN; // create acct
 	assettype_ = "T";
-	setVoteInt(0);
 
 	// set request_
 	request_ = tokenSpec;
@@ -464,7 +426,6 @@ void OmicroTrxn::makeAcctQuery( const sstr &nodePubkey, const sstr &secretKey,
 	q.json( qstr );
 	request_ = qstr;
 
-	setVoteInt(0);
 	makeNodeSignature( nodePubkey );
 	makeUserSignature( secretKey, publicKey );
 }
@@ -493,7 +454,6 @@ void OmicroTrxn::makeTokensQuery( const sstr &nodePubkey, const sstr &secretKey,
 	q.json( qstr );
 	request_ = qstr;
 
-	setVoteInt(0);
 	makeNodeSignature( nodePubkey );
 	makeUserSignature( secretKey, publicKey );
 }
@@ -524,7 +484,6 @@ void OmicroTrxn::makeOneTokenQuery( const sstr &nodePubkey, const sstr &secretKe
 	q.json( qstr );
 	request_ = qstr;
 
-	setVoteInt(0);
 	makeNodeSignature( nodePubkey );
 	makeUserSignature( secretKey, publicKey );
 }
@@ -551,7 +510,6 @@ void  OmicroTrxn::makeTokenTransfer( const sstr &nodePubkey,
 	request_ = tokenJson;
 
 	assettype_ = "TK";
-	setVoteInt(0);
 
 	makeNodeSignature( nodePubkey );
 	makeUserSignature( userSecretKey, userPublicKey );

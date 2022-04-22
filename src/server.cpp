@@ -41,7 +41,6 @@ using bcode = boost::system::error_code;
 
 
 omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, const sstr &port)
-      //: io_context_(io_context), cTimer_(io_context), dTimer_(io_context),
       : io_context_(io_context), 
 	    acceptor_(io_context, tcp::endpoint(boost::asio::ip::address::from_string(srvip.c_str()), atoi(port.c_str()) ))
 {
@@ -61,14 +60,8 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
 	blockMgr_.setSrvPort( address_, port_);
 	blockMgr_.setDataDir( dataDir );
 
-	//timer1_ = new btimer( io_context_ );
-	//timer2_ = new btimer( io_context_ );
-	//timer3_ = new btimer( io_context_ );
 	cleanupTimer_ = new btimer( io_context_ );
 
-	//waitCCount_ = 0;
-	//waitDCount_ = 0;
-	//waitQCount_ = 0;
 	cleanupTimer_->expires_at(cleanupTimer_->expiry() + boost::asio::chrono::seconds(300));
 	cleanupTimer_->async_wait(boost::bind(&omserver::doCleanup, this ));
 
@@ -79,9 +72,6 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
 
 omserver::~omserver()
 {
-	//delete timer1_;
-	//delete timer2_;
-	//delete timer3_;
 	delete cleanupTimer_;
 }
 
@@ -267,7 +257,6 @@ void omserver::onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	}
 
 	collectKTrxn_.add(trxnId, 1);
-	totalKVotes_.add(trxnId, t.getVoteInt());
 
 	d("a20733 from=%s got XIT_k am leader increment collectTrxn[trxnId]", s(t.sender_));
 		
@@ -281,14 +270,12 @@ void omserver::onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clie
 		d("a331808 from=%s XIT_k to toCgood true. mcast XIT_l to other leaders", s(t.sender_));
 		// todo L2 L3
 		t.setXit( XIT_l );
-		t.setVoteInt( totalKVotes_.get(trxnId) );
 		strvec nullvec;
 		t.srvport_ = srvport_; 
 		sstr alldat; t.allstr(alldat);
 		multicast( OM_TXN, otherLeaders, alldat, false, nullvec ); // XIT_l
 		d("a39221 from=%s %s multicast otherLeaders done t.srvport_=[%s]", s(t.sender_), s(id_), s(t.srvport_) );
 		collectKTrxn_.erase(trxnId);
-		totalKVotes_.erase(trxnId);
 	} else {
 		d("a21842 from=%s %s got XIT_k but notenough quorum, a leader, rcvcnt=%d < twofp1=%d", s(t.sender_), s(id_), recvcnt, twofp1 );
 	}
@@ -315,7 +302,6 @@ void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	d("a5549381 from=%s onRecvL check that server is in ST_C, go ahead", s(t.sender_) );
 
 	collectLTrxn_.add(trxnId, 1);
-	totalLVotes_.add(trxnId, t.getVoteInt());
 
 	d("a3733 from=%s got XIT_l am leader increment collectTrxn[trxnId]", s(t.sender_));
 		
@@ -329,7 +315,6 @@ void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 		d("a331208 from=%s XIT_l to toDgood true", s(t.sender_));
 		// todo L2 L3
 		t.setXit( XIT_m );
-		t.setVoteInt( totalLVotes_.get(trxnId) );
 		strvec nullvec;
 		//pvec(otherLeaders);
 		t.srvport_ = srvport_; 
@@ -339,7 +324,6 @@ void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 		d("a33221 from=%s %s round-2 multicast otherLeaders done t.srvport_=[%s]", s(t.sender_), s(id_), s(t.srvport_) );
 
 		collectLTrxn_.erase(trxnId);
-		totalLVotes_.erase(trxnId);
 	} else {
 		d("a22342 from=%s %s got XIT_l but notenough quorum, a leader, rcvcnt=%d < twofp1=%d", s(t.sender_), s(id_), recvcnt, twofp1 );
 	}
@@ -366,19 +350,11 @@ void omserver::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	}
 
 	collectMTrxn_.add(trxnId, 1);
-	totalMVotes_.add(trxnId, t.getVoteInt());
-
-	ulong mvotes = totalMVotes_.get(trxnId);
-	ulong avgVotes = mvotes/otherLeaders.size();
-
-	ulong v2fp1 = twofplus1( avgVotes );
 	ulong trxnVotes = collectMTrxn_.get(trxnId);
-
 	uint twofp1 = twofplus1( otherLeaders.size() + 1);
-	d("a33039 doRecvM  from=%s avgVotes=%d v2fp1=%d twofp1=%d mvotes=%d trxnVotes=%d", s(t.sender_), avgVotes, v2fp1, twofp1, mvotes, trxnVotes );
+	d("a33039 doRecvM  from=%s twofp1=%d trxnVotes=%d", s(t.sender_), twofp1, trxnVotes );
 
-	todo
-	if ( trxnVotes >= twofp1 && nodeList_.size() >= v2fp1 ) {
+	if ( trxnVotes >= twofp1 ) {
 		// state to E
 		d("a2235 from=%s %s got enough quorum XIT_m, good, leader, trxnid=%s", s(t.sender_), s(id_), s(trxnId) );
 		trxnState_.setState( trxnId, ST_E );
@@ -386,8 +362,6 @@ void omserver::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			d("a02227 from=%s XIT_m toEgood ST_E true", s(t.sender_));
 			// todo L2 L3
 			t.setXit( XIT_n );
-			//t.setVoteInt( avgVotes );
-			t.setVoteInt( mvotes );
 			strvec nullvec;
 			d("a33281 from=%s %s multicast XIT_n followers ...", s(t.sender_), s(id_));
 
@@ -404,7 +378,6 @@ void omserver::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 			d("a99 leader from=[%s] commit TRXN %s peer:[%s]", s(t.sender_), s(trxnId), s(t.srvport_) );
 		} 
 		collectMTrxn_.erase(trxnId);
-		totalMVotes_.erase(trxnId);
 	} else {
 		d("a72228 XIT_m from=%s notenough quorum, XIT_n not sent ", s(t.sender_));
 	}
@@ -466,9 +439,6 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 		}
 	}
 
-	// todo
-	//sleep(5);
-
 	int connected = 0;
 	for ( int j=0; j < len; ++j ) {
 		if ( useThreads ) {
@@ -506,30 +476,47 @@ void *threadSendMsg(void *arg)
     return NULL;
 }
 
-void omserver::addQueryVote( const sstr &trxnId, int votes )
+void omserver::onRecvQueryK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
 {
-	// todo cleanup of queryVote_
-	queryVote_.add(trxnId, votes);
-}
+	strvec followers;
+	DynamicCircuit circ( nodeList_);
 
-void omserver::getQueryVote( const sstr &trxnId, int &votes )
-{
-	votes = queryVote_.get(trxnId);
+	bool iAmLeader = circ.isLeader( beacon, id_, false, followers );
+	if ( ! iAmLeader ) {
+		d("a25034 %s got query XIT_k, i am not leader, ignore", s(id_) );
+		return;
+	}
+	d("a30024 onRecvQueryK() i am leader client=[%s] sid=[%s] ...", s(clientIP), s(sid));
+
+	Byte curState;
+	trxnState_.getState( trxnId, curState );
+	if ( curState >= ST_C ) {
+		d("a02824 doRecvK from=%s state=%c already at or passed ST_C, ignore",  s(t.sender_), curState );
+		return;
+	}
+
+	collectQueryKTrxn_.add(trxnId, 1);
+		
+	uint twofp1 = twofplus1( followers.size() + 1);
+	d("a53098 doRecvK from=%s twofp1=%d followers=%d", s(t.sender_), twofp1, followers.size() );
+	uint recvcnt = collectKTrxn_.get(trxnId);
+	if ( recvcnt >= twofp1 ) { 
+		d("a2234 from=%s %s got enough quorum query XIT_k, good, leader, cnt=%d >= twofp1=%d trnxId=%s", s(t.sender_), s(id_), recvcnt, twofp1, s(trxnId) );
+		// state to C
+		trxnState_.setState( trxnId, ST_C );
+		collectQueryKTrxn_.erase(trxnId);
+	} else {
+		d("a27842 from=%s %s got query XIT_k but notenough quorum, a leader, rcvcnt=%d < twofp1=%d", s(t.sender_), s(id_), recvcnt, twofp1 );
+	}
 }
 
 void omserver::doCleanup()
 {
 	// cleanup votes and collections of trxnID
 	collectKTrxn_.cleanup( 240 );
-	totalKVotes_.cleanup( 240 );
-
+	collectQueryKTrxn_.cleanup( 240 );
     collectLTrxn_.cleanup( 240 );
-	totalLVotes_.cleanup( 240 );
-
 	collectMTrxn_.cleanup( 240 );
-	totalMVotes_.cleanup( 240 );
-
-	queryVote_.cleanup( 240 );
 	qResult_.cleanup( 240 );
 
 	cleanupTimer_->expires_at(cleanupTimer_->expiry() + boost::asio::chrono::seconds(300));

@@ -29,14 +29,7 @@ class OmicroTrxn
 	double getAmountDouble();
 	unsigned long getTimeStampUS();
 	void setNowTimeStamp();
-
-	int  getVoteInt();
-	void setVoteInt( int votes );
-	void addVote(int vote);
-	void minusVote(int vote);
-
 	void allstr( std::string &alldata );
-
 	void  getTrxnID( std::string &id);
 	void  makeSimpleTrxn( const std::string &nodePubkey, const std::string &userSecretKey, 
 						  const std::string &userPublicKey, const std::string &fromId, 
@@ -98,7 +91,6 @@ class OmicroTrxn
 	std::string signature_;
 	std::string userPubkey_;
 	std::string userSignature_;
-	std::string vote_;
 	std::string fence_;
 	std::string response_;
 
@@ -106,7 +98,7 @@ class OmicroTrxn
 	std::string srvport_;
 
 	#ifdef OM_DEBUG
-	std::string nodepubkey_;      // 28  for debug only
+	std::string nodepubkey_;      // for debug only
 	#endif
 };
 

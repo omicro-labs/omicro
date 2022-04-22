@@ -251,10 +251,8 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 			if ( ! isLeader ) {
 				t.srvport_ = serv_.srvport_;
 				t.setXit( XIT_k );
-				t.setVoteInt( 1 );
 				strvec replyVec;
 				sstr alldat; t.allstr(alldat);
-				// qwert setVote
 				d("a34112 from=%s %s unicast XIT_k from follower to leader ..", s(from), s(sid_));
 				serv_.multicast( OM_TXN, leader, alldat, false, replyVec );  // XIT_k
 			} else {
@@ -264,19 +262,15 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 		} else if ( xit == XIT_k ) {
 			// if reaching quorum, fire next multicast
 			d("a53103 from=%s %s got XIT_k peer:[%s]", s(from), s(id_), s(peer) );
-			OmicroTrxn t2 = t;
-			serv_.onRecvK( beacon, trxnId, clientIP_, sid_, t2 );
+			serv_.onRecvK( beacon, trxnId, clientIP_, sid_, t );
 		} else if ( xit == XIT_l ) {
 			d("a92822 from=%s %s received XIT_l peer:[%s] ...", s(from), s(sid_), s(peer) );
-			//serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t );
-			OmicroTrxn t2 = t;
-			serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t2 );
+			serv_.onRecvL( beacon, trxnId, clientIP_, sid_, t );
 			d("a92822 from=%s %s received XIT_l peer:[%s] done", s(from), s(sid_), s(peer) );
 		} else if ( xit == XIT_m ) {
 		    // received one XIT_m, there may be more XIT_m in next 3 seconds
 			d("a54103 from=%s %s got XIT_m peer:[%s]", s(from), s(id_), s(peer) );
-			OmicroTrxn t2 = t;
-			serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t2 );
+			serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t );
 			d("a54103 from=%s %s got XIT_m peer:[%s] done", s(from), s(id_), s(peer) );
 		} else if ( xit == XIT_n ) {
 			// follower gets a trxn commit message
@@ -332,26 +326,28 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 	} else if ( qtype == "QQ" ) {
 		d("a2939 QQ");
 		// request last query result
-		// todo check server queryVote_ for trxnId
 		uint nodeLen = serv_.nodeList_.size();
-		int votes;
-		serv_.getQueryVote( trxnId, votes );
+		int votes = serv_.collectQueryKTrxn_.get(trxnId);
 		d("a32209 nodeLen=%d votes=%d", nodeLen, votes );
-		/***
 		if ( uint(votes) < (2*nodeLen/3) ) {
-			sstr m = trxnId + "|NOTFOUND";
+			d("a040449 query not enough votes");
+			sstr m;
+			errResponse("NOTFOUND", trxnId, "NOT_ENOUGH_VOTES", m );
 			reply( m, socket_ ); 
 		} else {
+			d("a040443 query got enough votes");
 			sstr lastResult;
-			getResult( trxnId, lastResult );
+			getQueryResult( trxnId, sender, lastResult );
 			reply( lastResult, socket_ ); 
 		}
-		***/
+
+		/**
 		sstr lastResult; // json
-		getResult( trxnId, sender, lastResult );
+		getQueryResult( trxnId, sender, lastResult );
 		d("a43207 lastResult=[%s] reply...", s(lastResult) );
 		reply( lastResult, socket_ ); 
 		d("a43207 lastResult=[%s] sent done", s(lastResult) );
+		**/
 	} else {
 		sstr m;
 		errResponse( trxnId, "INVALID_REQUEST", msg, m );
@@ -517,7 +513,7 @@ bool omsession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitT
 
 	bool validTrxn = txn.validateTrxn( serv_.secKey_ );
 	if ( ! validTrxn ) {
-		i("E20290 query is not valid");
+		i("E20290 validateQuery query is not valid");
 		err = "Invalid tranaction message";
 		return false;
 	}
@@ -590,7 +586,9 @@ void omsession::doQueryL2(const char *msg, int msglen)
 	if ( isInitTrxn ) {
 		//t.setID();
 		d("a41713 initquery trxnId=[%s]", s(trxnId) );
+
 		rc = initQuery( t );
+
 		OmResponse resp;
 		resp.TID_ = trxnId;
 		if ( rc ) {
@@ -633,12 +631,8 @@ void omsession::doQueryL2(const char *msg, int msglen)
 
 					t.srvport_ = serv_.srvport_;
 					sstr alldata; t.allstr(alldata);
-					serv_.multicast( OM_XNQ, followers, alldata, true, replyVec );
+					serv_.multicast( OM_XNQ, followers, alldata, false, replyVec ); // sending XIT_j
 					d("a32112 %s multicast XIT_j followers for vote done replyVec=%d\n", s(sid_), replyVec.size() );
-
-					int votes = replyVec.size(); // how many replied
-					t.setVoteInt( votes );
-					serv_.addQueryVote( trxnId, votes );
 				} else {
 					d("a3306 XIT_i to state A toAgood is false");
 				}
@@ -648,12 +642,18 @@ void omsession::doQueryL2(const char *msg, int msglen)
 			}
 		} else if ( xit == XIT_j ) {
 			// I am follower, give my vote to leader
-			d("a5502 received XIT_j from [%s] reply back good", s(peer));
-			sstr json;
-			okResponse( trxnId, "XIT_j", json);
-			reply(json, socket_);
-			d("a55150 m=[%s]", json.c_str() );
+			DynamicCircuit circ( serv_.nodeList_);
+			strvec leader;
+			strvec replyVec;
+			bool iAmLeader = circ.getLeader( beacon, id_, leader );
+			if ( ! iAmLeader ) {
+				t.setXit( XIT_k );
+				t.srvport_ = serv_.srvport_;
+				sstr alldata; t.allstr(alldata);
+				serv_.multicast( OM_XNQ, leader, alldata, false, replyVec ); // sending XIT_k
+			}
 		} else if ( xit == XIT_k ) {
+			serv_.onRecvQueryK( beacon, trxnId, clientIP_, sid_, t );
 		}
     }
 
@@ -713,7 +713,7 @@ bool omsession::initQuery( OmicroTrxn &txn )
 }
 
 // res is json retured
-void omsession::getResult( const sstr &trxnId, const sstr &sender, sstr &res )
+void omsession::getQueryResult( const sstr &trxnId, const sstr &sender, sstr &res )
 {
 	OmResponse resp;
 	resp.TID_ = trxnId;

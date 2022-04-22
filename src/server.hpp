@@ -39,25 +39,18 @@ class omserver
 	void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
 	void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
 
+	void onRecvQueryK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
+
 	int multicast( char msgType, const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
 	void getPubkey( const sstr &srvport, sstr &pubkey );
-	void addQueryVote( const sstr &trxnId, int votes );
-	void getQueryVote( const sstr &trxnId, int &votes );
 
 	OmWaitCount  collectKTrxn_;
-	OmWaitCount  totalKVotes_;
-
+	OmWaitCount  collectQueryKTrxn_;
 	OmWaitCount  collectLTrxn_;
-	OmWaitCount  totalLVotes_;
-
 	OmWaitCount  collectMTrxn_;
-	OmWaitCount  totalMVotes_;
-
+	OmWaitStr   qResult_;
 
 	std::unordered_map<sstr, sstr> srvport_pubkey_;
-
-	OmWaitCount queryVote_;
-	OmWaitStr   qResult_;
 
 	TrxnState trxnState_;
 	NodeList nodeList_;
@@ -71,7 +64,6 @@ class omserver
 	sstr pubKey_;
 	sstr secKey_;
 	sstr address_, port_;
-
 
   private:
     void do_accept();
@@ -88,7 +80,6 @@ class omserver
     tcp::acceptor acceptor_;
 
 	btimer *cleanupTimer_; // cleanup cached trxn items
-
 };
 
 #endif 

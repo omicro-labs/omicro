@@ -37,7 +37,7 @@ class omsession : public std::enable_shared_from_this<omsession>
 	void makeSessionID();
 	bool validateTrxn( const sstr &trxnId, OmicroTrxn &txn, bool isInitTrxn, sstr &err );
 	bool validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitTrxn, sstr &err );
-	void getResult( const sstr &trxnId, const sstr &sender, sstr &res );
+	void getQueryResult( const sstr &trxnId, const sstr &sender, sstr &res );
   
 	boost::asio::io_context& io_context_;
 	omserver &serv_;
