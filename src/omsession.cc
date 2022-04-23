@@ -45,7 +45,7 @@ omsession::omsession(boost::asio::io_context& io_context, omserver &srv, tcp::so
 	clientIP_ = socket_.remote_endpoint().address().to_string();
 	makeSessionID();
 	hdr_[OMHDR_SZ] = '\0';
-	i("I0001 accepted new client sid_=[%s] from %s:%d", s(sid_), s(clientIP_), socket_.remote_endpoint().port() );
+	d("I0001 accepted new client sid_=[%s] from %s:%d", s(sid_), s(clientIP_), socket_.remote_endpoint().port() );
 }
 
 void omsession::start()
@@ -77,7 +77,7 @@ void omsession::do_read()
 				if ( dlen <= OM_MSG_MAXSZ ) {
     				char *data = (char*)malloc( dlen+1 );
     				data[dlen] = '\0';
-    				i("a63003 async_read srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
+    				d("a63003 async_read srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
     
     				bcode ec2;
     				int len2 =  boost::asio::read( socket_, boost::asio::buffer(data,dlen), ec2 );
@@ -97,11 +97,11 @@ void omsession::do_read()
     				}
     
     				free(data);
-    				i("a63003 async_read and processing done\n" );
+    				d("a63003 async_read and processing done\n" );
 
     				do_read();
 				} else {
-					i("E398462 dlen=%d too big > %d  close socket", dlen, OM_MSG_MAXSZ );
+					d("E398462 dlen=%d too big > %d  close socket", dlen, OM_MSG_MAXSZ );
 					socket_.close();
 				}
             } else {
@@ -164,6 +164,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 	sstr err;
 	bool validTrxn = validateTrxn( trxnId, t, isInitTrxn, err );
 	if ( ! validTrxn ) {
+		/***
 		if ( xit != XIT_i && xit != XIT_l && xit != XIT_m && xit != XIT_n ) {
 			d("a334408 xit=%c not XIT_m XIT_n reply back", xit);
 			sstr m;
@@ -171,6 +172,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 			reply(m, socket_);
 		}
 		i("E40282 INVALID_TRXN ignore isInitTrxn=%d %s", isInitTrxn, s(err) );
+		***/
 		d("a1000 doTrxnL2 INVALID from=[%s] srvport=%s", s(t.sender_), s(serv_.srvport_)  );
 		return;
 	}
@@ -193,9 +195,9 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 		d("a333301  i am clientproxy, from=%s launched initTrxn rc=%d", s(from), rc );
 		sstr m;
 		if ( rc ) {
-			okResponse( trxnId, "TrxnSubmitOK", m );
+			okResponse( from, trxnId, "TrxnSubmitOK", m );
 		} else {
-			errResponse( "INVALID_TRXN", trxnId, "initTrxn", m );
+			errResponse( from, "INVALID_TRXN", trxnId, "initTrxn", m );
 		}
 
 		d("a333301 reply to endclient %s ...", s(m) );
@@ -224,8 +226,8 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 					strvec replyVec;
 					d("a31112 from=%s %s multicast XIT_j followers for vote expect reply ..", s(from), s(sid_));
 
-					i("a949444 debug: followers:" );
-					pvectag( "tagfollower", followers );
+					//i("a949444 debug: followers:" );
+					//pvectag( "tagfollower", followers );
 
 					// leader add vote first
 					serv_.collectKTrxn_.add(trxnId, 1);
@@ -254,8 +256,8 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 			strvec leader;
 			bool isLeader = circ.getLeader(beacon, id_, leader );
 
-			d("a10831 i am %s  my leader:", s(serv_.srvport_) );
-			pvectag("tagfollowerleader:", leader );
+			//d("a10831 i am %s  my leader:", s(serv_.srvport_) );
+			//pvectag("tagfollowerleader:", leader );
 
 			if ( ! isLeader ) {
 				t.srvport_ = serv_.srvport_;
@@ -311,7 +313,7 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
     if ( dom.HasParseError() ) {
         i("E43337 dom.HasParseError msg=[%s]\n", msg );
 		sstr m;
-		errResponse( "INVALID_QUERY", "notrxnid", msg, m );
+		errResponse( "", "INVALID_QUERY", "notrxnid", msg, m );
 		reply( m, socket_ ); 
         return;
     }
@@ -324,7 +326,7 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 	if ( qtype == "QP" ) {
 		// request public key
 		sstr json;
-		okResponse( trxnId, serv_.pubKey_, json);
+		okResponse( sender, trxnId, serv_.pubKey_, json);
 		reply( json, socket_ ); 
 	} else if ( qtype == "QT" ) {
 		// query trxn status
@@ -341,7 +343,7 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 		if ( uint(votes) < (2*nodeLen/3) ) {
 			d("a040449 query not enough votes");
 			sstr m;
-			errResponse("NOTFOUND", trxnId, "NOT_ENOUGH_VOTES", m );
+			errResponse( sender, "NOTFOUND", trxnId, "NOT_ENOUGH_VOTES", m );
 			reply( m, socket_ ); 
 		} else {
 			d("a040443 query got enough votes");
@@ -359,7 +361,7 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 		**/
 	} else {
 		sstr m;
-		errResponse( "INVALID_REQUEST", trxnId, msg, m );
+		errResponse( sender, "INVALID_REQUEST", trxnId, msg, m );
 		reply( m, socket_ ); 
 	}
 
@@ -381,13 +383,15 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	strvec hostVec;
 	circ.getZoneLeaders( beacon, hostVec );
 
+	/***
 	for ( auto &id: hostVec ) {
 		d("a20112 initTrxn send XIT_i to leader [%s]", s(id) );
 		strvec followers;
 		bool rc =  circ.isLeader( beacon, id, true, followers  );
-		d("  %d leader %s has followers:", rc, s(id) );
-		pvectag("   tagfollower:", followers );
+		//d("  %d leader %s has followers:", rc, s(id) );
+		//pvectag("   tagfollower:", followers );
 	}
+	***/
 
 	txn.setNotInitTrxn();
 	txn.setXit( XIT_i );
@@ -586,7 +590,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 	// run query in validateQuery
 	if ( ! validTrxn ) {
 		sstr json;
-		errResponse( "INVALID_QUERY", trxnId, id_ + "|" + err, json );
+		errResponse( t.sender_, "INVALID_QUERY", trxnId, id_ + "|" + err, json );
 		reply(json, socket_);
 		i("E40202 INVALID_TRXN query ignore" );
 		return;
@@ -639,8 +643,8 @@ void omsession::doQueryL2(const char *msg, int msglen)
 					strvec replyVec;
 					d("a32112 %s multicast XIT_j followers for vote expect reply ..", s(sid_));
 
-					i("a949449 debug: followers:" );
-					pvectag( "tagfollower", followers );
+					//i("a949449 debug: followers:" );
+					//pvectag( "tagfollower", followers );
 
 					serv_.collectQueryKTrxn_.add(trxnId, 1);
 
@@ -694,10 +698,11 @@ bool omsession::initQuery( OmicroTrxn &txn )
 	strvec hostVec;
 	circ.getZoneLeaders( beacon, hostVec );
 
-	// todo
+	/**
 	for ( auto &id: hostVec ) {
 		d("a20122 initTrxn send XIT_i to leader [%s]", s(id) );
 	}
+	**/
 
 	txn.setNotInitTrxn();
 	txn.setXit( XIT_i );

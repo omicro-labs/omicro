@@ -215,7 +215,7 @@ void makedirPath( const sstr &fullpath )
 
 		if ( path != "../" && path != "../data/" ) {
         	::mkdir( path.c_str(), 0700 );
-			i("a30341 mkdir(%s)", path.c_str() );
+			d("a30341 mkdir(%s)", path.c_str() );
 		}
     }
 }

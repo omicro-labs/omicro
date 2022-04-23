@@ -41,5 +41,5 @@ private and public keys of all participating nodes. This makes Omicro exceedingl
 
 Any regular computer can be a backer node and contribute to Omicro network as long as it
 has reasonable amount of computer memory (DRAM), e.g. 8GB, 16GB, etc. Omicro nodes do not
-need GPU, hashing, nor burn electricity. It wll be made extremely easy for backers to join.
+need GPU, hashing, nor burn electricity. It will be made extremely easy for backers to join.
 

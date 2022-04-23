@@ -72,6 +72,7 @@ class omserver
 	void readSeckey();
 	void readSrvportPubkey();
 	sstr getDataDir() const;
+	void sendFollowersXITn( const sstr &trxnId, const strvec &followers, OmicroTrxn &t );
 
 	void doCleanup();
 
