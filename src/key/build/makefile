@@ -67,6 +67,7 @@ MY_CFLAGS =
 BOOST_LIB_PATH=/usr/local/boost_1.78.0/lib
 BOOST_INC_PATH=/usr/local/boost_1.78.0/include
 
+SRCBUILD=../../build
 HASH=../../Web/hash
 NTRU=../../Web/ntru/libntru
 TC=../../Web/tc/tc
@@ -74,18 +75,31 @@ SABER=../../Web/saber
 BASE85=../../Web/base85
 AES=../../Web/aes
 JSON=../../Web/json/rapidjson
+DILITH=../../../src/Web/dilithium
 
+OPENSSL=../../Web/openssl/install
+
+
+DILITH_LIBS=$(DILITH)/dilithium/ref/ref/libdilithium5_ref.a \
+            $(DILITH)/dilithium/ref/ref/libdilithium3_ref.a \
+            $(DILITH)/dilithium/ref/ref/libdilithium2_ref.a \
+            $(DILITH)/dilithium/ref/ref/libfips202_ref.a \
+            $(DILITH)/dilithium/ref/ref/libaes256ctr_ref.a
 
 # The linker options.
 MY_LIBS = \
 		  ../../build/libomicro.a \
 		  $(HASH)/xxHash/libxxhash.a \
 		  $(SABER)/SABER/Reference_Implementation_KEM/libsaber.a \
+		  $(DILITH_LIBS) \
+		  $(SRCBUILD)/randombytes_dl.o\
 		  $(BASE85)/ascii85/ascii85.o \
 		  $(AES)/tiny-AES-c/aes.o \
           $(BOOST_LIB_PATH)/libboost_system.a \
 		  $(BOOST_LIB_PATH)/libboost_filesystem.a \
-		  $(TC)/lib/libtokyocabinet.a -lz -lbz2 -lcrypto
+		  $(OPENSSL)/lib64/libcrypto.a \
+		  $(TC)/lib/libtokyocabinet.a \
+		  -lz -lbz2 -lpthread -ldl
 
 
 #BOOST_DEFINE = -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING

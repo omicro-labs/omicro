@@ -75,6 +75,7 @@ BASE85=../Web/base85
 AES=../Web/aes
 JSON=../Web/json/rapidjson
 DILITH=../Web/dilithium
+OPENSSL=../Web/openssl/install
 
 DILITH_LIBS=$(DILITH)/dilithium/ref/ref/libdilithium5_ref.a \
             $(DILITH)/dilithium/ref/ref/libdilithium3_ref.a \
@@ -90,7 +91,10 @@ MY_LIBS = $(HASH)/xxHash/libxxhash.a \
 		  $(DILITH_LIBS) \
 		  $(BASE85)/ascii85/ascii85.o \
 		  $(AES)/tiny-AES-c/aes.o \
-		  $(TC)/lib/libtokyocabinet.a -lz -lbz2 -lcrypto
+		  $(TC)/lib/libtokyocabinet.a \
+		  $(OPENSSL)/lib64/libcrypto.a \
+		  -lz -lbz2 -ldl
+
 
           #$(BOOST_LIB_PATH)/libboost_system.a \
 		  #$(BOOST_LIB_PATH)/libboost_filesystem.a \

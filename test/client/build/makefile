@@ -32,6 +32,7 @@ AES=../../../src/Web/aes
 JSON=../../../src/Web/json/rapidjson
 HASH=../../../src/Web/hash
 DILITH=../../../src/Web/dilithium
+OPENSSL=../../../src/Web/openssl/install
 
 DILITH_LIBS=$(DILITH)/dilithium/ref/ref/libdilithium5_ref.a \
             $(DILITH)/dilithium/ref/ref/libdilithium3_ref.a \
@@ -48,7 +49,8 @@ MY_LIBS   = \
 			$(BASE85)/ascii85/ascii85.o \
 			$(AES)/tiny-AES-c/aes.o \
 			$(HASH)/xxHash/libxxhash.a \
-			-l crypto 
+			$(OPENSSL)/lib64/libcrypto.a \
+			-ldl -lpthread
 
 # The pre-processor options used by the cpp (man cpp for more).
 CPPFLAGS  = -Wall \
