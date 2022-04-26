@@ -93,8 +93,8 @@ MY_LIBS = $(HASH)/xxHash/libxxhash.a \
 		  $(AES)/tiny-AES-c/aes.o \
 		  $(TC)/lib/libtokyocabinet.a \
 		  $(OPENSSL)/lib64/libcrypto.a \
+		  /usr/local/gcc-7.4.0/lib64/libstdc++.a \
 		  -lz -lbz2 -ldl
-
 
           #$(BOOST_LIB_PATH)/libboost_system.a \
 		  #$(BOOST_LIB_PATH)/libboost_filesystem.a \
@@ -122,7 +122,7 @@ CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
 			$(BOOST_DEFINE) \
 			-D DILITHIUM_MODE=5 \
 			-I $(DILITH)/include \
-			-g -ggdb
+			-O3
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)

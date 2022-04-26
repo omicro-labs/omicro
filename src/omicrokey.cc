@@ -14,6 +14,8 @@
  * You should have received a copy of the GNU General Public License
  * along with the LICENSE file. If not, see <http://www.gnu.org/licenses/>.
  */
+#include <sys/types.h>
+#include <unistd.h>
 #include <string.h>
 #include "omicrokey.h"
 #include "ombase85.h"
@@ -44,6 +46,14 @@ void OmicroNodeKey::createKeyPairSB3(sstr &secretKey, sstr &publicKey )
 {
 	uint8_t pk[CRYPTO_PUBLICKEYBYTES];
 	uint8_t sk[CRYPTO_SECRETKEYBYTES];
+	unsigned char entropy_input[48];
+	srand((unsigned) time(NULL) + getpid());
+    for (int j=0; j<48; j++){
+        entropy_input[j] = rand()%256;
+    }
+
+    randombytes_init( (unsigned char*)entropy_input, NULL, 256);
+
 	crypto_kem_keypair(pk, sk);
 	base85Encode( sk, CRYPTO_SECRETKEYBYTES, secretKey );
 	base85Encode( pk, CRYPTO_PUBLICKEYBYTES, publicKey );

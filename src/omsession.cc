@@ -106,6 +106,10 @@ void omsession::do_read()
 				}
             } else {
                 d("a82838 srv do read read no data info=[%s]", ec.message().c_str());
+				if ( ec == boost::asio::error::eof ) {
+					d("a33330 eof close socket");
+					socket_.close();
+				}
 			}
     });
 }
@@ -141,7 +145,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 {
 	//d("a71002 doTrxn msg.len=%d msg=[%s]", msglen, msg );
 	d("a71002 doTrxnL2 doTrxn msg.len=%d", msglen );
-	sstr id_ = serv_.id_;
+	sstr srvid = serv_.id_;
 
 	OmicroTrxn t(msg);
 	Byte xit = t.getXit();
@@ -195,9 +199,9 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 		d("a333301  i am clientproxy, from=%s launched initTrxn rc=%d", s(from), rc );
 		sstr m;
 		if ( rc ) {
-			okResponse( from, trxnId, "TrxnSubmitOK", m );
+			okResponse( from, srvid, trxnId, "SubmitOK", m );
 		} else {
-			errResponse( from, "INVALID_TRXN", trxnId, "initTrxn", m );
+			errResponse( from, srvid, "INVALID_TRXN", trxnId, "initTrxn", m );
 		}
 
 		d("a333301 reply to endclient %s ...", s(m) );
@@ -211,7 +215,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 			// I got 'i', I must be a leader
 			DynamicCircuit circ( serv_.nodeList_);
 			strvec followers;
-			bool iAmLeader = circ.isLeader( beacon, id_, true, followers );
+			bool iAmLeader = circ.isLeader( beacon, srvid, true, followers );
 			if ( iAmLeader ) {
 				// state to A
 				bool toAgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_i );
@@ -224,7 +228,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 
 					t.setXit( XIT_j );
 					strvec replyVec;
-					d("a31112 from=%s %s multicast XIT_j followers for vote expect reply ..", s(from), s(sid_));
+					d("a31112 from=%s %s multicast XIT_j followers for vote expect no reply ..", s(from), s(sid_));
 
 					//i("a949444 debug: followers:" );
 					//pvectag( "tagfollower", followers );
@@ -251,10 +255,10 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 			// else i am not leader, igore 'i' xit
 		} else if ( xit == XIT_j ) {
 			// I am follower, give my vote to leader
-			d("a31112 from=%s %s multicast XIT_j followers for vote expect reply ..", s(from), s(sid_));
+			d("a31112 from=%s %s multicast XIT_j followers for vote expect no reply ..", s(from), s(sid_));
 			DynamicCircuit circ( serv_.nodeList_);
 			strvec leader;
-			bool isLeader = circ.getLeader(beacon, id_, leader );
+			bool isLeader = circ.getLeader(beacon, srvid, leader );
 
 			//d("a10831 i am %s  my leader:", s(serv_.srvport_) );
 			//pvectag("tagfollowerleader:", leader );
@@ -272,7 +276,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 
 		} else if ( xit == XIT_k ) {
 			// if reaching quorum, fire next multicast
-			d("a53103 from=%s %s got XIT_k peer:[%s]", s(from), s(id_), s(peer) );
+			d("a53103 from=%s %s got XIT_k peer:[%s]", s(from), s(srvid), s(peer) );
 			serv_.onRecvK( beacon, trxnId, clientIP_, sid_, t );
 		} else if ( xit == XIT_l ) {
 			d("a92822 from=%s %s received XIT_l peer:[%s] ...", s(from), s(sid_), s(peer) );
@@ -280,9 +284,9 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 			d("a92822 from=%s %s received XIT_l peer:[%s] done", s(from), s(sid_), s(peer) );
 		} else if ( xit == XIT_m ) {
 		    // received one XIT_m, there may be more XIT_m in next 3 seconds
-			d("a54103 from=%s %s got XIT_m peer:[%s]", s(from), s(id_), s(peer) );
+			d("a54103 from=%s %s got XIT_m peer:[%s]", s(from), s(srvid), s(peer) );
 			serv_.onRecvM( beacon, trxnId, clientIP_, sid_, t );
-			d("a54103 from=%s %s got XIT_m peer:[%s] done", s(from), s(id_), s(peer) );
+			d("a54103 from=%s %s got XIT_m peer:[%s] done", s(from), s(srvid), s(peer) );
 		} else if ( xit == XIT_n ) {
 			// follower gets a trxn commit message
 			Byte curState; 
@@ -306,14 +310,14 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 void omsession::doSimpleQuery(const char *msg, int msglen)
 {
 	d("a71002 doSimpleQuery msg.len=%d msg=[%s]", msglen, msg );
-	sstr id_ = serv_.id_;
+	sstr srvid = serv_.id_;
 
     rapidjson::Document dom;
     dom.Parse( msg, msglen );
     if ( dom.HasParseError() ) {
         i("E43337 dom.HasParseError msg=[%s]\n", msg );
 		sstr m;
-		errResponse( "", "INVALID_QUERY", "notrxnid", msg, m );
+		errResponse( "", srvid, "INVALID_QUERY", "notrxnid", msg, m );
 		reply( m, socket_ ); 
         return;
     }
@@ -326,7 +330,7 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 	if ( qtype == "QP" ) {
 		// request public key
 		sstr json;
-		okResponse( sender, trxnId, serv_.pubKey_, json);
+		okResponse( sender, srvid, trxnId, serv_.pubKey_, json);
 		reply( json, socket_ ); 
 	} else if ( qtype == "QT" ) {
 		// query trxn status
@@ -343,7 +347,7 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 		if ( uint(votes) < (2*nodeLen/3) ) {
 			d("a040449 query not enough votes");
 			sstr m;
-			errResponse( sender, "NOTFOUND", trxnId, "NOT_ENOUGH_VOTES", m );
+			errResponse( sender, srvid, "NOTFOUND", trxnId, "NOT_ENOUGH_VOTES", m );
 			reply( m, socket_ ); 
 		} else {
 			d("a040443 query got enough votes");
@@ -361,7 +365,7 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 		**/
 	} else {
 		sstr m;
-		errResponse( sender, "INVALID_REQUEST", trxnId, msg, m );
+		errResponse( sender, srvid, "INVALID_REQUEST", trxnId, msg, m );
 		reply( m, socket_ ); 
 	}
 
@@ -568,7 +572,7 @@ bool omsession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitT
 void omsession::doQueryL2(const char *msg, int msglen)
 {
 	d("a71003 doQueryL2 msg.len=%d", msglen );
-	sstr id_ = serv_.id_;
+	sstr srvid = serv_.id_;
 
 	OmicroTrxn t(msg);
 	/**
@@ -590,7 +594,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 	// run query in validateQuery
 	if ( ! validTrxn ) {
 		sstr json;
-		errResponse( t.sender_, "INVALID_QUERY", trxnId, id_ + "|" + err, json );
+		errResponse( t.sender_, srvid, "INVALID_QUERY", trxnId, srvid + "|" + err, json );
 		reply(json, socket_);
 		i("E40202 INVALID_TRXN query ignore" );
 		return;
@@ -628,7 +632,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 			// I got 'i', I must be a leader
 			DynamicCircuit circ( serv_.nodeList_);
 			strvec followers;
-			bool iAmLeader = circ.isLeader( beacon, id_, true, followers );
+			bool iAmLeader = circ.isLeader( beacon, srvid, true, followers );
 			if ( iAmLeader ) {
 				// state to A
 				bool toAgood = serv_.trxnState_.goState( serv_.level_, trxnId, XIT_i );
@@ -668,7 +672,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 			DynamicCircuit circ( serv_.nodeList_);
 			strvec leader;
 			strvec replyVec;
-			bool iAmLeader = circ.getLeader( beacon, id_, leader );
+			bool iAmLeader = circ.getLeader( beacon, srvid, leader );
 			if ( ! iAmLeader ) {
 				t.setXit( XIT_k );
 				t.srvport_ = serv_.srvport_;

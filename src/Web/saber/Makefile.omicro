@@ -1,8 +1,7 @@
 CC 		  = /usr/bin/gcc
-CFLAGS  = -Wall -Wextra -Wmissing-prototypes -Wredundant-decls\
-	-O3 -fomit-frame-pointer -march=native 
-NISTFLAGS  = -Wno-unused-result -O3 -fomit-frame-pointer -march=native -std=c99 
-CLANG   = clang -march=native -O3 -fomit-frame-pointer -fwrapv -Qunused-arguments
+CFLAGS  = -Wall -Wextra -Wmissing-prototypes -Wredundant-decls -O3 
+NISTFLAGS  = -Wno-unused-result -O3 -std=c99 
+CLANG   = clang -march=native -O3 -fwrapv -Qunused-arguments
 RM 		  = /bin/rm
 
 .c.o:

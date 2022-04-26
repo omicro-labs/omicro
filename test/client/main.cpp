@@ -197,7 +197,7 @@ void createAcct( const char *srv, int port, const std::string &userName)
 	printf("a000234 client.sendTrxn() ...\n");
 	std::string reply = client.sendTrxn( t );
 
-	printf("%s confirmation=[%s]\n", userName.c_str(), reply.c_str());
+	printf("%s confirm=[%s]\n", userName.c_str(), reply.c_str());
 }
 
 void createToken( const char *srv, int port, const std::string &userName )
@@ -236,7 +236,7 @@ void createToken( const char *srv, int port, const std::string &userName )
 	printf("a000234 client.sendTrxn() ...\n");
 	std::string reply = client.sendTrxn( t );
 
-	printf("%s confirmation=[%s]\n", userName.c_str(), reply.c_str());
+	printf("%s confirm=[%s]\n", userName.c_str(), reply.c_str());
 }
 
 void makePayment( const char * srv, int port, const std::string &from, const std::string &to, 
@@ -269,7 +269,7 @@ void makePayment( const char * srv, int port, const std::string &from, const std
 	printf("a000234 client.sendTrxn() ...\n");
 	reply = client.sendTrxn( t );
 
-	printf("%s confirmation=[%s]\n", from.c_str(), reply.c_str());
+	printf("%s confirm=[%s]\n", from.c_str(), reply.c_str());
 }
 
 void query( const std::string &qt, const char * srv, int port, const std::string &from, const std::string &token )
@@ -304,7 +304,7 @@ void query( const std::string &qt, const char * srv, int port, const std::string
 	printf("a000235 client.sendQuery() ...\n");
 	std::string reply = client.sendQuery( t );
 
-	printf("%s confirmation=[%s]\n", from.c_str(), reply.c_str());
+	printf("%s confirm=[%s]\n", from.c_str(), reply.c_str());
 }
 
 void readUserKey( std::string uname, std::string &secKey, std::string &pubKey )
@@ -381,7 +381,7 @@ void makeTransfer( const char * srv, int port, const std::string &from, const st
 	printf("a00231 client.sendTrxn() ...\n");
 	reply = client.sendTrxn( t );
 
-	printf("%s confirmation=[%s]\n", from.c_str(), reply.c_str());
+	printf("%s confirm=[%s]\n", from.c_str(), reply.c_str());
 }
 
 std::string getHomeDir()

@@ -296,7 +296,6 @@ void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 {
 	strvec otherLeaders, followers;
 	DynamicCircuit circ( nodeList_);
-	// bool iAmLeader = circ.getOtherLeaders( beacon, id_, otherLeaders );
     bool iAmLeader = circ.getOtherLeadersAndThisFollowers( beacon, id_, otherLeaders, followers );
 	if ( ! iAmLeader ) {
 		d("a22034 %s got XIT_l, i am not leader", s(id_) );
@@ -444,9 +443,16 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 		OmicroTrxn t( trxnMsg.c_str() );
 		t.makeNodeSignature(pubkey);
 
+		/*** debug 
 		d("a10827 from=%s in multicast get target srvport pubkey of target: %s:%s", s(t.sender_), s(ip), s(port) );
-		//d("a10827 pubkey [%s]", s(pubkey) );
-		d("a30062 from=%s in multicast my t.srvport_=[%s]", s(t.sender_), s(t.srvport_) );
+		d("a10827 target srvport=%s pubkey [%s]", s(srvport), s(pubkey) );
+		d("a10827 from=%s in multicast my t.srvport_=[%s]", s(t.sender_), s(t.srvport_) );
+		d("a10827 t.signature=[%s]", s(t.signature_) );
+		d("a10827 t.cipher=[%s]", s(t.cipher_) );
+		sstr tdata;
+		t.getTrxnData(tdata);
+		d("a10827 t.trxnData=[%s]", s(tdata) );
+		***/
 
 		#ifdef OM_DEBUG
 		sstr trxndata; t.getTrxnData(trxndata);

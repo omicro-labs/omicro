@@ -61,7 +61,7 @@ LC_OS_NAME = $(shell echo $(OS_NAME) | tr '[A-Z]' '[a-z]')
 # CENTOS=linux
 
 # The pre-processor and compiler options.
-MY_CFLAGS =
+MY_CFLAGS = -Bstatic
 
 ##omicro
 BOOST_LIB_PATH=/usr/local/boost_1.78.0/lib
@@ -99,7 +99,14 @@ MY_LIBS = \
 		  $(BOOST_LIB_PATH)/libboost_filesystem.a \
 		  $(OPENSSL)/lib64/libcrypto.a \
 		  $(TC)/lib/libtokyocabinet.a \
-		  -lz -lbz2 -lpthread -ldl
+		  /usr/local/gcc-7.4.0/lib64/libstdc++.a \
+		  -lz -lbz2 \
+		  -ldl
+
+		  #/lib64/libpthread.a \
+		  #/lib64/libc.a \
+		  #-ldl -lz -lbz2 -lpthread 
+		  #/lib64/libdl.a \
 
 
 #BOOST_DEFINE = -D BOOST_ASIO_ENABLE_HANDLER_TRACKING -D BOOST_ASIO_ENABLE_BUFFER_DEBUGGING
@@ -123,8 +130,8 @@ CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
             -I $(BASE85) \
             -I $(AES) \
             -I $(JSON)/include \
-			-g3 \
-			$(BOOST_DEFINE)
+			-static-libgcc -static-libstdc++ \
+			-O3
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)

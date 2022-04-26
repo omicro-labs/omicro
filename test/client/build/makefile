@@ -50,6 +50,7 @@ MY_LIBS   = \
 			$(AES)/tiny-AES-c/aes.o \
 			$(HASH)/xxHash/libxxhash.a \
 			$(OPENSSL)/lib64/libcrypto.a \
+			/usr/local/gcc-7.4.0/lib64/libstdc++.a \
 			-ldl -lpthread
 
 # The pre-processor options used by the cpp (man cpp for more).
