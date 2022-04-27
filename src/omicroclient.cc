@@ -25,9 +25,6 @@ OmicroClient::OmicroClient( const char *srv, int port )
 	sprintf(ps, "%d", port);
 
 	connectOK_ = false;
-
-    //auto &ipAddress = srv;
-    //auto &portNum   = ps;
 	srv_ = sstr(srv);
 	port_ = port;
 
@@ -55,12 +52,23 @@ OmicroClient::OmicroClient( const char *srv, int port )
     }
 
 	d("a4088 connect to %s:%d ...", srv, port );
-    int connectR = connect(sockFD, p->ai_addr, p->ai_addrlen);
-    if (connectR == -1) {
-        close(sockFD);
-		i("E20036 Error connect %s:%d errno=%d errstr=[%s]", srv, port, errno, strerror(errno) ); 
-        return;
-    }
+	int tries = 0;
+	while ( true ) {
+    	int connectR = connect(sockFD, p->ai_addr, p->ai_addrlen);
+		if ( connectR != -1 ) {
+			break;
+		}
+
+		++ tries;
+		i("a00383 connecting %s:%d error, tries=%d retry ...", srv, port, tries);
+		sleep(1);
+
+    	if ( tries >= 3) {
+        	close(sockFD);
+			i("E20036 Error connect %s:%d errno=%d errstr=[%s]", srv, port, errno, strerror(errno) ); 
+        	return;
+    	}
+	}
 
 	socket_ = sockFD;
 	struct timeval tv;
@@ -93,6 +101,8 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 		d("a52031 sendMessage return empty because connect %s:%d is not OK", s(srv_), port_);
 		return "";
 	}
+
+	const std::lock_guard<std::mutex> lock(mutex_);
 
 	char hdr[OMHDR_SZ+1];
 	OmMsgHdr mhdr(hdr, OMHDR_SZ, true);

@@ -3,7 +3,6 @@
 
 #include <boost/asio.hpp>
 #include <string>
-//#include <boost/noncopyable.hpp>
 #include "nodelist.h"
 #include "omicrodef.h"
 #include "omutil.h"
@@ -15,14 +14,14 @@ using becode = boost::system::error_code;
 
 class OmicroTrxn;
 class OmicroClient;
-class omserver;
+class OmServer;
 
-class omsession : public std::enable_shared_from_this<omsession>
+class OmSession : public std::enable_shared_from_this<OmSession>
 {
   public:
-    omsession( boost::asio::io_context& io_context, omserver &srv, tcp::socket socket);
+    OmSession( boost::asio::io_context& io_context, OmServer &srv, tcp::socket socket);
     void start();
-	~omsession();
+	~OmSession();
   
   private:
 
@@ -40,7 +39,7 @@ class omsession : public std::enable_shared_from_this<omsession>
 	void getQueryResult( const sstr &trxnId, const sstr &sender, sstr &res );
   
 	boost::asio::io_context& io_context_;
-	omserver &serv_;
+	OmServer &serv_;
 
     tcp::socket socket_;
     char hdr_[OMHDR_SZ+1];

@@ -208,8 +208,8 @@ bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 
 	ulong trxnTime = getTimeStampUS();
 	unsigned long nowt = getNowTimeUS();
-	if ( nowt - trxnTime > 3*60000000 ) {
-		i("E303376 error validateTrxn() nowt=%ld trxnTime=%ld more than 180 seconds", nowt, trxnTime);
+	if ( nowt - trxnTime > 5*60000000 ) {
+		i("E303376 error validateTrxn() more than 300 seconds" );
 		return false;
 	}
 

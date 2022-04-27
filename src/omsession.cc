@@ -38,7 +38,7 @@ EXTERN_LOGGING
 using namespace boost::asio::ip;
 using bcode = boost::system::error_code;
 
-omsession::omsession(boost::asio::io_context& io_context, omserver &srv, tcp::socket socket)
+OmSession::OmSession(boost::asio::io_context& io_context, OmServer &srv, tcp::socket socket)
         : io_context_(io_context), serv_(srv), socket_(std::move(socket))
 {
     stop_ = false;
@@ -48,36 +48,36 @@ omsession::omsession(boost::asio::io_context& io_context, omserver &srv, tcp::so
 	d("I0001 accepted new client sid_=[%s] from %s:%d", s(sid_), s(clientIP_), socket_.remote_endpoint().port() );
 }
 
-void omsession::start()
+void OmSession::start()
 {
     do_read();
 	//printf("a33303 session start() done\n");
 	//fflush( stdout );
 }
 
-omsession::~omsession()
+OmSession::~OmSession()
 {
-	//printf("a33308 omsession dtor called\n");
+	//printf("a33308 OmSession dtor called\n");
 	//fflush( stdout );
 }
 
-void omsession::do_read()
+void OmSession::do_read()
 {
     auto self(shared_from_this());
 
     boost::asio::async_read( socket_, boost::asio::buffer(hdr_, OMHDR_SZ), 
-          [this, self](bcode ec, std::size_t length)
+          [this, self ](bcode ec, std::size_t length)
           {
             // hanlder after reading data into data_
             if (!ec)  // no error
             {
+    			//d("a63003 async_read hdr=[%s] length=%lu", hdr, length);
 				// do read data
 				OmMsgHdr mhdr(hdr_, OMHDR_SZ, false);
 				ulong dlen = mhdr.getLength();
 				if ( dlen <= OM_MSG_MAXSZ ) {
     				char *data = (char*)malloc( dlen+1 );
     				data[dlen] = '\0';
-    				d("a63003 async_read srv doread dlen=%d length=%d hdr_[%s]", dlen, length, hdr_);
     
     				bcode ec2;
     				int len2 =  boost::asio::read( socket_, boost::asio::buffer(data,dlen), ec2 );
@@ -114,18 +114,21 @@ void omsession::do_read()
     });
 }
 
-void omsession::reply( const sstr &str, tcp::socket &socket )
+void OmSession::reply( const sstr &str, tcp::socket &socket )
 {
-	OmMsgHdr mhdr(hdr_, OMHDR_SZ, true);
+	char hdr[OMHDR_SZ+1];
+	hdr[OMHDR_SZ] = '\0'; 
+
+	OmMsgHdr mhdr(hdr, OMHDR_SZ, true);
 	mhdr.setLength( str.size() );
 	mhdr.setPlain();
 
     auto self(shared_from_this());
 
-    boost::asio::async_write(socket, boost::asio::buffer(hdr_, OMHDR_SZ),
+    boost::asio::async_write(socket, boost::asio::buffer(hdr, OMHDR_SZ),
           [this, self, str, &socket](bcode ec, std::size_t len)
           {
-            //d("a51550 111 in omsession::reply str=[%s] len=%d", s(str), str.size() );
+            //d("a51550 111 in OmSession::reply str=[%s] len=%d", s(str), str.size() );
             if (!ec)  // no error, OK
             {
 				d("a43390 reply send async_write hdrmsg OK");
@@ -141,7 +144,7 @@ void omsession::reply( const sstr &str, tcp::socket &socket )
     });
 }
 
-void omsession::doTrxnL2(const char *msg, int msglen)
+void OmSession::doTrxnL2(const char *msg, int msglen)
 {
 	//d("a71002 doTrxn msg.len=%d msg=[%s]", msglen, msg );
 	d("a71002 doTrxnL2 doTrxn msg.len=%d", msglen );
@@ -168,15 +171,6 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 	sstr err;
 	bool validTrxn = validateTrxn( trxnId, t, isInitTrxn, err );
 	if ( ! validTrxn ) {
-		/***
-		if ( xit != XIT_i && xit != XIT_l && xit != XIT_m && xit != XIT_n ) {
-			d("a334408 xit=%c not XIT_m XIT_n reply back", xit);
-			sstr m;
-			errResponse( "INVALID_TRXN", trxnId, id_ + " " + err, m );
-			reply(m, socket_);
-		}
-		i("E40282 INVALID_TRXN ignore isInitTrxn=%d %s", isInitTrxn, s(err) );
-		***/
 		d("a1000 doTrxnL2 INVALID from=[%s] srvport=%s", s(t.sender_), s(serv_.srvport_)  );
 		return;
 	}
@@ -233,7 +227,6 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 					//i("a949444 debug: followers:" );
 					//pvectag( "tagfollower", followers );
 
-					// leader add vote first
 					serv_.collectKTrxn_.add(trxnId, 1);
 
 					t.srvport_ = serv_.srvport_;
@@ -307,7 +300,7 @@ void omsession::doTrxnL2(const char *msg, int msglen)
 		s(t.sender_), s(t.trxntype_), s(serv_.srvport_), s(t.srvport_), xit, s(trxnId), isInitTrxn );
 }
 
-void omsession::doSimpleQuery(const char *msg, int msglen)
+void OmSession::doSimpleQuery(const char *msg, int msglen)
 {
 	d("a71002 doSimpleQuery msg.len=%d msg=[%s]", msglen, msg );
 	sstr srvid = serv_.id_;
@@ -355,14 +348,6 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 			getQueryResult( trxnId, sender, lastResult );
 			reply( lastResult, socket_ ); 
 		}
-
-		/**
-		sstr lastResult; // json
-		getQueryResult( trxnId, sender, lastResult );
-		d("a43207 lastResult=[%s] reply...", s(lastResult) );
-		reply( lastResult, socket_ ); 
-		d("a43207 lastResult=[%s] sent done", s(lastResult) );
-		**/
 	} else {
 		sstr m;
 		errResponse( sender, srvid, "INVALID_REQUEST", trxnId, msg, m );
@@ -372,10 +357,9 @@ void omsession::doSimpleQuery(const char *msg, int msglen)
 	d("a535023 doSimpleQuery done clientIP_=[%s]", s(clientIP_));
 }
 
-bool omsession::initTrxn( OmicroTrxn &txn )
+bool OmSession::initTrxn( OmicroTrxn &txn )
 {
 	// find zone leaders and ask them to collect votes from members
-	// serv_.nodeList_ is std::vector<string>
 	sstr beacon = txn.beacon_;
 	sstr trxnid; txn.getTrxnID( trxnid );
 	d("a80123 initTrxn() threadid=%ld beacon=[%s] trxnid=[%s]", pthread_self(), s(beacon), s(trxnid) );
@@ -418,7 +402,7 @@ bool omsession::initTrxn( OmicroTrxn &txn )
 	}
 }
 
-void omsession::makeSessionID()
+void OmSession::makeSessionID()
 {
     struct timeval now;
     gettimeofday( &now, NULL );
@@ -427,9 +411,9 @@ void omsession::makeSessionID()
 	sid_ = buf;
 }
 
-bool omsession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitTrxn, sstr &err )
+bool OmSession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 {
-	d("a17621 omsession::validateTrxn serv_.address=[%s] serv_.port=[%s]", s(serv_.address_), s(serv_.port_) );
+	d("a17621 OmSession::validateTrxn serv_.address=[%s] serv_.port=[%s]", s(serv_.address_), s(serv_.port_) );
 	//d("22206 my serv_.pubKey_=[%s]", s(serv_.pubKey_) );
 	//d("22206 my serv_.secKey_=[%s]", s(serv_.secKey_) );
 
@@ -526,9 +510,9 @@ bool omsession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitT
 	return true;
 }
 
-bool omsession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitTrxn, sstr &err )
+bool OmSession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitTrxn, sstr &err )
 {
-	d("a82220 enter omsession::validateQuery");
+	d("a82220 enter OmSession::validateQuery");
 	d("22208 my serv_.pubKey_=[%s]", s(serv_.pubKey_) );
 	d("22208 my serv_.secKey_=[%s]", s(serv_.secKey_) );
 
@@ -569,7 +553,7 @@ bool omsession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitT
 
 }
 
-void omsession::doQueryL2(const char *msg, int msglen)
+void OmSession::doQueryL2(const char *msg, int msglen)
 {
 	d("a71003 doQueryL2 msg.len=%d", msglen );
 	sstr srvid = serv_.id_;
@@ -687,7 +671,7 @@ void omsession::doQueryL2(const char *msg, int msglen)
 	d("a555024 doQueryL2 done clientIP_=[%s]", s(clientIP_));
 }  // doQueryL2
 
-bool omsession::initQuery( OmicroTrxn &txn )
+bool OmSession::initQuery( OmicroTrxn &txn )
 {
 	// find zone leaders and ask them to collect votes from members
 	// serv_.nodeList_ is std::vector<string>
@@ -741,7 +725,7 @@ bool omsession::initQuery( OmicroTrxn &txn )
 }
 
 // res is json retured
-void omsession::getQueryResult( const sstr &trxnId, const sstr &sender, sstr &res )
+void OmSession::getQueryResult( const sstr &trxnId, const sstr &sender, sstr &res )
 {
 	OmResponse resp;
 	resp.TID_ = trxnId;

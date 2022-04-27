@@ -2,6 +2,7 @@
 #define _omicro_client_h_
 
 #include <string>
+#include <mutex>
 
 class OmicroTrxn;
 
@@ -23,6 +24,7 @@ class OmicroClient
 	int  socket_;
 	std::string srv_;
 	int  port_;
+	std::mutex  mutex_;
 };
 
 #endif

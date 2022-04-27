@@ -35,13 +35,14 @@
 #include "omsession.h"
 #include "omstrsplit.h"
 #include "omicrokey.h"
+#include "clientpool.h"
 
 EXTERN_LOGGING
 using namespace boost::asio::ip;
 using bcode = boost::system::error_code;
 
 
-omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, const sstr &port)
+OmServer::OmServer( boost::asio::io_context &io_context, const sstr &srvip, const sstr &port)
       : io_context_(io_context), 
 	    acceptor_(io_context, tcp::endpoint(boost::asio::ip::address::from_string(srvip.c_str()), atoi(port.c_str()) ))
 {
@@ -64,26 +65,26 @@ omserver::omserver( boost::asio::io_context &io_context, const sstr &srvip, cons
 	cleanupTimer_ = new btimer( io_context_ );
 
 	cleanupTimer_->expires_at(cleanupTimer_->expiry() + boost::asio::chrono::seconds(300));
-	cleanupTimer_->async_wait(boost::bind(&omserver::doCleanup, this ));
+	cleanupTimer_->async_wait(boost::bind(&OmServer::doCleanup, this ));
 
     do_accept();
-	i("omserver is ready");
+	i("OmServer is ready");
 
 }
 
-omserver::~omserver()
+OmServer::~OmServer()
 {
 	delete cleanupTimer_;
 }
 
-void omserver::do_accept()
+void OmServer::do_accept()
 {
     acceptor_.async_accept(
           [this](bcode ec, tcp::socket accpt_sock) {
             if (!ec)
             {
 				//printf("server accepted connection newsession ...\n");
-                std::shared_ptr<omsession> sess = std::make_shared<omsession>(io_context_, *this, std::move(accpt_sock));
+                std::shared_ptr<OmSession> sess = std::make_shared<OmSession>(io_context_, *this, std::move(accpt_sock));
                 sess->start();
 				//printf("server connection newsession is done\n");
             }
@@ -93,7 +94,7 @@ void omserver::do_accept()
 
 }
 
-sstr omserver::getDataDir() const
+sstr OmServer::getDataDir() const
 {
 	::mkdir( "../data/", 0700 );
 	sstr dip = sstr("../data/") + address_;
@@ -103,7 +104,7 @@ sstr omserver::getDataDir() const
 	return dir;
 }
 
-void omserver::readPubkey()
+void OmServer::readPubkey()
 {
 	sstr idpath;
 	idpath = "../conf/";
@@ -126,7 +127,7 @@ void omserver::readPubkey()
 	fclose(fp);
 }
 
-void omserver::readSeckey()
+void OmServer::readSeckey()
 {
 	sstr idpath;
 	idpath = "../conf/";
@@ -150,7 +151,7 @@ void omserver::readSeckey()
 }
 
 
-void omserver::readID()
+void OmServer::readID()
 {
 	sstr idpath;
 	idpath = "../conf/";
@@ -206,7 +207,7 @@ void omserver::readID()
 	}
 }
 
-void omserver::readSrvportPubkey()
+void OmServer::readSrvportPubkey()
 {
 	sstr idpath;
 	idpath = "../conf/";
@@ -232,12 +233,12 @@ void omserver::readSrvportPubkey()
 	fclose(fp);
 }
 
-void omserver::getPubkey( const sstr &srvport, sstr &pubkey )
+void OmServer::getPubkey( const sstr &srvport, sstr &pubkey )
 {
 	pubkey = srvport_pubkey_[srvport];
 }
 
-void omserver::onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
+void OmServer::onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
 {
 	strvec otherLeaders;
 	strvec followers;
@@ -292,7 +293,7 @@ void omserver::onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	}
 }
 
-void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
+void OmServer::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
 {
 	strvec otherLeaders, followers;
 	DynamicCircuit circ( nodeList_);
@@ -353,7 +354,7 @@ void omserver::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 }
 
 // L2
-void omserver::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
+void OmServer::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
 {
     strvec otherLeaders, followers;
     DynamicCircuit circ( nodeList_);
@@ -388,7 +389,7 @@ void omserver::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 
 }
 
-void omserver::sendFollowersXITn( const sstr &trxnId, const strvec &followers, OmicroTrxn &t )
+void OmServer::sendFollowersXITn( const sstr &trxnId, const strvec &followers, OmicroTrxn &t )
 {
 	d("a02227 from=%s XIT_m toEgood ST_E true", s(t.sender_));
 	// todo L2 L3
@@ -401,7 +402,7 @@ void omserver::sendFollowersXITn( const sstr &trxnId, const strvec &followers, O
 
 	t.srvport_ = srvport_;
 	sstr alldat; t.allstr(alldat);
-	omserver::multicast( OM_TXN, followers, alldat, false, nullvec );
+	OmServer::multicast( OM_TXN, followers, alldat, false, nullvec );
 	d("a33281 from=%s %s multicast XIT_n followers done", s(t.sender_), s(id_));
 
 	trxnState_.setState( trxnId, ST_F );
@@ -411,7 +412,7 @@ void omserver::sendFollowersXITn( const sstr &trxnId, const strvec &followers, O
 	collectMTrxn_.erase(trxnId);
 }
 
-int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec )
+int OmServer::multicast( char msgType, const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec )
 {
 	sstr id, ip, port;
 	int len = hostVec.size();
@@ -437,6 +438,8 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 		thrdParam[j].srv = ip;
 		thrdParam[j].port = atoi(port.c_str());
 		thrdParam[j].msgType = msgType;
+		thrdParam[j].srvobj = this;
+
 		srvport = ip + ":" + port;
 
 		getPubkey( srvport, pubkey );
@@ -477,15 +480,15 @@ int omserver::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 
 void threadSendMsg( ThreadParam p )
 {
-    OmicroClient cli( p.srv.c_str(), p.port);
-	if ( ! cli.connectOK() ) {
-		return;
+	CliPtr cli = p.srvobj->clientPool_.get( p.srv, p.port );
+	if ( ! cli->connectOK() ) {
+		p.srvobj->clientPool_.erase( p.srv, p.port );
+		cli = p.srvobj->clientPool_.get( p.srv, p.port );
 	}
-
-    cli.sendMessage( p.msgType,  p.trxn.c_str(), 0);
+	cli->sendMessage( p.msgType,  p.trxn.c_str(), 0);
 }
 
-void omserver::onRecvQueryK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
+void OmServer::onRecvQueryK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
 {
 	strvec followers;
 	DynamicCircuit circ( nodeList_);
@@ -519,7 +522,7 @@ void omserver::onRecvQueryK( const sstr &beacon, const sstr &trxnId, const sstr 
 	}
 }
 
-void omserver::doCleanup()
+void OmServer::doCleanup()
 {
 	// cleanup votes and collections of trxnID
 	collectKTrxn_.cleanup( 240 );
@@ -529,5 +532,5 @@ void omserver::doCleanup()
 	qResult_.cleanup( 240 );
 
 	cleanupTimer_->expires_at(cleanupTimer_->expiry() + boost::asio::chrono::seconds(300));
-	cleanupTimer_->async_wait(boost::bind(&omserver::doCleanup, this ));
+	cleanupTimer_->async_wait(boost::bind(&OmServer::doCleanup, this ));
 }

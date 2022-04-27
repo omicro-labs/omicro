@@ -13,27 +13,18 @@
 #include "omwaitcount.h"
 #include "omwaitstr.h"
 #include "omtimer.h"
+#include "clientpool.h"
 
 using boost::asio::ip::tcp;
 
-struct ThreadParam
-{
-    sstr srv;
-    int port;
-    sstr trxn;
-    sstr reply;
-	char msgType;
-    bool expectReply;
-};
-void threadSendMsg( ThreadParam p);
 
 class OmicroTrxn;
 
-class omserver
+class OmServer
 {
   public:
-    omserver(boost::asio::io_context &io_context, const sstr &srvip, const sstr &port);
-	~omserver();
+    OmServer(boost::asio::io_context &io_context, const sstr &srvip, const sstr &port);
+	~OmServer();
 
 	void onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
 	void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
@@ -64,6 +55,7 @@ class omserver
 	sstr pubKey_;
 	sstr secKey_;
 	sstr address_, port_;
+	OmClientPool clientPool_;
 
   private:
     void do_accept();
@@ -77,10 +69,23 @@ class omserver
 	void doCleanup();
 
 	boost::asio::io_context &io_context_;
-	//OmTimer  cTimer_;
     tcp::acceptor acceptor_;
-
 	btimer *cleanupTimer_; // cleanup cached trxn items
+
 };
+
+
+struct ThreadParam
+{
+    sstr srv;
+    int port;
+    sstr trxn;
+    sstr reply;
+	char msgType;
+    bool expectReply;
+	OmServer *srvobj;
+};
+
+void threadSendMsg( ThreadParam p);
 
 #endif 
