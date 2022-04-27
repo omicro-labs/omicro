@@ -30,7 +30,6 @@
 #include "dynamiccircuit.h"
 #include "omutil.h"
 #include "omicroclient.h"
-#include "ommsghdr.h"
 #include "omsync.h"
 #include "omsession.h"
 #include "omstrsplit.h"
@@ -480,12 +479,21 @@ int OmServer::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 
 void threadSendMsg( ThreadParam p )
 {
+    OmicroClient cli( p.srv.c_str(), p.port);
+    if ( ! cli.connectOK() ) {
+        return;
+    }
+
+    cli.sendMessage( p.msgType,  p.trxn.c_str(), 0);
+
+	/***
 	CliPtr cli = p.srvobj->clientPool_.get( p.srv, p.port );
 	if ( ! cli->connectOK() ) {
 		p.srvobj->clientPool_.erase( p.srv, p.port );
 		cli = p.srvobj->clientPool_.get( p.srv, p.port );
 	}
 	cli->sendMessage( p.msgType,  p.trxn.c_str(), 0);
+	***/
 }
 
 void OmServer::onRecvQueryK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )

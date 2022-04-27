@@ -21,6 +21,7 @@
 #include <boost/asio.hpp>
 #include "server.hpp"
 #include "omutil.h"
+#include "ZlibCompress.h"
 
 INIT_LOGGING
 
@@ -51,6 +52,7 @@ int main(int argc, char* argv[])
         	i("E44308 exception: [%s] i am %s %s", e.what(), argv[1], argv[2] );
     	}
     }
+
 
     return 0;
 }

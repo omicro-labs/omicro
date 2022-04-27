@@ -55,6 +55,21 @@ BlockMgr::~BlockMgr()
 
 int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 {
+	memPool_.push_back( trxn );
+	if ( memPool_.size() > OM_MEMPOOL_SZ ) {
+		i("I10026  memPool_ flush ... ");
+		for ( auto &t : memPool_ ) {
+			saveTrxn( t );
+		}
+		memPool_.clear();
+		i("I10028  memPool_ cleared");
+	}
+
+	return 0;
+}
+
+int BlockMgr::saveTrxn( OmicroTrxn &trxn)
+{
 	sstr yyyymmddhh = getYYYYMMDDHHFromTS(trxn.timestamp_);
 	d("a65701 receiveTrxn ...");
 

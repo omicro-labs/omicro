@@ -59,6 +59,7 @@ class BlockMgr
 	std::unordered_map<sstr, OmstorePtr> acctStoreMap_;
 	TrxnList  trxnList_;
 	sstr  srv_, port_;
+	std::vector<OmicroTrxn> memPool_;
 };
 
 #endif

@@ -102,7 +102,7 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 		return "";
 	}
 
-	const std::lock_guard<std::mutex> lock(mutex_);
+	//const std::lock_guard<std::mutex> lock(mutex_);
 
 	char hdr[OMHDR_SZ+1];
 	OmMsgHdr mhdr(hdr, OMHDR_SZ, true);
