@@ -1,1 +1,15 @@
 Examples how to make API calls to Omicro network
+
+C++ example:
+../test/client/main.cpp
+
+  -- is example of client connecting to Omicro network.
+   . create accounts
+   . create tokens (FT or NFT tokens)
+   . make payments
+   . transfer tokens between accounts
+
+Makefile:
+../test/client/build/makefile
+  -- is makefile for compiling the example main.cpp
+

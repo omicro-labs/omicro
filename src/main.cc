@@ -25,6 +25,15 @@
 
 INIT_LOGGING
 
+/*********************************************************************
+**
+** main
+**
+** Server node creates a server object, which accepts connections
+** from peers and clients asynchonously.
+** Data reads and writes are also performed with asynchronouly.
+**
+**********************************************************************/
 int main(int argc, char* argv[])
 {
     // Check command line arguments.
@@ -53,7 +62,5 @@ int main(int argc, char* argv[])
     	}
     }
 
-
     return 0;
 }
-

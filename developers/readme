@@ -1,0 +1,25 @@
+4/27/2022
+
+Taks todo list:
+--------------------------------------------------
+1. memPool management in blockMgr
+   . transactions
+   . xfers
+   . simple balance management
+
+2. real connection-less reliable UDP library or class
+   . send()  -- if reply not expected, ask for confirmation
+             -- if reply is expected but not received, resent request
+   . recv()
+
+3. json-rpc  API gateway to Omicro network
+
+4. http REST API to Omicro network
+
+5. enrollment request
+
+6. followe nodes get instructions from uncles
+
+7. reader-repairment
+
+

@@ -35,6 +35,14 @@
 #include <rapidjson/error/en.h>
 #include "ZlibCompress.h"
 
+/**************************************************************************
+**
+**  Session object receiving commands from clients or peers and processing 
+**  the commands. A server node may take multiple sessions simultaneouly.
+**  Each session is a connection. A session may take several commands
+**  sequentially but in most cases a session takes only one message.
+**
+**************************************************************************/
 EXTERN_LOGGING
 using namespace boost::asio::ip;
 using bcode = boost::system::error_code;
@@ -52,14 +60,10 @@ OmSession::OmSession(boost::asio::io_context& io_context, OmServer &srv, tcp::so
 void OmSession::start()
 {
     do_read();
-	//printf("a33303 session start() done\n");
-	//fflush( stdout );
 }
 
 OmSession::~OmSession()
 {
-	//printf("a33308 OmSession dtor called\n");
-	//fflush( stdout );
 }
 
 void OmSession::do_read()
@@ -73,7 +77,6 @@ void OmSession::do_read()
             if (!ec)  // no error
             {
     			//d("a63003 async_read hdr=[%s] length=%lu", hdr, length);
-				// do read data
 				OmMsgHdr mhdr(hdr_, OMHDR_SZ, false);
 				ulong dlen = mhdr.getLength();
 				if ( dlen <= OM_MSG_MAXSZ ) {
@@ -113,9 +116,7 @@ void OmSession::do_read()
     					d("E30292 error invalid msgtype [%c]", tp );
     				}
     
-    				//free(data);
     				d("a63003 async_read and processing done\n" );
-
     				do_read();
 				} else {
 					d("E398462 dlen=%d too big > %d  close socket", dlen, OM_MSG_MAXSZ );
@@ -131,6 +132,8 @@ void OmSession::do_read()
     });
 }
 
+// Send reply back to peer. Mostly it sends short messages, but
+// sometimes it may send a transaction message to a peer.
 void OmSession::reply( const sstr &str, tcp::socket &socket )
 {
 	char hdr[OMHDR_SZ+1];
@@ -172,16 +175,17 @@ void OmSession::reply( const sstr &str, tcp::socket &socket )
     });
 }
 
+// Main method for handling transactions
 void OmSession::doTrxnL2(const char *msg, int msglen)
 {
-	d("a71002 doTrxn msg.len=%d msg=[%s]", msglen, msg );
+	// d("a71002 doTrxn msg.len=%d msg=[%s]", msglen, msg );
 	d("a71002 doTrxnL2 doTrxn msg.len=%d", msglen );
 	sstr srvid = serv_.id_;
 
 	OmicroTrxn t(msg);
 	Byte xit = t.getXit();
 
-	/**
+	/** debug
 	bool isInitTrxn1 = t.isInitTrxn();
 	d("a71002 isInitTrxn1=%d", isInitTrxn1 );
 	d("a71002 trxn.cipher=[%s]", s(t.cipher) );
@@ -328,6 +332,7 @@ void OmSession::doTrxnL2(const char *msg, int msglen)
 		s(t.sender_), s(t.trxntype_), s(serv_.srvport_), s(t.srvport_), xit, s(trxnId), isInitTrxn );
 }
 
+// Handles simple queris
 void OmSession::doSimpleQuery(const char *msg, int msglen)
 {
 	d("a71004 doSimpleQuery msg.len=%d msg=[%s]", msglen, msg );
@@ -385,6 +390,7 @@ void OmSession::doSimpleQuery(const char *msg, int msglen)
 	d("a535023 doSimpleQuery done clientIP_=[%s]", s(clientIP_));
 }
 
+// Initialize a transaction from client
 bool OmSession::initTrxn( OmicroTrxn &txn )
 {
 	// find zone leaders and ask them to collect votes from members
@@ -439,6 +445,8 @@ void OmSession::makeSessionID()
 	sid_ = buf;
 }
 
+// Check is a received transaction is valid.
+// It checks multiple condictions:  state, identidy, signature, balance, double-spending.
 bool OmSession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 {
 	d("a17621 OmSession::validateTrxn serv_.address=[%s] serv_.port=[%s]", s(serv_.address_), s(serv_.port_) );
@@ -538,6 +546,7 @@ bool OmSession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitT
 	return true;
 }
 
+// It checks validity of a query,such as balance, tokens
 bool OmSession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitTrxn, sstr &err )
 {
 	d("a82220 enter OmSession::validateQuery");
@@ -581,13 +590,15 @@ bool OmSession::validateQuery( OmicroTrxn &txn, const sstr &trxnId, bool isInitT
 
 }
 
+// Main method for running a query, verified and voted by all nodes.
+// It is similar to trxn, but shorter.
 void OmSession::doQueryL2(const char *msg, int msglen)
 {
 	d("a71003 doQueryL2 msg.len=%d", msglen );
 	sstr srvid = serv_.id_;
 
 	OmicroTrxn t(msg);
-	/**
+	/** debug
 	bool isInitTrxn1 = t.isInitTrxn();
 	d("a71002 isInitTrxn1=%d", isInitTrxn1 );
 	d("a71002 trxn.cipher=[%s]", s(t.cipher) );
@@ -617,9 +628,7 @@ void OmSession::doQueryL2(const char *msg, int msglen)
 	sstr m;
 
 	if ( isInitTrxn ) {
-		//t.setID();
 		d("a41713 initquery trxnId=[%s]", s(trxnId) );
-
 		rc = initQuery( t );
 
 		OmResponse resp;
@@ -699,10 +708,10 @@ void OmSession::doQueryL2(const char *msg, int msglen)
 	d("a555024 doQueryL2 done clientIP_=[%s]", s(clientIP_));
 }  // doQueryL2
 
+// Initiate a query process
 bool OmSession::initQuery( OmicroTrxn &txn )
 {
 	// find zone leaders and ask them to collect votes from members
-	// serv_.nodeList_ is std::vector<string>
 	sstr beacon = txn.beacon_;
 	sstr trxnid; txn.getTrxnID( trxnid );
 	d("a80120 tQueryinitTrxn() threadid=%ld beacon=[%s] trxnid=[%s]", pthread_self(), s(beacon), s(trxnid) );
@@ -752,6 +761,7 @@ bool OmSession::initQuery( OmicroTrxn &txn )
 	}
 }
 
+// Get query result
 // res is json retured
 void OmSession::getQueryResult( const sstr &trxnId, const sstr &sender, sstr &res )
 {

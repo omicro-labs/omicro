@@ -33,10 +33,17 @@
 #include "omtoken.h"
 #include "omlimits.h"
 #include "omjson.h"
-
 EXTERN_LOGGING
 
-
+/**********************************************************************
+**
+**  API to storage and blockchain
+**
+**  It handles mempool and permanent storage. Also it checks conditions
+**  of accounts, tokens, and balances.
+**
+**
+**********************************************************************/
 BlockMgr::BlockMgr()
 {
 }
@@ -55,7 +62,7 @@ BlockMgr::~BlockMgr()
 
 int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 {
-	/***
+	/*** todo
 	memPool_.push_back( trxn );
 	if ( memPool_.size() > OM_MEMPOOL_SZ ) {
 		i("I10026  memPool_ flush ... ");
@@ -129,6 +136,7 @@ int BlockMgr::saveTrxn( OmicroTrxn &trxn)
 	return 0;
 }
 
+// Create a new account
 int BlockMgr::createAcct( OmicroTrxn &trxn)
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
@@ -180,7 +188,7 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 	return 0;
 }
 
-// a user create some tokens
+// A user creates some tokens  FT or NFT or both
 int BlockMgr::createToken( OmicroTrxn &trxn)
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
@@ -244,6 +252,7 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 	return 0;
 }
 
+// Make a payment and update both balances (from and to)
 int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
@@ -294,6 +303,7 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 	return 0;
 }
 
+// Check status of a transaction
 void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &timestamp, sstr &res )
 {
 	std::vector<sstr> vec;
@@ -339,7 +349,7 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 	resp.json( res );
 }
 
-// get a list of trxns of user from. If trxnId is not empty, get specific trxn
+// Get a list of trxns of user from. If trxnId is not empty, get specific trxn
 int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &vec, char &tstat, sstr &err )
 {
 	sstr yyyymmddhh = getYYYYMMDDHHFromTS(timestamp);
@@ -649,6 +659,7 @@ void BlockMgr::getFence( const sstr &from, sstr &fence )
 	//d("a62201 BlockMgr::getFence from=[%s] fence=out_=[%s]", s(from), s(fence) );
 }
 
+// Run a query
 int BlockMgr::runQuery( OmicroTrxn &trxn, sstr &res )
 {
 	sstr from = trxn.sender_;
@@ -741,7 +752,7 @@ int BlockMgr::runQuery( OmicroTrxn &trxn, sstr &res )
 	return 0;
 }
 
-// FInd and save user store if users exists. If not exists, return false
+// Find and save user store if users exists. If not exists, return false
 char *BlockMgr::findSaveStore( const sstr &userId, OmstorePtr &ptr )
 {
 	sstr fpath;
