@@ -33,6 +33,7 @@ JSON=../../../src/Web/json/rapidjson
 HASH=../../../src/Web/hash
 DILITH=../../../src/Web/dilithium
 OPENSSL=../../../src/Web/openssl/install
+ZLIB=../../../src/Web/zlib/install
 
 DILITH_LIBS=$(DILITH)/dilithium/ref/ref/libdilithium5_ref.a \
             $(DILITH)/dilithium/ref/ref/libdilithium3_ref.a \
@@ -50,6 +51,7 @@ MY_LIBS   = \
 			$(AES)/tiny-AES-c/aes.o \
 			$(HASH)/xxHash/libxxhash.a \
 			$(OPENSSL)/lib64/libcrypto.a \
+			$(ZLIB)/lib/libz.a \
 			/usr/local/gcc-7.4.0/lib64/libstdc++.a \
 			-ldl -lpthread
 

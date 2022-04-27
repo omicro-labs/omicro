@@ -33,6 +33,7 @@
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/error/en.h>
+#include "ZlibCompress.h"
 
 EXTERN_LOGGING
 using namespace boost::asio::ip;
@@ -83,6 +84,22 @@ void OmSession::do_read()
     				int len2 =  boost::asio::read( socket_, boost::asio::buffer(data,dlen), ec2 );
     				d("a45023 boost::asio::read len2=%d dlen=%d", len2, dlen );
     				data[len2] = '\0';
+
+					sstr msg(data, len2);
+					free(data);
+                   	sstr uncomp;
+
+        			char c = mhdr.getCompression();
+                	if ( c == OM_COMPRESSED ) {
+                    	d("a33185 srv got OM_COMPRESSED unzip");
+                    	ZlibCompress::uncompress(msg, uncomp);
+                    	data = (char*)uncomp.c_str();
+						len2 = uncomp.size();
+                	} else {
+                    	d("a33186 srv not OM_COMPRESSED");
+						data = (char*)msg.c_str();
+						// len2 no change
+					}
     
     				char tp = mhdr.getMsgType();
     				d("a10287 mhdr.getMsgType tp=[%c]", tp );
@@ -96,7 +113,7 @@ void OmSession::do_read()
     					d("E30292 error invalid msgtype [%c]", tp );
     				}
     
-    				free(data);
+    				//free(data);
     				d("a63003 async_read and processing done\n" );
 
     				do_read();
@@ -119,22 +136,33 @@ void OmSession::reply( const sstr &str, tcp::socket &socket )
 	char hdr[OMHDR_SZ+1];
 	hdr[OMHDR_SZ] = '\0'; 
 
+	bool doCompress = false;
 	OmMsgHdr mhdr(hdr, OMHDR_SZ, true);
-	mhdr.setLength( str.size() );
-	mhdr.setPlain();
+
+	sstr zip;
+	if ( str.size() > 1000 ) {
+		doCompress = true;
+		ZlibCompress::compress( str, zip);
+		mhdr.setLength( zip.size() );
+		mhdr.setCompressed();
+	} else {
+		zip = str;
+		mhdr.setLength( str.size() );
+		mhdr.setPlain();
+	}
 
     auto self(shared_from_this());
 
     boost::asio::async_write(socket, boost::asio::buffer(hdr, OMHDR_SZ),
-          [this, self, str, &socket](bcode ec, std::size_t len)
+          [this, self, &socket, doCompress, zip](bcode ec, std::size_t len)
           {
             //d("a51550 111 in OmSession::reply str=[%s] len=%d", s(str), str.size() );
             if (!ec)  // no error, OK
             {
 				d("a43390 reply send async_write hdrmsg OK");
 				try {
-       				int len2 = boost::asio::write(socket, boost::asio::buffer(str.c_str(), str.size()));
-    				d("a00292 server write str back str=[%s] strlen=%d done sentbytes=%d", str.c_str(), str.size(), len2 );
+       				int len2 = boost::asio::write(socket, boost::asio::buffer(zip.c_str(), zip.size()));
+    				d("a00292 server write str back str=[%s] strlen=%d done sentbytes=%d", zip.c_str(), zip.size(), len2 );
 				} catch (std::exception& e) {
 					i("E66331 error brokenpipe in server reply() exception [%s] clientIP_=[%s]", e.what(), s(clientIP_) );
 				}
@@ -146,7 +174,7 @@ void OmSession::reply( const sstr &str, tcp::socket &socket )
 
 void OmSession::doTrxnL2(const char *msg, int msglen)
 {
-	//d("a71002 doTrxn msg.len=%d msg=[%s]", msglen, msg );
+	d("a71002 doTrxn msg.len=%d msg=[%s]", msglen, msg );
 	d("a71002 doTrxnL2 doTrxn msg.len=%d", msglen );
 	sstr srvid = serv_.id_;
 
@@ -302,7 +330,7 @@ void OmSession::doTrxnL2(const char *msg, int msglen)
 
 void OmSession::doSimpleQuery(const char *msg, int msglen)
 {
-	d("a71002 doSimpleQuery msg.len=%d msg=[%s]", msglen, msg );
+	d("a71004 doSimpleQuery msg.len=%d msg=[%s]", msglen, msg );
 	sstr srvid = serv_.id_;
 
     rapidjson::Document dom;

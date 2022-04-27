@@ -17,6 +17,7 @@
 #include "omicrodef.h" 
 #include "omlog.h" 
 #include "omresponse.h" 
+#include "ZlibCompress.h" 
 EXTERN_LOGGING
 
 OmicroClient::OmicroClient( const char *srv, int port )
@@ -106,8 +107,11 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 
 	char hdr[OMHDR_SZ+1];
 	OmMsgHdr mhdr(hdr, OMHDR_SZ, true);
-	mhdr.setLength(msg.size());
-	mhdr.setPlain();
+	sstr zip;
+	ZlibCompress::compress(msg, zip);
+	mhdr.setLength(zip.size());
+	mhdr.setCompressed();
+
 	mhdr.setMsgType( mtype );
 	hdr[OMHDR_SZ] = '\0';
 	//d("a10192 hdr=[%s] OMHDR_SZ=%d msg.size()=%d safewrte ...", hdr, OMHDR_SZ, msg.size() );
@@ -119,7 +123,8 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 	}
 	//d("a23373 client write hdr len1=%d",len1);
 
-	long len2 = safewrite(socket_, msg.c_str(), msg.size() );
+	//long len2 = safewrite(socket_, msg.c_str(), msg.size() );
+	long len2 = safewrite(socket_, zip.c_str(), zip.size() );
 	if ( len2 <= 0 ) {
 		d("a4203 OmicroClient::sendMessage write timeout empty msg");
 		return "";
@@ -151,10 +156,19 @@ sstr OmicroClient::sendMessage( char mtype, const sstr &msg, bool expectReply )
 		}
 
 		res = sstr(reply, sz);
+		free(reply);
+
+		char c = mhdr2.getCompression();
+		if ( c == OM_COMPRESSED ) {
+			d("a33383 client OM_COMPRESSED unzip");
+			sstr uncomp;
+			ZlibCompress::uncompress(res, uncomp);
+			res = uncomp;
+		}
+
 		//d("cnt=%d client received data: hdrlen=%d reply_length=%d sz=%d", cnt, hdrlen, reply_length, sz);
 		//d("cnt=%d       received data =[%s]", cnt, s(res) );
 
-		free(reply);
 		++cnt;
 	}
 

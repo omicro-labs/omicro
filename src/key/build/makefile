@@ -78,6 +78,7 @@ JSON=../../Web/json/rapidjson
 DILITH=../../../src/Web/dilithium
 
 OPENSSL=../../Web/openssl/install
+ZLIB=../../Web/zlib/install
 
 
 DILITH_LIBS=$(DILITH)/dilithium/ref/ref/libdilithium5_ref.a \
@@ -99,8 +100,9 @@ MY_LIBS = \
 		  $(BOOST_LIB_PATH)/libboost_filesystem.a \
 		  $(OPENSSL)/lib64/libcrypto.a \
 		  $(TC)/lib/libtokyocabinet.a \
+		  $(ZLIB)/lib/libz.a \
 		  /usr/local/gcc-7.4.0/lib64/libstdc++.a \
-		  -lz -lbz2 \
+		  -lbz2 \
 		  -ldl
 
 		  #/lib64/libpthread.a \
@@ -130,6 +132,7 @@ CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
             -I $(BASE85) \
             -I $(AES) \
             -I $(JSON)/include \
+            -I $(ZLIB)/include \
 			-static-libgcc -static-libstdc++ \
 			-O3
 
