@@ -38,12 +38,13 @@
 
 EXTERN_LOGGING
 using namespace boost::asio::ip;
-using bcode = boost::system::error_code;
+using bstcode = boost::system::error_code;
+using bstaddress = boost::asio::ip::address;
 
 
 OmServer::OmServer( boost::asio::io_context &io_context, const sstr &srvip, const sstr &port)
       : io_context_(io_context), 
-	    acceptor_(io_context, tcp::endpoint(boost::asio::ip::address::from_string(srvip.c_str()), atoi(port.c_str()) ))
+	    acceptor_(io_context, tcp::endpoint(bstaddress::from_string(srvip.c_str()), atoi(port.c_str()) ))
 {
     address_ = srvip;
     port_ = port;
@@ -66,6 +67,7 @@ OmServer::OmServer( boost::asio::io_context &io_context, const sstr &srvip, cons
 	cleanupTimer_->expires_at(cleanupTimer_->expiry() + boost::asio::chrono::seconds(300));
 	cleanupTimer_->async_wait(boost::bind(&OmServer::doCleanup, this ));
 
+	connections_ = 0;
     do_accept();
 	i("OmServer is ready");
 
@@ -79,16 +81,17 @@ OmServer::~OmServer()
 void OmServer::do_accept()
 {
     acceptor_.async_accept(
-          [this](bcode ec, tcp::socket accpt_sock) {
-            if (!ec)
-            {
-				//printf("server accepted connection newsession ...\n");
-                std::shared_ptr<OmSession> sess = std::make_shared<OmSession>(io_context_, *this, std::move(accpt_sock));
-                sess->start();
-				//printf("server connection newsession is done\n");
-            }
+      [this](bstcode ec, tcp::socket acpt) {
+        if (!ec) {
+			i("I00038 handle connection conns=%lu ...", connections_);
+			++connections_;
+            std::shared_ptr<OmSession> s = std::make_shared<OmSession>(io_context_, *this, std::move(acpt));
+            s->start();
+			--connections_;
+			i("I00038 handle connection done conns=%lu", connections_);
+        }
 
-            do_accept();
+        do_accept();
     });
 
 }

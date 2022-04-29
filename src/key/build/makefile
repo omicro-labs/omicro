@@ -101,10 +101,10 @@ MY_LIBS = \
 		  $(OPENSSL)/lib64/libcrypto.a \
 		  $(TC)/lib/libtokyocabinet.a \
 		  $(ZLIB)/lib/libz.a \
-		  /usr/local/gcc-7.4.0/lib64/libstdc++.a \
-		  -lbz2 \
+		  /usr/local/gcc-11.3.0/lib64/libstdc++.a \
 		  -ldl
 
+		  #-lbz2 \
 		  #/lib64/libpthread.a \
 		  #/lib64/libc.a \
 		  #-ldl -lz -lbz2 -lpthread 

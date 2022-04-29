@@ -71,6 +71,7 @@ class OmServer
 	boost::asio::io_context &io_context_;
     tcp::acceptor acceptor_;
 	btimer *cleanupTimer_; // cleanup cached trxn items
+	ulong  connections_;
 
 };
 

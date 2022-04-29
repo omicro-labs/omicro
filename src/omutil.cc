@@ -99,7 +99,7 @@ void log(FILE *f, const char * format, va_list args )
 
 void i(const char * format, ...)
 {
-	va_list(args);
+	va_list args;
 	va_start(args, format);
 	log(g_loggingfp,format, args);
 	va_end(args);
@@ -108,7 +108,7 @@ void i(const char * format, ...)
 void d(const char * format, ...)
 {
 	if ( ! g_debug ) return;
-	va_list(args);
+	va_list args;
 	va_start(args, format);
 	log(g_loggingfp, format, args);
 	va_end(args);

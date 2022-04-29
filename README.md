@@ -18,6 +18,8 @@ http://t.me/omicrolabs
 
 http://linkedin.com/in/omicro
 
+http://medium.com/@omicro
+
 
 # Consensus of Votes
 

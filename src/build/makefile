@@ -77,6 +77,7 @@ JSON=../Web/json/rapidjson
 DILITH=../Web/dilithium
 OPENSSL=../Web/openssl/install
 ZLIB=../Web/zlib/install
+BZIP2=../Web/bzip2/install
 
 DILITH_LIBS=$(DILITH)/dilithium/ref/ref/libdilithium5_ref.a \
             $(DILITH)/dilithium/ref/ref/libdilithium3_ref.a \
@@ -95,9 +96,11 @@ MY_LIBS = $(HASH)/xxHash/libxxhash.a \
 		  $(TC)/lib/libtokyocabinet.a \
 		  $(OPENSSL)/lib64/libcrypto.a \
 		  $(ZLIB)/lib/libz.a \
-		  /usr/local/gcc-7.4.0/lib64/libstdc++.a \
-		  -lbz2 -ldl
+		  $(BZIP2)/lib/libbz2.a \
+		  /usr/local/gcc-11.3.0/lib64/libstdc++.a \
+		  -ldl
 
+		  #/usr/local/gcc-7.4.0/lib64/libstdc++.a \
           #$(BOOST_LIB_PATH)/libboost_system.a \
 		  #$(BOOST_LIB_PATH)/libboost_filesystem.a \
 
@@ -125,6 +128,7 @@ CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
 			-D DILITHIUM_MODE=5 \
 			-I $(DILITH)/include \
 			-I $(ZLIB)/include \
+			-I $(BZIP2)/include \
 			-O3
 
 # The options used in linking as well as in any direct use of ld.
