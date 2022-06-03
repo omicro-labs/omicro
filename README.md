@@ -6,6 +6,8 @@ Please see following for more information:
 
 http://omicro.co
 
+https://omicro.co/w/omicro.pdf
+
 https://www.youtube.com/channel/UCEP5yRxZgzqMwSTZZdQBpog
 
 https://github.com/omicro-labs/omicro
