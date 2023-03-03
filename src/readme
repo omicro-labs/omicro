@@ -2,3 +2,12 @@ Source code of Omicro
 To compile the code, go to the build directory and build.
 To test the program, please go to ../test/server or ../test/client.
 
+
+2022-06-18 06:37:36.186 553752 8560: a45023 boost::asio::read len2=8541 dlen=8541
+2022-06-18 06:37:36.186 553752 8560: a33185 srv got OM_COMPRESSED unzip
+2022-06-18 06:37:36.186 553752 8560: a45025 after uncompress len2=10511
+
+
+trxn pay:  8541 compressed trxn message
+uncompressed size: 10511 bytes
+

@@ -3,7 +3,7 @@
 if [[ ! -d xxHash ]]; then
 	git clone https://github.com/Cyan4973/xxHash.git
 	cd xxHash
-	make
+	make libxxhash.a
 	cd ..
 fi
 

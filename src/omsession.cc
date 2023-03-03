@@ -98,6 +98,7 @@ void OmSession::do_read()
                     	ZlibCompress::uncompress(msg, uncomp);
                     	data = (char*)uncomp.c_str();
 						len2 = uncomp.size();
+    					d("a45025 after uncompress len2=%d", len2 );
                 	} else {
                     	d("a33186 srv not OM_COMPRESSED");
 						data = (char*)msg.c_str();
@@ -445,8 +446,8 @@ void OmSession::makeSessionID()
 	sid_ = buf;
 }
 
-// Check is a received transaction is valid.
-// It checks multiple condictions:  state, identidy, signature, balance, double-spending.
+// Check if a received transaction is valid.
+// It checks multiple conditions:  state, identity, signature, balance, double-spending.
 bool OmSession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitTrxn, sstr &err )
 {
 	d("a17621 OmSession::validateTrxn serv_.address=[%s] serv_.port=[%s]", s(serv_.address_), s(serv_.port_) );
