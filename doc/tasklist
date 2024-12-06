@@ -21,4 +21,5 @@
    2) Solidity
 10. secure contract templates
 11. IPV6 support
+12. support AI inference by adding vector database (JaguarDB)
 

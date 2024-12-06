@@ -37,9 +37,9 @@
 
 /**************************************************************************
 **
-**  Session object receiving commands from clients or peers and processing 
+**  Session object receivs commands from clients or peers and process
 **  the commands. A server node may take multiple sessions simultaneouly.
-**  Each session is a connection. A session may take several commands
+**  Each session contains a connection. A session may take several commands
 **  sequentially but in most cases a session takes only one message.
 **
 **************************************************************************/
