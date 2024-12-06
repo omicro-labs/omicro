@@ -3,24 +3,35 @@
 #include <assert.h>
 #include "omicrokey.h"
 
+
+using sstr = std::string;
+
 int main( int argc, char *argv[] )
 {
-	OmicroKey k;
+	OmicroNodeKey k;
 	sstr secretKey, publicKey;
-	k.createKeyPair( 3, "hihimypassword", secretKey, publicKey );
+	k.createKeyPairSB3( secretKey, publicKey );
 	printf("secretKey=[%s]\n", secretKey.c_str() );
 	printf("publicKey=[%s]\n", publicKey.c_str() );
 
 	sstr msg = "do ntru keys";
-	sstr encmsg = k.encrypt( 3, msg, secretKey );
-	sstr msg2 = k.decrypt( 3, encmsg, publicKey );
+    sstr cipher, passwd, encMsg;
+	k.encryptSB3( msg, publicKey, cipher, passwd, encMsg );
 
-	if ( msg2 == msg ) {
-		printf("OK\n");
+	printf("cipher=[%s]\n", cipher.c_str() );
+	printf("passwd=[%s]\n", passwd.c_str() );
+	printf("encMsg=[%s]\n", encMsg.c_str() );
+
+
+	sstr plain;
+    k.decryptSB3( encMsg, secretKey, cipher, plain );
+
+	if ( plain == msg ) {
+		printf("enc dec OK\n");
 	} else {
 		printf("error\n");
 	}
 
-	printf("hello\n");
+	printf("done\n");
 	return 0;
 }

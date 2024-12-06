@@ -1,14 +1,20 @@
+SSLINC=../../../openssl/install/include
+SSLLIB=../../../openssl/install/lib64
+
 CC 		  = /usr/bin/gcc
-CFLAGS  = -Wall -Wextra -Wmissing-prototypes -Wredundant-decls -O3 
-NISTFLAGS  = -Wno-unused-result -O3 -std=c99 
+CFLAGS  = -Wall -Wextra -Wmissing-prototypes -Wredundant-decls -I$(SSLINC) -O3 
+NISTFLAGS  = -Wno-unused-result -O3 -std=c99  -I$(SSLINC)
 CLANG   = clang -march=native -O3 -fwrapv -Qunused-arguments
 RM 		  = /bin/rm
+
 
 .c.o:
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 rng.o: rng.c
-	$(CC) $(NISTFLAGS) -c rng.c -lcrypto -o $@ 
+	$(CC) $(NISTFLAGS) -c rng.c -o $@ 
+
+	#$(CC) $(NISTFLAGS) -c rng.c -L$(SSLLIB)) -lcrypto -o $@ 
 
 all: lib test/test_kex test/PQCgenKAT_kem test/kem
 
@@ -17,13 +23,13 @@ HEADERS = SABER_params.h pack_unpack.h poly.h rng.h fips202.h verify.h cbd.h SAB
 OBJS = pack_unpack.o poly.o fips202.o verify.o cbd.o SABER_indcpa.o kem.o
 
 test/test_kex: $(OBJS) $(HEADERS) rng.o test/test_kex.c
-	$(CC) $(CFLAGS) -o $@  test/test_kex.c libsaber.a -lcrypto
+	$(CC) $(CFLAGS) -o $@  test/test_kex.c libsaber.a -L$(SSLLIB) -lcrypto
 
 test/PQCgenKAT_kem: $(OBJS) $(HEADERS) rng.o test/PQCgenKAT_kem.c 
-	$(CC) $(NISTFLAGS) -o $@ test/PQCgenKAT_kem.c libsaber.a -lcrypto
+	$(CC) $(NISTFLAGS) -o $@ test/PQCgenKAT_kem.c libsaber.a -L$(SSLLIB) -lcrypto
 
 test/kem: $(SOURCES) $(HEADERS) rng.o test/kem.c
-	$(CC) $(CFLAGS) -o $@  test/kem.c libsaber.a -lcrypto
+	$(CC) $(CFLAGS) -o $@  test/kem.c libsaber.a -L$(SSLLIB) -lcrypto
 
 
 lib: $(OBJS) rng.o
