@@ -1,5 +1,7 @@
 This directory contains thirdparty packages on the WWW
 
+1. gcc g++ compiler
+
 cd /usr/local/src
 mkdir gcc-11.3.0-build_dir
 
@@ -13,4 +15,7 @@ cd ../gcc-11.3.0-build_dir
 ../gcc-11.3.0/configure --prefix=/usr/local/gcc-11.3.0 --disable-multilib
 make
 make install
+
+
+2. openssl library
 

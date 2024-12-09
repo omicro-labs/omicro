@@ -53,14 +53,16 @@ MY_LIBS   = \
 			$(HASH)/xxHash/libxxhash.a \
 			$(OPENSSL)/lib64/libcrypto.a \
 			$(ZLIB)/lib/libz.a \
-			/usr/local/gcc-11.3.0/lib64/libstdc++.a \
-			-ldl -lpthread 
+            /usr/lib/gcc/x86_64-linux-gnu/11/libstdc++.a  \
+            /usr/lib/x86_64-linux-gnu/libtirpc.a \
+			-ldl -lpthread -lcrypt
 
 
 # The pre-processor options used by the cpp (man cpp for more).
 CPPFLAGS  = -Wall \
             -I $(SRCINC) \
 			-I $(JSON)/include  \
+            -I /usr/include/tirpc  \
 			-O3 
 
 # The options used in linking as well as in any direct use of ld.

@@ -1,0 +1,7 @@
+1. install
+
+   ./install.sh
+
+2. compile and test run
+
+   ./compile.sh

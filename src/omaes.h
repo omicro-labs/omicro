@@ -3,7 +3,7 @@
 
 #define AES256 1
 
-#include <tiny-AES-c/aes.hpp>
+//#include <tiny-AES-c/aes.hpp>
 #include "omicrodef.h"
 
 void aesEncrypt( const sstr &instr, const sstr &passwd, sstr &cipher );

@@ -312,6 +312,7 @@ void readUserKey( std::string uname, std::string &secKey, std::string &pubKey )
 	std::string rt = getHomeDir();
 	std::string f1 = rt + "/mysecretKey" + uname;
 	std::string f2 = rt + "/mypublicKey" + uname;
+    char *fg = NULL;
 
 	char buf[20000];
 
@@ -320,8 +321,9 @@ void readUserKey( std::string uname, std::string &secKey, std::string &pubKey )
 		printf("Error open [%s]\n", f1.c_str() );
 		exit(11);
 	}
+
 	memset(buf, 0, 20000);
-	fgets(buf, 20000, fp );
+	fg = fgets(buf, 20000, fp );
 	fclose(fp);
 	secKey = buf;
 
@@ -330,12 +332,13 @@ void readUserKey( std::string uname, std::string &secKey, std::string &pubKey )
 		printf("Error open [%s]\n", f2.c_str() );
 		exit(12);
 	}
+
 	memset(buf, 0, 20000);
-	fgets(buf, 20000, fp );
+	fg = fgets(buf, 20000, fp );
 	fclose(fp);
 	pubKey = buf;
 
-	printf("Keys are read from %s %s\n", f1.c_str(), f2.c_str() );
+	printf("Keys are read from %s %s fg=%s\n", f1.c_str(), f2.c_str(), fg );
 }
 
 void makeTransfer( const char * srv, int port, const std::string &from, const std::string &to, 

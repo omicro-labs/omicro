@@ -64,8 +64,10 @@ LC_OS_NAME = $(shell echo $(OS_NAME) | tr '[A-Z]' '[a-z]')
 MY_CFLAGS =
 
 ##omicro
-BOOST_LIB_PATH=/usr/local/boost_1.78.0/lib
-BOOST_INC_PATH=/usr/local/boost_1.78.0/include
+#BOOST_LIB_PATH=/usr/local/boost_1.78.0/lib
+#BOOST_INC_PATH=/usr/local/boost_1.78.0/include
+BOOST_LIB_PATH=../Web/Boost/boost_1_81_0_install/lib
+BOOST_INC_PATH=../Web/Boost/boost_1_81_0_install/include
 
 HASH=../Web/hash
 NTRU=../Web/ntru/libntru
@@ -78,6 +80,7 @@ DILITH=../Web/dilithium
 OPENSSL=../Web/openssl/install
 ZLIB=../Web/zlib/install
 BZIP2=../Web/bzip2/install
+AES192=../Web/aes192
 
 DILITH_LIBS=$(DILITH)/dilithium/ref/ref/libdilithium5_ref.a \
             $(DILITH)/dilithium/ref/ref/libdilithium3_ref.a \
@@ -97,9 +100,10 @@ MY_LIBS = $(HASH)/xxHash/libxxhash.a \
 		  $(OPENSSL)/lib64/libcrypto.a \
 		  $(ZLIB)/lib/libz.a \
 		  $(BZIP2)/lib/libbz2.a \
-		  /usr/local/gcc-11.3.0/lib64/libstdc++.a \
+          /usr/lib/gcc/x86_64-linux-gnu/11/libstdc++.a \
 		  -ldl
 
+		  #/usr/local/gcc-11.3.0/lib64/libstdc++.a \
 		  #/usr/local/gcc-7.4.0/lib64/libstdc++.a \
           #$(BOOST_LIB_PATH)/libboost_system.a \
 		  #$(BOOST_LIB_PATH)/libboost_filesystem.a \
@@ -129,7 +133,10 @@ CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
 			-I $(DILITH)/include \
 			-I $(ZLIB)/include \
 			-I $(BZIP2)/include \
+			-I $(AES192)/AES-192-CBC \
 			-O3
+
+            #-I /usr/include/tirpc \
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)
