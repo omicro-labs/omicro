@@ -63,20 +63,52 @@ LC_OS_NAME = $(shell echo $(OS_NAME) | tr '[A-Z]' '[a-z]')
 # The pre-processor and compiler options.
 MY_CFLAGS =
 
-BOOST_INC_PATH=/usr/local/include
-BOOST_LIB_PATH=/usr/local/lib
+#BOOST_INC_PATH=/usr/local/include
+#BOOST_LIB_PATH=/usr/local/lib
+
+BOOST_LIB_PATH=../../../src/Web/Boost/boost_1_81_0_install/lib
+BOOST_INC_PATH=../../../src/Web/Boost/boost_1_81_0_install/include
+
 
 SRCINC=../../../src
 KCP=../../../src/Web/kcpasio/asio_kcp
 SRCBUILD=../../../src/build
 NTRU=../../../src/Web/ntru/libntru
+DILITH=../../../src/Web/dilithium
+SABER=../../../src/Web/saber
+HASH=../../../src/Web/hash
+BASE85=../../../src/Web/base85
+OPENSSL=../../../src/Web/openssl/install
+
+
+
+
+# /mnt/ssd/home/dev2/omicro/test/crypt/build
+
+DILITH_LIBS=$(DILITH)/dilithium/ref/ref/libdilithium5_ref.a \
+            $(DILITH)/dilithium/ref/ref/libdilithium3_ref.a \
+            $(DILITH)/dilithium/ref/ref/libdilithium2_ref.a \
+            $(DILITH)/dilithium/ref/ref/libfips202_ref.a \
+            $(DILITH)/dilithium/ref/ref/libaes256ctr_ref.a 
+
+            #$(DILITH)/dilithium/ref/randombytes.o
+
 
 
 
 # The linker options.
 MY_LIBS   = \
-			$(SRCBUILD)/omicrokey.o \
-			$(NTRU)/libntru.a 
+			$(SRCBUILD)/libomicro.a \
+			$(NTRU)/libntru.a \
+			$(DILITH_LIBS) \
+            $(SABER)/SABER/Reference_Implementation_KEM/libsaber.a \
+            $(HASH)/xxHash/libxxhash.a \
+            $(BASE85)/ascii85/ascii85.o \
+    	    $(OPENSSL)/lib64/libcrypto.a \
+            randombytes.o \
+   
+    
+			#$(SRCBUILD)/omicrokey.o \
 
 CPPFLAGS  = -Wall -I $(BOOST_INC_PATH) -I $(KCP) -I $(NTRU) -I $(SRCINC) -g -ggdb
 
@@ -174,6 +206,10 @@ LINK.cxx    = $(CXX) $(MY_CFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS)
 .SUFFIXES:
 
 all: $(PROGRAM)
+
+
+randombytes.o:$(DILITH)/dilithium/ref/randombytes.c
+	cc -I $(DILITH)/dilithium/ref  -c  $< -o $@
 
 
 # Rules for generating object files (.o).

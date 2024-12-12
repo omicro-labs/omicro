@@ -2,9 +2,12 @@
 #include <stdio.h>
 #include <assert.h>
 #include "omicrokey.h"
+#include "omlog.h"
 
 
 using sstr = std::string;
+
+INIT_LOGGING
 
 int main( int argc, char *argv[] )
 {
@@ -14,7 +17,7 @@ int main( int argc, char *argv[] )
 	printf("secretKey=[%s]\n", secretKey.c_str() );
 	printf("publicKey=[%s]\n", publicKey.c_str() );
 
-	sstr msg = "do ntru keys";
+	sstr msg = "do ntru keys encrypt and decrypt this message using post-quantum keys";
     sstr cipher, passwd, encMsg;
 	k.encryptSB3( msg, publicKey, cipher, passwd, encMsg );
 
@@ -27,7 +30,7 @@ int main( int argc, char *argv[] )
     k.decryptSB3( encMsg, secretKey, cipher, plain );
 
 	if ( plain == msg ) {
-		printf("enc dec OK\n");
+		printf("enc dec OK.  plain[%s] == msg[%s]\n", plain.c_str(), msg.c_str() );
 	} else {
 		printf("error\n");
 	}
