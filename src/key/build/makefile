@@ -64,8 +64,8 @@ LC_OS_NAME = $(shell echo $(OS_NAME) | tr '[A-Z]' '[a-z]')
 MY_CFLAGS = -Bstatic
 
 ##omicro
-BOOST_LIB_PATH=/usr/local/boost_1.78.0/lib
-BOOST_INC_PATH=/usr/local/boost_1.78.0/include
+BOOST_LIB_PATH=../../Web/Boost/boost_1_81_0_install/lib
+BOOST_INC_PATH=../../Web/Boost/boost_1_81_0_install/include
 
 SRCBUILD=../../build
 HASH=../../Web/hash
@@ -101,7 +101,7 @@ MY_LIBS = \
 		  $(OPENSSL)/lib64/libcrypto.a \
 		  $(TC)/lib/libtokyocabinet.a \
 		  $(ZLIB)/lib/libz.a \
-		  /usr/local/gcc-11.3.0/lib64/libstdc++.a \
+          /usr/lib/gcc/x86_64-linux-gnu/11/libstdc++.a \
 		  -ldl
 
 		  #-lbz2 \

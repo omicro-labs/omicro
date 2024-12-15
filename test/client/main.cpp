@@ -17,15 +17,15 @@ INIT_LOGGING
 **  This is example code for client to interact with Omicro
 **
 **	Usage: 
-**	       omclient  key <userID>    (This will create keys of provided userID)
+**	       omclient  createkey  <userID>       (This will create keys of provided userID which can be any string)
 **
-**         omclient  <serverIP>  <serverPort>  acct <userID>
+**         omclient  <serverIP>  <serverPort>  createaccount <userID>
 **                                             Create account for provided userID
 **
 **         omclient  <serverIP>  <serverPort>  pay <fromUserID> <toUserID>  <amt>
 **                                             Pay from <fromUserID> to <toUserID> <amt>
 **
-**         omclient  <serverIP>  <serverPort>  viewbal <userID>
+**         omclient  <serverIP>  <serverPort>  viewbalance <userID>
 **                                             View balance of user1 or user2
 **
 **         omclient  <serverIP>  <serverPort>  token <ownerID>
@@ -37,7 +37,7 @@ INIT_LOGGING
 **         omclient  <serverIP>  <serverPort>  viewtoken <ownerID> <tokenId>
 **                                             View token under user <ownerID>.
 **
-**         omclient  <serverIP>  <serverPort>  xfer <fromUserID> <toUserID>  <amt> 
+**         omclient  <serverIP>  <serverPort>  transfer <fromUserID> <toUserID>  <amt> 
 **                                             Transfer tokens from <fromUserID> to <toUserID> <amt>
 **
 **************************************************************************************/
@@ -53,14 +53,14 @@ std::string getHomeDir();
 
 void help( const char *prog)
 {
-	printf("Usage: %s   key userID\n", prog);
-	printf("Usage: %s  <serverIP>  <serverPort>  acct <userId>\n", prog );
+	printf("Usage: %s   createkey <userID>\n", prog);
+	printf("Usage: %s  <serverIP>  <serverPort>  createaccount <userId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  pay <fromId> <toId> <amount>\n", prog );
-	printf("Usage: %s  <serverIP>  <serverPort>  viewbal <userId>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  viewbalance <userId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  token <ownerId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  viewtokens <ownerId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  viewtoken <ownerId> <tokenId>\n", prog );
-	printf("Usage: %s  <serverIP>  <serverPort>  xfer <fromId> <toId> <amount>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  transfer <fromId> <toId> <amount>\n", prog );
 }
 
 int main(int argc, char* argv[])
@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
 		exit(1);
 	}
 
-	if ( 0 == strcmp(argv[1], "key" ) ) {
+	if ( 0 == strcmp(argv[1], "createkey" ) ) {
 		if ( argc >= 3 ) {
 			createUserKey( argv[2] );
 			exit(0);
@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
 	const char *srv = argv[1];
 	int port = atoi(argv[2]);
 
-	if ( 0 == strcmp(argv[3], "acct" ) ) {
+	if ( 0 == strcmp(argv[3], "createaccount" ) ) {
 		if ( argc >= 5 ) {
 			createAcct( srv, port, argv[4] );
 		} else {
@@ -107,7 +107,7 @@ int main(int argc, char* argv[])
 			help(argv[0]);
 			exit(5);
 		}
-	} else if ( 0 == strcmp(argv[3], "viewbal" ) ) {
+	} else if ( 0 == strcmp(argv[3], "viewbalance" ) ) {
 		if ( argc >= 5 ) {
 	    	query( "balance", srv, port, argv[4], "" );
 		} else {
@@ -128,7 +128,7 @@ int main(int argc, char* argv[])
 			help(argv[0]);
 			exit(7);
 		}
-	} else if ( 0 == strcmp(argv[3], "xfer" ) ) {
+	} else if ( 0 == strcmp(argv[3], "transfer" ) ) {
 		if ( argc <= 7 ) {
 	   		makeTransfer( srv, port, argv[4], argv[5], argv[6]  );
 		} else {

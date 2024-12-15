@@ -1,0 +1,28 @@
+************************************************************************************************************************
+**
+**      Usage: Use omclient to create keys of  user ID, create account, make payments, etc.
+**
+**         omclient  createkey  <userID>       (This will create keys of provided userID which can be any string)
+**
+**         omclient  <serverIP>  <serverPort>  createaccount <userID>
+**                                             Create account for provided userID
+**
+**         omclient  <serverIP>  <serverPort>  pay <fromUserID> <toUserID>  <amt>
+**                                             Pay from <fromUserID> to <toUserID> <amt>
+**
+**         omclient  <serverIP>  <serverPort>  viewbalance <userID>
+**                                             View balance of user1 or user2
+**
+**         omclient  <serverIP>  <serverPort>  token <ownerID>
+**                                             Create tokens under user <ownerID>. ownerID must exist already
+**
+**         omclient  <serverIP>  <serverPort>  viewtokens <ownerID>
+**                                             View tokens under user <ownerID>.
+
+**         omclient  <serverIP>  <serverPort>  viewtoken <ownerID> <tokenId>
+**                                             View token under user <ownerID>.
+**
+**         omclient  <serverIP>  <serverPort>  transfer <fromUserID> <toUserID>  <amt>
+**                                             Transfer tokens from <fromUserID> to <toUserID> <amt>
+
+************************************************************************************************************************

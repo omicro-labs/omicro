@@ -134,9 +134,9 @@ CPPFLAGS  = $(WORNING_FLAGS) -I $(BOOST_INC_PATH) \
 			-I $(ZLIB)/include \
 			-I $(BZIP2)/include \
 			-I $(AES192)/AES-192-CBC \
-			-O3
 
             #-I /usr/include/tirpc \
+			-O3
 
 # The options used in linking as well as in any direct use of ld.
 ifeq ($(LC_OS_NAME), darwin)
