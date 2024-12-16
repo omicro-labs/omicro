@@ -27,6 +27,7 @@
 #define  XIT_z    'z' 
 
 // states
+#define  ST_NULL  0
 #define  ST_0   '0'
 #define  ST_A   'A'
 #define  ST_B   'B'

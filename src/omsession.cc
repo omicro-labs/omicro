@@ -456,9 +456,9 @@ bool OmSession::validateTrxn( const sstr &trxnId,  OmicroTrxn &txn, bool isInitT
 
 	// check state if ST_F then all done, ignore trxn
 	Byte curState;
-	serv_.trxnState_.getState( trxnId, curState );
+	bool rc = serv_.trxnState_.getState( trxnId, curState );
 	if ( curState >= ST_F ) {
-		d("E30280 trxn is done in ST_F state.trxnid=[%s]", s(txn.sender_), s(trxnId)  );
+		d("E30280 trxn is done in ST_F state.trxnid=[%s] curState(%u) >= ST_F(%d) rc=%d", s(txn.sender_), s(trxnId), curState, ST_F, rc  );
 		err = sstr("Late trxn request ") + serv_.address_ + ":" + serv_.port_;
 		return false;
 	}

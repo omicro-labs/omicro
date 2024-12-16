@@ -64,7 +64,6 @@ void t15();
 void t16();
 void t17();
 void t18();
-void t19();
 int t20();
 int t21();
 int t22();
@@ -106,16 +105,15 @@ int main( int argc, char *argv[] )
 	//t9();
 	//t10();
 	//t11();
-	//t12();
+	t12();
 	//t13();
 	t14();
 	t15();
 	t16();
 	t17();
 	t18();
-	t19();
-	//t20();
-	//t21();
+	t20();
+	t21();
 	// t22();
 	//t23();
 	//t24();
@@ -619,7 +617,7 @@ void t14()
 	// original data
 	int len=30;
 	unsigned char in[len];
-	printf("inut len=%d\n", len);
+	printf("t14 input len=%d\n", len);
 	for ( int i=0; i < len; ++i ) {
 		in[i] = 5*i;
 		printf("input i=%d  uint8_t=%d\n", i, in[i] );
@@ -640,6 +638,7 @@ void t14()
 		}
 	}
 	printf("\n");
+	printf("\n");
 
 }
 
@@ -649,7 +648,7 @@ void t15()
     OmicroNodeKey k;
     sstr secretKey, publicKey;
     k.createKeyPairSB3( secretKey, publicKey );
-    printf("secretKey=[%s]\n", secretKey.c_str() );
+    printf("t15 OmicroNodeKey secretKey=[%s]\n", secretKey.c_str() );
     printf("publicKey=[%s]\n", publicKey.c_str() );
 
     sstr msg = "do ntru keys encrypt and decrypt this message using post-quantum keys";
@@ -671,6 +670,7 @@ void t15()
     }
 
     printf("done\n");
+	printf("\n");
 }
 
 
@@ -679,18 +679,23 @@ void t15()
 void t16()
 {
 	sstr orig = "hihihihihiihihowr rururururruru warend toay|||||||||||999";
-	sstr passwd = "123456789";
+	sstr passwd = "1234567890123456";
 	sstr cipher;
+
 	aesEncrypt( orig, passwd, cipher );
-	printf("enc=[%s]\n", cipher.c_str() );
+	printf("t16 encs.size=%ld\n", cipher.size() );
 
 	sstr plain;
 	aesDecrypt( cipher, passwd, plain );
-	printf("decc=[%s] len=%ld\n", plain.c_str(), plain.size() );
+	printf("decs=[%s] len=%ld\n", plain.c_str(), plain.size() );
 
 	sstr cipher2 = cipher.c_str();
 	aesDecrypt( cipher2, passwd, plain );
 	printf("2 decc=[%s] len=%ld\n", plain.c_str(), plain.size() );
+    if ( plain == orig ) {
+        printf("plain == orig OK\n");
+    }
+	printf("\n");
 
 
 }
@@ -702,7 +707,7 @@ void t17()
 	sstr s2(s, 20);
 
 	sstr s3 = s1 + "|" + s2;
-	printf("s1=[%s] s2=[%s] s3=[%s]\n", s1.c_str(), s2.c_str(), s3.c_str() );
+	printf("t17 s1=[%s] s2=[%s] s3=[%s]\n", s1.c_str(), s2.c_str(), s3.c_str() );
 	printf("s1.size=[%lu] s2.size=[%lu] s3.size=[%lu]\n", s1.size(), s2.size(), s3.size() );
 
 	OmicroNodeKey k;
@@ -720,6 +725,9 @@ void t17()
 	sstr plain;
 	k.decryptSB3( encMsg, sk, cipher, plain );
 	printf("decrypted =[%s] size=%lu strlen=%lu\n", plain.c_str(), plain.size(), strlen(plain.c_str()) );
+    if ( plain == msg ) {
+        printf("plain == msg, crypt/decrypt OK\n");
+    }
 
 	sstr signcipher, signature;
 	k.signSB3( msg, pk, signcipher, signature );
@@ -728,6 +736,7 @@ void t17()
 
 	bool rc = k.verifySB3( msg, signature, signcipher, sk );
 	printf("verify =[%d]\n", rc );
+	printf("\n");
 
 	//rc = k.verifySB3( msg, "aaaaaa", signcipher, sk );
 	//printf("verify =[%d]\n", rc );
@@ -738,29 +747,11 @@ void t18()
 {
 	sstr s = "a1||a3|a4|||end";
 	OmStrSplit sp(s, '|');
-	printf("splen=%ld\n", sp.size() );
+	printf("t18 splen=%ld\n", sp.size() );
 	sp.print();
-}
-// debug data
-void t19()
-{
-	sstr trxndata("TT||12345678|127.0.0.1:client|0xAdhfgOkfuetOjr|0xBIhwvGkBj8|123456789.999999|1648761168576220|AB|XY|0||||||||||");
-	sstr seckey("!T<t[!!(sW\"[E%f!<57`!.Y(-s8W*!q#C?.s8W*\"&-)h5!!iQ+5QL_3!!!#uIfKHKrZ;.0IfL#[!5SU>!<57`!!*&VrrIZMn,NFfs8RQKnGiO'rso)0!!)rsrso)25QD>q!$D7E!!2Th!<<*\"!!+2B\"FpLa!!9t9s8W$^!;uisnG`N>rso,0561J.!9!nUIfKHKzJ,g,\\rr<!'!!*'\"r;Qa.!;aJ1#64kArrW6%i;WgC!#P\\9+92Op!:^$c^]+N=rZ;+CJH,ZLrI4eI!<6C+r-n]3!!7]N*ru=J!!E9&0E;*grs&N(_#OFa!:^!hJ,oBE!?_C;s8V!V!It.M!!3-##_2p5s8Tk6#64b^rso,0%fcT[rso)1+92NEzJ,oBEs$$J`J,o*=!rr<,!<(gT!rr>Zs8W-!#64cI!;uis&-)i`s7cNo_#FcB!9!kZ_#FW>s8W*(JH,*<\"b?U`!!*'\"!.b([!<3#u%fcYR!;q<H&-)jKrso)2+92Oprso)0_#FoFruV4@J,o*=!<<**!!D0Z#64`8!!%QL%fcVQ!;QTo0*)!$rso,056(Z`!\"],7JH,*<zJH$,[r'(/ez!!!!1!!E9%#QXfF!;q<Ii;`bj!!iQ*5QD&i!9!kX!!)Ng!?_@F!!*W2!^HbTrr=/A#_;q.!!L+;s8W+Kzi;WlZz+92Cl!!!#us8N<(!?_C?s8NT0r4`7,s8F)?r-n_izz!;q<H!!!'#!;QQo!!!:T!\"]/0IfK`S!+5g)rr=_Qrr<!7z\"98Gkrs&N(nGiJ0!;M$E&-2RA!!iQ*i;WlZ!!!#uIfK`Sra,X2JH%h6!WW3#!!48C\"9AK%rrYLd!!!#Wrs+)Shu<kqs7cQnhu<q3rZ;+AJ,fQL!?_@B!!!Q1rr<#urrF5B!.Y(]z!!*$@!!n,Tn,EL*rtbY85QD(?!\"]/,56(rhz!!*'\"!^H_sz\"FpIP!<3#u%fcSp!;M$FnGiIes7cNni;X18!\"]/05613QrZ;+GJH$,[r4i:+rr>:a!.b+Ls8RQK!!!(.!!!$!*ru/P!\"],2+9;?>s8W*\"z!!!!%J,g,\\r4i:3rr>:ao`\"mk!!5Cc#QXo)rs+)R0*)\"Os7cQn?N:'+ruV4B_#FoFr;Zd%!!*W2!!!#orrE*\"\"98G[rrYOd%fcV1!;q?H*ru;T!;QTn*rlQHrso,/56(rh!J(1XJH,*<\"$chl!!*'\"r;Zd-!<0b5#6=`f!\"8i-i;Wr\\!;QQoi;Wn0s6oskJH,ZLs'Gd$IfRjqs$$MIrrF5Br;Zd-!!'h7p](4W!;-9ki;`cUs8W*\"i;Wn0z!!)fo!$D7IJ,o*=#=&7p!!+2BpjW;%s8P:`nGiLfs8W-!*rl:+!;QQp+92NE!:^!h5QD&is$$M]IfU)\\\"98E-!<,1_\"98E5!!3-#nG`P4!!!!\"0ED*%z+92Op!\"],1J,fQLs$$MYIfU)\\r]^Ag!!'h7s8W,fs8Dutp\\t9p!;q?H%flP-rso,0s8N<(!:^$eIfL#[l`R3'HF=7:+m$/iQCf%uEsEe^\"Ue#&OFE\\u3*PM+l1)2S^H2XP@@\\$#e#+J:/<e#[G@K3-8%t^SBgV$`*db3as12(%QJ$bM1W-03:&PphNTIPn%RK<4O_=oO,fX*HSC*Er!r.XVpMq@0#!mA%q'W_$Bn=Q:-6Js(qS%'`4*e.WV+;f.\"fA/J=2OCQo6R$6Bqa(SB>M/:eA#qldN:E[#nE/!h<mosLT&G\\32*RSp8:DX91Z>oR+#TLbb6fI%oW9;#<X5:-m*d<1`Hc@$`<?&gt(%B3'Dj`*f):\\Q(O)86?QA+U[[\\_\"n:$l/=?Y`[f4.C:30irB-t-f-hLN>SJ]^UT:Wps-lLuFDjPM2$Y#&Dk^E@dm@n@,*S\"c$b&+]n;4PnWA-jGa(j6WY6cocgn!9<:V)h#67cEX1]KZQp?)TfmN!O<oaf14S.:qbN7Vu&C)hZ-T7IHn.iCpZ$Dad/;p[;L5YN+M)Vl5E>`\\'$]gqVa&QXiMuJ;b&6$,?<rpZe\"*X:Gu6_mliK`32(@<\\V6NVbf?sI[?T(^r3o(7h-No0.DY2Z9nG-Io\\?XFZU&CNbH67Q\\WHJgTs,)!ZY*pejKsY@4+k5rtL1g^WAJs)GmEj)A/]c7t>CE8J::)&3Mi5\\rOm\"1:5c<T\\#g)+g$2^$!4B$NB<q+GNN4-1pdgEcB&Jsb=:f3EM?<\"]j%HV%'8F/0KW_Tn\\\"!Ubl*^l&7NkA7ZZ\\gaQ;:<N%J</)Ml59rBc)<S!PQ5kp+te!oV?DDf2aX:eN!Y6l8$(8pQs\"E;KZaC/V[\"htUZrrNd<tgKQ^4=.5NW,=_p1c%h0k,Ot\"&9?S'1P1Sc.F^I8qD(O?c%[6-mn&BE8,B$5ar_tbOP44`Rno39=_Aikl?H-0jZMQtjX4F)'j/B*WnN4]rQ@<kcV9R5<\"SJm'iIK/P<f[[%cSGY%dZE3P&ZpTsC!T*3S?<?+P-J!V`mrKs:%g$^WW:bg<.6LLI/`0[f@?NMp,C4?Y#A'Q$0IC#4bqT)G%O3ALg6c_Z^Rr,X6aGtc#J=e87+NqT_@2T=XCg01usHk_CWKMYo5i5\\NL2P\\V-;Z1]ch*('h'.%!U>+ms\\^D+s4V+3e]I;fe8WA#$uP[lpn.=,Ji0NCF@5q?qId*BD+u\\0]t`F>SsTB^@s'p9']`(?5ZG9/\\BR8nFSWY%.WQD/HPZRc(E1P:N&A'_7tFZ#D`AXVe3YL,YHP`igr/_SGn,^WiP]<cS*::<\\9Mr\\p5!2^<W)0XRV52LH0\\u@!52C:7(QPhl#tbaoFK?ZLA\"i6XLDCbs`487!eg$RBd-C%H,Soc*t?$j`+sm");
-
-	sstr pubkey=("l`R3'HF=7:+m$/iQCf%uEsEe^\"Ue#&OFE\\u3*PM+l1)2S^H2XP@@\\$#e#+J:/<e#[G@K3-8%t^SBgV$`*db3as12(%QJ$bM1W-03:&PphNTIPn%RK<4O_=oO,fX*HSC*Er!r.XVpMq@0#!mA%q'W_$Bn=Q:-6Js(qS%'`4*e.WV+;f.\"fA/J=2OCQo6R$6Bqa(SB>M/:eA#qldN:E[#nE/!h<mosLT&G\\32*RSp8:DX91Z>oR+#TLbb6fI%oW9;#<X5:-m*d<1`Hc@$`<?&gt(%B3'Dj`*f):\\Q(O)86?QA+U[[\\_\"n:$l/=?Y`[f4.C:30irB-t-f-hLN>SJ]^UT:Wps-lLuFDjPM2$Y#&Dk^E@dm@n@,*S\"c$b&+]n;4PnWA-jGa(j6WY6cocgn!9<:V)h#67cEX1]KZQp?)TfmN!O<oaf14S.:qbN7Vu&C)hZ-T7IHn.iCpZ$Dad/;p[;L5YN+M)Vl5E>`\\'$]gqVa&QXiMuJ;b&6$,?<rpZe\"*X:Gu6_mliK`32(@<\\V6NVbf?sI[?T(^r3o(7h-No0.DY2Z9nG-Io\\?XFZU&CNbH67Q\\WHJgTs,)!ZY*pejKsY@4+k5rtL1g^WAJs)GmEj)A/]c7t>CE8J::)&3Mi5\\rOm\"1:5c<T\\#g)+g$2^$!4B$NB<q+GNN4-1pdgEcB&Jsb=:f3EM?<\"]j%HV%'8F/0KW_Tn\\\"!Ubl*^l&7NkA7ZZ\\gaQ;:<N%J</)Ml59rBc)<S!PQ5kp+te!oV?DDf2aX:eN!Y6l8$(8pQs\"E;KZaC/V[\"htUZrrNd<tgKQ^4=.5NW,=_p1c%h0k,Ot\"&9?S'1P1Sc.F^I8qD(O?c%[6-mn&BE8,B$5ar_tbOP44`Rno39=_Aikl?H-0jZMQtjX4F)'j/B*WnN4]rQ@<kcV9R5<\"SJm'iIK/P<f[[%cSGY%dZE3P&ZpTsC!T*3S?<?+P-J!V`mrKs:%g$^WW:bg<.6LLI/`0[f@?NMp,C4?Y#A'Q$0IC#4bqT)G%O3ALg6c_Z^Rr,X6aGtc#J=e87+NqT_@2T=XCg01usHk_CWKMYo5i5\\NL2P\\V-;Z1]ch*('h'.%!U>+ms\\^D+s4V+3e]I;fe8WA#$uP[lpn.=,Ji0NCF@5q?qId*BD+u\\0]t`F>SsTB^@s'p9']`(?5ZG9/\\BR8nFSWY%.WQD/HPZRc(E1P:N&A'_7tFZ#D`AXVe3YL,YHP`igr/_SGn,^WiP]<cS*::<\\9Mr");
-
-
-    sstr cipher("+(3a'#Z=G=>^VOV7^FmPLfcNfW1?SU4B\"cS^c`o->Am_kS-sc=i+RN@nK*lXeIH$i0+IP@YZ33Hh10PGMQ-8C/cXTnp_gWY[7LY-iW<^\"-UNog=(diB'rR9p<UHJrVQ!/-Mbp`0Qes4)BXJoD*f[W!l#-h1.Ah.[YY?j7MV\\mG=J'RIktmj=Y5OAZ;H$@EVY+d&NU^SnA;X$)oee,Qc?ZBI`8tXis79Bd5VpK%C_DuZf*2+f%4939.lR+ZA&.jlHhfonA>UF*r%==Y&hmqm`NLS=0pBhEAe(c]=`>f\"Lndt3a<gls8'+C-m_P+hLE`/-S%3^-<[k@a]EVZ3]>S473r2UE6R,\";KlGE?8KKg7;3?`]kY8M=G?n5@]O\"QH$s#/W2-4t%ZP$IEMT1q%\"pEe$l>JQP'c*j-0j&%LX;T@Ofj'#7^%rWtqM$Pq>>][6>EFDqa&gW1H6]<%\"OQmIcUSV_:8m&D@tP\"p=7aeQnYYIDV(R2B9rKG]E!nt71'P\"=<$/9;\"TDE*oH-3eo*o.^3Go0\\p\"4I6:Y^oJ?epgkZ53#=6hseqOY83T%7Om%(9QKcVOU8gM;6h$BP9NNf14d>,E,5umee6OH)c*Uq?[b2*iG`$MF$<.*VZ9&;;r*a5=>.r&DXZ0Jq2V-n3U)3i_`Xna7d\"tko5QQ/4;ur'P\"0#(GQR68R%!sRI7j4%f^3*:;SAp\",EjjR&P,_MuLf4[(n`o'[fCUb6]>0*e@KsaF9GN:[?n;`uPDlIZL74TN]s(gusY=^Qo6BI'7fXj;HISETVi<=I9gJ]H_VR^\"n#CmQhp-\"mSt1_(m4H,;aBi,58iZk-,T?Yphld70LWRA\\Fq1XLB/#SN'<0=Yo2=TdsZEiI;GXb+c7Oc\\`\\H&($#LpQ>FLDI!.[%0?^(H91*LC7u86*N%m1+Li3#aCBb*NXo;,)-P8o>kYMG2Q56M2o:cSUKf`TCnrDkYkM&\\dskJK2JCVpg5t'SLqE-mSI(_XT9Km)Z(kp\"&A<OLBM+j?EIc/O62C3_LE?ZML9DP<h0@4_N7]6QWe?ECHO##RPo/j>1f_,M1%CDb=IRL*IBb`gG9SDiK7+JOiLA#<A9e#:\"K7>KktN4UGXoAlPGhnirn!0<]&A@j<]ghUiEV%f_63=$G+Z^dN`87SeMMZFQ!P@DYN:hK%`\"&ZrAZ#<att[S3cHXEGeTk!\"OY\"tk$SP-ZL&?VEnA=pUnm_uMZ*YO/Ptf\\]';`\\3\"c'H5k%%Q;/%i-?0MWJH9Nh&n?1^B*j[b+.VW7Y@5LfWd]LoN0%YJo@&h;*@($(9UjFlQF\\Cg!\"DVJ)jPO?#2lZPB_mZ0OE(Lg+FNo$$rr$`e*l<Bs1if$o#'VCs");
-
-	OmicroNodeKey k;
-    sstr signature("=WD@C'as\\]I`6st]#9:-pGihfd\"\\g1");
-	bool rc = k.verifySB3( trxndata, signature, cipher, seckey);
-	printf("verify realdata =[%d]\n", rc );
-	printf("ciper.len=%ld  seckeylen=%ld  trxndata.len=%ld signature.len=%ld\n", cipher.size(), seckey.size(), trxndata.size(), signature.size() );
-
+	printf("\n");
 }
 
-//void randombytes_om(uint8_t *out, size_t outlen);
 
 int t20()
 {
@@ -774,6 +765,8 @@ int t20()
   uint8_t sm[MLEN + CRYPTO_BYTES_DL];
   uint8_t pk[CRYPTO_PUBLICKEYBYTES_DL];
   uint8_t sk[CRYPTO_SECRETKEYBYTES_DL];
+
+  printf("t20\n");
 
   size_t NTESTS = 1;
   for(i = 0; i < NTESTS; ++i) {
@@ -847,6 +840,8 @@ int t21()
 	sstr sk, pk;
 	OmicroUserKey k;
 
+    printf("t21 OmicroUserKey\n");
+
 	k.createKeyPairDL5( sk, pk);
 	//printf("sk=[%s]\n", s(sk));
 	//printf("pk=[%s]\n", s(pk));
@@ -859,10 +854,10 @@ int t21()
 	printf("snmsg=[%s]\n", s(snmsg) );
 
 	bool rc = k.verifyDL5( snmsg, pk );
-	printf("verify rc=%d\n", rc );
+	printf("verify rc=%d   1 is OK\n\n", rc );
 
 	rc = k.verifyDL5( "393933939393", pk );
-	printf("verify rc=%d\n", rc );
+	printf("verify rc=%d  0 is OK\n", rc );
 
     return 0;
 }

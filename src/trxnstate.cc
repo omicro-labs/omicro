@@ -29,6 +29,8 @@ TrxnState::~TrxnState()
 
 bool TrxnState::getState( const sstr &trxnid, Byte &state )
 {
+    state = ST_NULL;
+
 	OmStateItr itr;
 	itr = stateMap_.find( trxnid );
 	if ( itr == stateMap_.end() ) {

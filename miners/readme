@@ -4,3 +4,4 @@ Mining Howto
 . a miner validates and verifies transactions submitted from clients
 . a miner node must meet minimum hardware requirement to join
 . a miner node first needs to be enrolled by appraisers
+. a miner only participates voting processes, no actual mining activity is involved
