@@ -214,7 +214,7 @@ void OmSession::doTrxnL2(const char *msg, int msglen)
 
 	if ( isInitTrxn ) {
 		d("a43713 init from=%s trxnId=[%s]", s(from), s(trxnId) );
-		d("a333301  i am clientproxy, launching initTrxn ..." );
+		d("a333301  i am clientproxy (node that client connects to), initTrxn() ..." );
 		if ( t.trxntype_ != OM_NEWACCT ) {
 			sstr fence;
 			serv_.blockMgr_.getFence( from, fence );
