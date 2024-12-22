@@ -9,6 +9,8 @@ C++ example:
    . make payments
    . transfer tokens between accounts
 
+  -- readme file for descriptions
+
 Makefile:
 ../test/client/build/makefile
   -- is makefile for compiling the example main.cpp
