@@ -28,7 +28,7 @@ INIT_LOGGING
 **         omclient  <serverIP>  <serverPort>  viewbalance <userID>
 **                                             View balance of user1 or user2
 **
-**         omclient  <serverIP>  <serverPort>  token <ownerID>
+**         omclient  <serverIP>  <serverPort>  createtoken <ownerID>
 **                                             Create tokens under user <ownerID>. ownerID must exist already
 **
 **         omclient  <serverIP>  <serverPort>  viewtokens <ownerID>
@@ -57,7 +57,7 @@ void help( const char *prog)
 	printf("Usage: %s  <serverIP>  <serverPort>  createaccount <userId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  pay <fromId> <toId> <amount>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  viewbalance <userId>\n", prog );
-	printf("Usage: %s  <serverIP>  <serverPort>  token <ownerId>\n", prog );
+	printf("Usage: %s  <serverIP>  <serverPort>  createtoken <ownerId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  viewtokens <ownerId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  viewtoken <ownerId> <tokenId>\n", prog );
 	printf("Usage: %s  <serverIP>  <serverPort>  transfer <fromId> <toId> <amount>\n", prog );
@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 			help(argv[0]);
 			exit(3);
 		}
-	} else if ( 0 == strcmp(argv[3], "token" ) ) {
+	} else if ( 0 == strcmp(argv[3], "createtoken" ) ) {
 		if ( argc >= 5 ) {
 			createToken( srv, port, argv[4] );
 			//                     onwerId
@@ -189,7 +189,7 @@ void createAcct( const char *srv, int port, const std::string &userName)
 		return;
 	}
 	std::string nodePubkey = client.reqPublicKey( 3 );
-	printf("clientproxy pubkey=[%s]\n", nodePubkey.c_str() );
+	printf("clientproxy pubkey=[%.100s]\n", nodePubkey.c_str() );
 
 	OmicroTrxn t;
 	t.makeNewAcctTrxn(nodePubkey, secretKey, publicKey, userName );
@@ -200,6 +200,10 @@ void createAcct( const char *srv, int port, const std::string &userName)
 	printf("%s confirm=[%s]\n", userName.c_str(), reply.c_str());
 }
 
+// create some example tokens for one user
+// token "mytoken1" with limited edition of 10000
+// non-fungible token petnft  (limit to one)
+// token concert2023 with limit 30000
 void createToken( const char *srv, int port, const std::string &userName )
 {
 	std::string secretKey, publicKey;
@@ -211,13 +215,14 @@ void createToken( const char *srv, int port, const std::string &userName )
 		return;
 	}
 	std::string nodePubkey = client.reqPublicKey( 3 );
-	printf("clientproxy pubkey=[%s]\n", nodePubkey.c_str() );
+	printf("clientproxy pubkey=[%.100s]\n", nodePubkey.c_str() );
 
 	// mint some tokens: name and max are required, 
 	// others are optional and can be added by creator in any way
 	std::string token1 = "name: mytoken1, max: 10000";
 	std::string nfttoken = "name: petnft, max: 1, url: http://abceruxv123";
 	std::string token3 = "name: concert2023, max: 30000";
+
 	std::vector<std::string> vec;
 	vec.push_back(token1);
 	vec.push_back(nfttoken);
@@ -236,7 +241,7 @@ void createToken( const char *srv, int port, const std::string &userName )
 	printf("a000234 client.sendTrxn() ...\n");
 	std::string reply = client.sendTrxn( t );
 
-	printf("%s confirm=[%s]\n", userName.c_str(), reply.c_str());
+	printf("Reply: %s confirm=[%s]\n", userName.c_str(), reply.c_str());
 }
 
 void makePayment( const char * srv, int port, const std::string &from, const std::string &to, 
@@ -284,7 +289,7 @@ void query( const std::string &qt, const char * srv, int port, const std::string
 
 	std::string secretKey, publicKey, fromId;
 	readUserKey( from, secretKey, publicKey );
-	printf("user from=[%s] pubkey=[%s]\n", from.c_str(), publicKey.c_str() );
+	printf("user from=[%s] pubkey=[%.100s]\n", from.c_str(), publicKey.c_str() );
 
 	OmicroTrxn t;
 	if ( qt == "balance" ) {
@@ -338,7 +343,7 @@ void readUserKey( std::string uname, std::string &secKey, std::string &pubKey )
 	fclose(fp);
 	pubKey = buf;
 
-	printf("Keys are read from %s %s fg=%s\n", f1.c_str(), f2.c_str(), fg );
+	printf("Keys are read from %s %s fg=%.180s\n", f1.c_str(), f2.c_str(), fg );
 }
 
 void makeTransfer( const char * srv, int port, const std::string &from, const std::string &to, 
@@ -365,7 +370,7 @@ void makeTransfer( const char * srv, int port, const std::string &from, const st
 	std::string nfttoken = "name: petnft"; 
 	std::vector<std::string> vec;
 	vec.push_back(fttoken);
-	vec.push_back(nfttoken);
+	// vec.push_back(nfttoken);
 
 	std::string tokensJson;
 	OmToken::getXferJson(vec, tokensJson );
@@ -376,6 +381,8 @@ void makeTransfer( const char * srv, int port, const std::string &from, const st
 
 	t.makeTokenTransfer( nodePubkey, secretKey, publicKey, from, tokensJson, to, amt );
 	// fake sender t.sender_ = "someotheruser";  // will fail
+
+    printf("c03930 tokensJson=[%s]\n", tokensJson.c_str() );
 
 	std::string data; t.getTrxnData( data );
 	printf("a2220 trxndata=[%s]\n", data.c_str() );

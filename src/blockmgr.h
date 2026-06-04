@@ -3,6 +3,9 @@
 
 #include <stdio.h>
 #include <unordered_map>
+#include <limits>
+#include <ctime>
+
 #include "omstore.h"
 #include "omicrotrxn.h"
 #include "omutil.h"
@@ -10,35 +13,42 @@
 
 #define OM_MEMPOOL_SZ 3000
 
-using OmstorePtr = OmStore*;
+using  OmstorePtr = OmStore*;
+class  OmServer;
+
 class BlockMgr
 {
   public:
     BlockMgr();
+    void setServer( const OmServer *serv );
 	void setDataDir( const sstr &dataDir );
     ~BlockMgr();
 
-	int receiveTrxn( OmicroTrxn &trxn);
+	int receiveTrxn( OmicroTrxn &trxn, sstr &errmsg);
 	void queryTrxn( const sstr &from, const sstr &trxnId, const sstr &timestamp, sstr &res );
 	double getBalance( const sstr &from ) ;
 	int    getBalanceAndPubkey( const sstr &from, double &bal, sstr &pubkey );
 	void   getFence( const sstr &from, sstr &fence );
 	int    runQuery( OmicroTrxn &trxn, sstr &res );
 	void   getTokens( const sstr &from, sstr &tokens ) ;
-	int    isXferTokenValid( OmicroTrxn &trxn);
+	int    isXferTokenValid( OmicroTrxn &trx, sstr &err );
 	void   setSrvPort( const sstr &srv, const sstr &port);
 	int    readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, 
 	                 std::vector<sstr> &rec, char &tstat, sstr &err );
 
+    void   replayLocalWallog(time_t start, time_t  end=std::numeric_limits<time_t>::max());
+    void   replayWallog( const sstr &fpath, bool verifyTrxn, time_t start, time_t  end=std::numeric_limits<time_t>::max());
+
+
   protected:
     void initDirs();
-	int saveTrxn( OmicroTrxn &trxn);
+	int saveTrxn( OmicroTrxn &trxn, bool dowal, sstr &errmsg);
 	FILE *appendToBlockchain( OmicroTrxn &t, const sstr &userId, char ttype, const sstr &ymdh, long &fpos );
 	void rollbackFromBlockchain( OmicroTrxn &t, const sstr &userId, const sstr &yyyymmddhh, long fpos );
-	int updateAcctBalances( OmicroTrxn &trxn);
-	int createAcct( OmicroTrxn &trxn);
-	int createToken( OmicroTrxn &trxn);
-	int transferToken( OmicroTrxn &trxn);
+	int updateAcctBalances( OmicroTrxn &trxn, sstr &errmsg);
+	int createAcct( OmicroTrxn &trxn, sstr &errmsg);
+	int createToken( OmicroTrxn &trxn, sstr &errmsg);
+	int transferToken( OmicroTrxn &trxn, sstr &errmsg);
 	void markBlockchain(FILE *fp, OmicroTrxn &t, const sstr &userId, char stat );
 
 	sstr getUserPath( const sstr &userId );
@@ -47,7 +57,7 @@ class BlockMgr
 
 	int  validateReqTokens( const sstr &from, sstr &requestJson );
 	void saveTrxnList( const sstr &from, const sstr &timestamp ); 
-	int  checkValidTokens( const sstr &from, const sstr &to, const sstr &reqJson, sstr &fromTokens, sstr &toTokens);
+	int  checkValidTokens( const sstr &from, const sstr &to, const sstr &reqJson, sstr &fromTokens, sstr &toTokens, sstr &chkerr );
 	int  modifyTokens( const sstr &from, const sstr &to, const sstr &reqJson, sstr &fromTokens, sstr &toTokens);
 
   	sstr dataDir_;
@@ -60,6 +70,10 @@ class BlockMgr
 	TrxnList  trxnList_;
 	sstr  srv_, port_;
 	std::vector<OmicroTrxn> memPool_;
+    const OmServer *serv_;
+
+    FILE *wallog_;
+    bool  logWal_;
 };
 
 #endif

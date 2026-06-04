@@ -33,6 +33,8 @@
 #include "omtoken.h"
 #include "omlimits.h"
 #include "omjson.h"
+#include "ZlibCompress.h"
+#include "server.hpp"
 EXTERN_LOGGING
 
 /**********************************************************************
@@ -46,6 +48,32 @@ EXTERN_LOGGING
 **********************************************************************/
 BlockMgr::BlockMgr()
 {
+    wallog_ = NULL;
+    serv_ = NULL;
+}
+
+void BlockMgr::setServer( const OmServer *serv )
+{
+    serv_ = serv;
+
+    logWal_ = false;
+    sstr logwal = serv_->config_.get("LOG_WAL", "NO");
+    if ( logwal == "YES" ) {
+        logWal_ = true;
+    }
+}
+
+// call this after setServer()
+void BlockMgr::setSrvPort( const sstr &srv, const sstr &port )
+{
+	srv_ = srv;
+	port_ = port;
+
+    wallog_ = NULL;
+    if ( logWal_ ) {
+        sstr fpath = sstr("../log/cmd/") + srv_ + "_" + port_;
+        wallog_ = fopen(fpath.c_str(), "a" );
+    }
 }
 
 void BlockMgr::setDataDir(  const sstr &dataDir )
@@ -58,9 +86,12 @@ void BlockMgr::setDataDir(  const sstr &dataDir )
 
 BlockMgr::~BlockMgr()
 {
+    if ( wallog_ ) {
+        fclose( wallog_ );
+    }
 }
 
-int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
+int BlockMgr::receiveTrxn( OmicroTrxn &trxn, sstr &errmsg)
 {
 	/*** todo
 	memPool_.push_back( trxn );
@@ -74,33 +105,57 @@ int BlockMgr::receiveTrxn( OmicroTrxn &trxn)
 	}
 	return 0;
 	***/
-	return saveTrxn( trxn );
+	return saveTrxn( trxn, true, errmsg );
 }
 
-int BlockMgr::saveTrxn( OmicroTrxn &trxn)
+int BlockMgr::saveTrxn( OmicroTrxn &trxn, bool dowal, sstr &errmsg )
 {
 	sstr yyyymmddhh = getYYYYMMDDHHFromTS(trxn.timestamp_);
 	d("a65701 receiveTrxn ...");
 
 	int urc;
 	if ( trxn.trxntype_ == OM_PAYMENT ) {
-		urc = updateAcctBalances(trxn);
+		urc = updateAcctBalances(trxn, errmsg);
 	} else if ( trxn.trxntype_ == OM_NEWACCT ) {
-		urc = createAcct(trxn);
+		urc = createAcct(trxn, errmsg);
+        // urc -10 if acct already exists
 	} else if ( trxn.trxntype_ == OM_NEWTOKEN ) {
-		urc = createToken(trxn);
+		urc = createToken(trxn, errmsg);
 	} else if ( trxn.trxntype_ == OM_XFERTOKEN ) {
 		d("a38103 transferToken ...");
-		urc = transferToken(trxn);
+		urc = transferToken(trxn, errmsg);
 	} else {
-		urc = -10;
+        errmsg = "E32010 unkonw transaction type";
+		urc = -1000;
 	}
 
 	d("a23021 urc=%d 0 is OK", urc );
 
 	if ( urc < 0 ) {
 		d("a444401 urc < 0 error");
+        return urc;
 	} else {
+        // append to wallog_
+        if ( wallog_ && dowal ) {
+            sstr alldata;
+            trxn.allstr( alldata );
+            d("a1202930 append to wallog alldata=[%s]", s(alldata) );
+            sstr zip;
+            ZlibCompress::compress( alldata, zip);
+            // alldata has sender receiver, trxntype  assettype
+            sstr trxnid;
+            trxn.getTrxnID( trxnid);
+            time_t nowt = time(NULL);
+
+            fprintf(wallog_, "%lu-%s-%lu-", nowt, s(trxnid), zip.size() );
+            fwrite( zip.data(), 1, zip.size(), wallog_);
+            fprintf(wallog_, "|");
+
+            fflush( wallog_);
+            d("a7029394 flushed trxn to wallog_");
+        }
+
+
     	long pos1;
     	FILE *fp1 = appendToBlockchain(trxn, trxn.sender_, '-', yyyymmddhh, pos1);
     	if ( NULL == fp1 ) {
@@ -137,7 +192,8 @@ int BlockMgr::saveTrxn( OmicroTrxn &trxn)
 }
 
 // Create a new account
-int BlockMgr::createAcct( OmicroTrxn &trxn)
+// return 0 for OK; < 0 error; -10 if acct alreday exists
+int BlockMgr::createAcct( OmicroTrxn &trxn, sstr &errmsg)
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
 	sstr from = trxn.sender_;
@@ -145,11 +201,19 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 
 	if ( from.size() > OM_NAME_MAXSZ ) {
 		i("E40214 newacct from=[%s] too long", s(from) );
+        errmsg = "E40214 newacct name too long";
 		return -1;
 	}
 
-	OmstorePtr srcptr;
 	sstr fpath;
+	fpath = getAcctStoreFilePath( from );
+    if ( 0 == ::access( fpath.c_str(), F_OK ) ) {
+        errmsg = sstr("E30234 error: user account [") + from + "] already exists";
+		return -3;
+    }
+
+
+	OmstorePtr srcptr;
 
 	auto itr1 = acctStoreMap_.find( from );
 	if ( itr1 == acctStoreMap_.end() ) {
@@ -162,6 +226,7 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 		if ( accttype != OM_ACCT_USER && accttype != OM_ACCT_CONTRACT ) {
 			i("E50284 error newacct from=[%s] accttype=[%s] invalid", s(from), s(accttype) );
 			delete srcptr;
+            errmsg = "E50284 error new account is neither user nor contract account";
 			return -5;
 		}
 
@@ -182,6 +247,7 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 		i("I0023 added user account [%s] %s:%s", s(from), s(srv_), s(port_) );
 	} else {
 		i("E50387 error from=[%s] acct already exist", s(from) );
+        errmsg = "E50387 error: user account exists already";
 		return -10;
 	}
 
@@ -189,7 +255,7 @@ int BlockMgr::createAcct( OmicroTrxn &trxn)
 }
 
 // A user creates some tokens  FT or NFT or both
-int BlockMgr::createToken( OmicroTrxn &trxn)
+int BlockMgr::createToken( OmicroTrxn &trxn, sstr &errmsg )
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
 	sstr from = trxn.sender_;
@@ -200,6 +266,7 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 	char *fromrec = findSaveStore( from, srcptr );
 	if ( ! fromrec ) {
 		i("E30821 createToken error from=[%s] not created yet.", s(from));
+        errmsg = "E30821 createToken error sender account is not created yet";
 		return -10;
 	}
 
@@ -207,6 +274,7 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 	int rc = validateReqTokens( from, trxn.request_ );
 	if ( rc < 0 ) {
 		i("E30824 createToken error from=[%s] trxn.request_=[%s] not valid.", s(from), s(trxn.request_) );
+        errmsg = sstr("E30824 createToken error invalid request ") + trxn.request_;
 		return -10;
 	}
 
@@ -222,6 +290,7 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 			i("E30220 error from=[%s] has dup token names", s(from));
 			i("E30220 error trxn.request_=[%s]", s(trxn.request_));
 			i("E30220 error acct.tokens_=[%s]", s(acct.tokens_) );
+            errmsg = "E30220 error token already exists";
 			return -15;
 		}
 
@@ -235,6 +304,7 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 		if ( *p == '[' ) {
 			++p; // skip [
 		} else {
+            errmsg = "E9901 format error, unmatched brackets in request []";
 			return -20;
 		}
 
@@ -253,7 +323,7 @@ int BlockMgr::createToken( OmicroTrxn &trxn)
 }
 
 // Make a payment and update both balances (from and to)
-int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
+int BlockMgr::updateAcctBalances( OmicroTrxn &trxn, sstr &errmsg)
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
 	sstr from = trxn.sender_;
@@ -269,12 +339,14 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 	char *fromrec = findSaveStore( from, srcptr );
 	if ( ! fromrec ) {
 		i("E22276 error user from=[%s] does not exist", s(from));
+        errmsg = "E22276 error sender not found";
 		return -90;
 	}
 
 	char *torec = findSaveStore( to, dstptr );
 	if ( ! torec ) {
 		i("E23276 error user to=[%s] does not exist", s(to));
+        errmsg = "E23276 error receiver not found";
 		return -92;
 	}
 
@@ -283,6 +355,7 @@ int BlockMgr::updateAcctBalances( OmicroTrxn &trxn)
 	double bal = fromAcct.addBalance( 0.0 - amt);
 	if ( bal < -1.0 ) {
 		i("E40313 error from=[%s] acct balance error [%f]", s(from), bal );
+        errmsg = "E40313 error sender account balance is negative";
 		return -30;
 	}
 	
@@ -350,13 +423,15 @@ void BlockMgr::queryTrxn( const sstr &from, const sstr &trxnId, const sstr &time
 }
 
 // Get a list of trxns of user from. If trxnId is not empty, get specific trxn
+// return 0 OK;  < 0 for error
 int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trxnId, std::vector<sstr> &vec, char &tstat, sstr &err )
 {
 	sstr yyyymmddhh = getYYYYMMDDHHFromTS(timestamp);
 
 	sstr dir = dataDir_ + "/blocks/" + getUserPath(from) + "/" +  yyyymmddhh;
 	sstr fpath = dir + "/blocks";
-	d("a53001 readTrxns from=[%s] timestamp=[%s] trxnId=[%s] fpath=[%s]", s(from), s(timestamp), s(trxnId), s(fpath) );
+	// d("a53001 readTrxns from=[%s] timestamp=[%s] trxnId=[%s] fpath=[%s]", s(from), s(timestamp), s(trxnId), s(fpath) );
+
 	int fd = open( fpath.c_str(), O_RDONLY|O_NOATIME );
 	if ( fd < 0 ) {
 		i("E45508 error open from=[%s] [%s]", s(from), s(fpath) );
@@ -538,7 +613,8 @@ int BlockMgr::readTrxns(const sstr &from, const sstr &timestamp, const sstr &trx
 		d("a19721 vec[0]=[%s]", s(vec[0]) );
 	}
 	***/
-	d("a32220 return 0 here vec.size=%d", vec.size() );
+	// d("a32220 return 0 here vec.size=%d", vec.size() );
+
 	return 0;
 }
 
@@ -786,7 +862,7 @@ void BlockMgr::saveTrxnList( const sstr &from, const sstr &timestamp )
 }
 
 // Transfer tokens from one account to another
-int BlockMgr::transferToken( OmicroTrxn &trxn)
+int BlockMgr::transferToken( OmicroTrxn &trxn, sstr &errmsg)
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
 	sstr from = trxn.sender_;
@@ -797,6 +873,7 @@ int BlockMgr::transferToken( OmicroTrxn &trxn)
 	char *fromrec = findSaveStore( from, srcptr );
 	if ( ! fromrec ) {
 		i("E30821 transferToken error from=[%s] not created yet.", s(from));
+        errmsg = "E30821 transferToken error sender account is not created yet";
 		return -10;
 	}
 
@@ -804,6 +881,7 @@ int BlockMgr::transferToken( OmicroTrxn &trxn)
 	char *torec = findSaveStore( to, dstptr );
 	if ( ! torec ) {
 		i("E30321 transferToken error to=[%s] not created yet.", s(to));
+        errmsg = "E30321 transferToken error receiver account is not created yet";
 		return -20;
 	}
 
@@ -812,6 +890,7 @@ int BlockMgr::transferToken( OmicroTrxn &trxn)
 	if ( fromacct.tokens_.size() < 1 ) {
 		//acct.tokens_ = trxn.request_;
 		i("E33401 from=[%s] tokens_ is empty", s(from) );
+        errmsg = "E33401 sender tokens are empty";
 		return -30;
 	}
 
@@ -820,6 +899,7 @@ int BlockMgr::transferToken( OmicroTrxn &trxn)
 		i("E22303 from=[%s] tokens_ does not have the tokens to be xfered", s(from) );
 		i("E22303 fromacct.tokens_=[%s]", s(fromacct.tokens_) );
 		i("E22303 trxn.request_=[%s]", s(trxn.request_) );
+        errmsg = "E22303 sender's tokens do not have the requested token for xfer";
 		return -40;
 	}
 
@@ -831,6 +911,7 @@ int BlockMgr::transferToken( OmicroTrxn &trxn)
 		i("E21303 from=[%s] to=[%s] modifyTokens error rc=%d", s(from), s(to), rc );
 		i("E21303 fromacct.tokens_=[%s]", s(fromacct.tokens_) );
 		i("E21303 trxn.request_=[%s]", s(trxn.request_) );
+        errmsg = "E21303 adjustment of tokens error";
 		return -50;
 	}
 
@@ -1113,7 +1194,7 @@ int BlockMgr::modifyTokens( const sstr &from, const sstr &to,  const sstr &reqJs
 // fromTokens: [{ "name": "tok1", "max": "1239999", "bal": "2221", "url": "http://xxx", "other": "zzzzz" }, {...}, {...}]
 // toTokens: "" empty or
 // toTokens: [{ "name": "tok4", "max": "12999", "bal": "22", "url": "http://xxx", "some": "yyy" }, {...}, {...}]
-int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &reqJson, sstr &fromTokens, sstr &toTokens )
+int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &reqJson, sstr &fromTokens, sstr &toTokens, sstr &errmsg )
 {
 	using namespace rapidjson;
 	Document fromdom;
@@ -1128,6 +1209,7 @@ int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &re
 		todom.Parse( toTokens );
 		if ( todom.HasParseError() ) {
 			i("E34233 modifyTokens toTokens invalid");
+            errmsg = "E34233 toTokens format error";
 			return -20;
 		}
 	} 
@@ -1137,11 +1219,13 @@ int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &re
 	if ( chdom.HasParseError() ) {
 		i("E34235 modifyTokens reqJson invalid");
 		i("reqJson=%s", s(reqJson) );
+        errmsg = "E34235 Json request format error";
 		return -30;
 	}
 
 	if ( ! chdom.IsArray() ) {
 		i("E34035 modifyTokens chdom is not array");
+        errmsg = "E34035 Json DOM not array, request format error";
 		return -40;
 	}
 
@@ -1154,6 +1238,7 @@ int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &re
 		const rapidjson::Value &rv = chdom[idx];
 		if ( ! rv.IsObject() ) {
         	i("E34128 error not object" );
+        	errmsg = "E34128 error JSON element not object";
         	return -35;
 		}
 
@@ -1161,11 +1246,13 @@ int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &re
 		itr = rv.FindMember("name");
 		if ( itr == rv.MemberEnd() ) {
         	i("E34020 error no name" );
+        	errmsg = "E34020 error Json element has no name";
         	return -45;
 		}
 		const sstr &xferName = itr->value.GetString();
 		if ( xferName.size() > OM_TOKEN_MAX_LEN ) {
         	i("E34021 error name too long" );
+        	errmsg = "E34021 error name too long";
         	return -46;
 		}
 
@@ -1176,22 +1263,26 @@ int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &re
     		if ( itr->value.IsString() ) {
         		const sstr &amt = itr->value.GetString();
         		if ( amt.size() > OM_NUM_MAXSZ ) {
-					i("E34022 error amt too big" );
+					i("E34022 error amt too large" );
+					errmsg = "E34022 error amt too large";
 					return -57;
         		}
         		if ( atof( amt.c_str() ) <= 0 ) {
         			i("E34023 error amt=[%s]", s(amt) );
+        			errmsg = "E34023 error negative amt"; 
         			return -45;
         		}
         		xferAmount = amt;
     		} else {
         		i("E34043 error not string" );
+                errmsg = "E34043 error amt is not string";
         		return -46;
     		}
 		}
 
 		if ( xferAmount.size() > OM_NUM_MAXSZ ) {
         	i("E35043 error xferAmount too long" );
+        	errmsg = "E35043 error xferAmount too long";
         	return -48;
 		}
 
@@ -1201,13 +1292,17 @@ int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &re
 			rapidjson::Value &v = fromdom[j];
 			if ( ! v.IsObject() ) {
 				i("E32268 not object");
+				errmsg = "E32268 sender not object";
 				return -55;
 			}
+
 			itr = v.FindMember("name");
 			if ( itr == v.MemberEnd() ) {
 				i("E32208 no name");
+				errmsg = "E32208 sender dom has no name";
 				return -60;
 			}
+
 			const sstr &tname = itr->value.GetString();
 			if ( tname != xferName ) {
 				continue;
@@ -1216,31 +1311,41 @@ int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &re
 			itr = v.FindMember("max");
 			if ( itr == v.MemberEnd() ) {
 				i("E32401 no max");
+				errmsg = "E32401 sender no max";
 				return -61;
 			}
+
 			const sstr &max = itr->value.GetString();
 			if ( atoll( max.c_str() ) == 1 ) {
+                // max==1 is nft token
+                // my account can have nft that belongs to another user
 				itr = v.FindMember("owner");
 				if ( itr == v.MemberEnd() ) {
 					i("E32471 nft token no owner");
+					errmsg = "E32471 nft token has no owner";
 					return -71;
 				}
+
 				const sstr &towner = itr->value.GetString();
 				if ( from != towner ) {
 					i("E32481 nft token wrong owner from=[%s] towner=[%s]", s(from), s(towner));
-					return -71;
+                    errmsg = "E32481 nft token owner is not sender";
+					return -73;
 				}
 			}
 
 			itr = v.FindMember("bal");
 			if ( itr == v.MemberEnd() ) {
 				i("E32204 no bal");
+				errmsg = "E32204 no balance bal element";
 				return -65;
 				//continue;
 			}
+
 			const sstr &bal = itr->value.GetString();
 			if ( atof(bal.c_str()) < atof(xferAmount.c_str()) ) {
-				i("E24722 error xferamount=[%s] iver bal=[%s]", xferAmount.c_str(), bal.c_str() );
+				i("E24722 error xferamount=[%s] over bal=[%s]", xferAmount.c_str(), bal.c_str() );
+                errmsg = "E24722 error xferamount exceeds balance";
 				return -50;
 			}
 
@@ -1250,6 +1355,7 @@ int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &re
 
 		if ( ! fromHasToken ) {
 			i("E44023 fromacct has no such token [%s]", s(xferName) );
+            errmsg = "E44023 sender account has no such token";
 			return -55;
 		}
 	}
@@ -1258,7 +1364,8 @@ int BlockMgr::checkValidTokens( const sstr &from, const sstr &to, const sstr &re
 }
 
 // Transfer tokens from one account to another
-int BlockMgr::isXferTokenValid( OmicroTrxn &trxn)
+// return 0: OK;  < 0: error
+int BlockMgr::isXferTokenValid( OmicroTrxn &trxn, sstr &errmsg )
 {
 	sstr trxnId; trxn.getTrxnID( trxnId );
 	sstr from = trxn.sender_;
@@ -1269,6 +1376,7 @@ int BlockMgr::isXferTokenValid( OmicroTrxn &trxn)
 	char *fromrec = findSaveStore( from, srcptr );
 	if ( ! fromrec ) {
 		i("E30821 transferToken error from=[%s] not created yet.", s(from));
+        errmsg = "Sender account is not created yet";
 		return -10;
 	}
 
@@ -1276,6 +1384,7 @@ int BlockMgr::isXferTokenValid( OmicroTrxn &trxn)
 	char *torec = findSaveStore( to, dstptr );
 	if ( ! torec ) {
 		i("E30321 transferToken error to=[%s] not created yet.", s(to));
+        errmsg = "Receiver account is not created yet";
 		return -20;
 	}
 
@@ -1284,6 +1393,7 @@ int BlockMgr::isXferTokenValid( OmicroTrxn &trxn)
 	if ( fromacct.tokens_.size() < 1 ) {
 		//acct.tokens_ = trxn.request_;
 		i("E33401 from=[%s] tokens_ is empty", s(from) );
+        errmsg = "Sender has no tokens";
 		return -30;
 	}
 
@@ -1292,16 +1402,19 @@ int BlockMgr::isXferTokenValid( OmicroTrxn &trxn)
 		i("E22403 from=[%s] tokens_ does not have the tokens to be xfered", s(from) );
 		i("E22303 fromacct.tokens_=[%s]", s(fromacct.tokens_) );
 		i("E22403 trxn.request_=[%s]", s(trxn.request_) );
+        errmsg = "Sender has no specified tokens";
 		return -40;
 	}
 
 	OmAccount toacct(torec);
 
-	int rc = checkValidTokens(from, to, trxn.request_, fromacct.tokens_, toacct.tokens_ );
+    sstr chkerr;
+	int rc = checkValidTokens(from, to, trxn.request_, fromacct.tokens_, toacct.tokens_, chkerr );
 	if ( rc < 0 ) {
 		i("E21403 from=[%s] to=[%s] checkValidTokens error rc=%d", s(from), s(to), rc );
 		i("E21403 fromacct.tokens_=[%s]", s(fromacct.tokens_) );
 		i("E21403 trxn.request_=[%s]", s(trxn.request_) );
+        errmsg = sstr("Invalid tokens from sender to receiver. Error code is ") + std::to_string(rc) + " " + chkerr;
 		return -50;
 	}
 
@@ -1384,8 +1497,201 @@ int BlockMgr::validateReqTokens( const sstr &from, sstr &requestJson )
 	return 0;
 }
 
-void BlockMgr::setSrvPort( const sstr &srv, const sstr &port )
+
+void   BlockMgr::replayLocalWallog(time_t start, time_t  end )
 {
-	srv_ = srv;
-	port_ = port;
+    sstr fpath = sstr("../log/cmd/") + srv_ + "_" + port_;
+    replayWallog( fpath, true, start, end );
 }
+
+//"%lu-%s-%lu-zipdata|...|...|"
+//  logtime-trxnid-zipdatasize|...|...
+// when called replay wallog from other nodes, verifyTrxn is false since local privatekey is different
+void   BlockMgr::replayWallog( const sstr &fpath, bool verifyTrxn, time_t start, time_t  end )
+{
+    int fd = ::open( fpath.c_str(), O_RDONLY );
+    if ( fd < 0) {
+        i("a002838 replayWallog:  open(%s) error", s(fpath) );
+        return;
+    }
+
+    d("a223309 replayWallog [%s]", s(fpath) );
+
+
+	char buf64[65];
+	char c;
+	char *buf = NULL;
+
+    sstr    trxnid;
+    time_t  logtime;
+    uint    zipsize;
+
+    uint totcnt = 0;
+    uint okcnt = 0;
+    uint errcnt = 0;
+    int  j;
+
+	while ( 1 ) {
+
+        // log time
+		j = 0;
+		memset( buf64, 0, 65 );
+		while( 1==read(fd, &c, 1) ) {
+			buf64[j] = c;
+			if ( c == '-' ) {
+				buf64[j] =  '\0';
+				break;
+			} else {
+				if ( j > 60 ) {
+					::close( fd );
+					return;
+				}
+			}
+			++j;
+		}
+		if ( buf64[0] == '\0' ) {
+			break;
+		}
+        logtime = atol( buf64);
+
+        ++ totcnt;
+
+
+        // get trxnid
+		j = 0;
+		memset( buf64, 0, 65 );
+		while( 1==read(fd, &c, 1) ) {
+			buf64[j] = c;
+			if ( c == '-' ) {
+				buf64[j] =  '\0';
+				break;
+			} else {
+				if ( j > 60 ) {
+					::close( fd );
+					return;
+				}
+			}
+			++j;
+		}
+
+		if ( buf64[0] == '\0' ) {
+			break;
+		}
+		trxnid = buf64;
+
+
+        // get zipsize
+		j = 0;
+		memset( buf64, 0, 65 );
+		while( 1==read(fd, &c, 1) ) {
+			buf64[j] = c;
+			if ( c == '-' ) {
+				buf64[j] =  '\0';
+				break;
+			} else {
+				if ( j > 60 ) {
+					::close( fd );
+					return;
+				}
+			}
+			++j;
+		}
+		if ( buf64[0] == '\0' ) {
+			break;
+		}
+        zipsize = atol( buf64);
+
+        if ( start <= logtime && logtime <= end ) {
+            // OK, handle the zipped msg (zipped trxndata )
+            buf = NULL;
+        } else {
+            // fast forward fd by zipsize and the ending '|' byte
+            if ( logtime > end ) {
+                break; // end because we are reading records past the end time
+            } else {
+                lseek(fd, zipsize+1, SEEK_CUR); 
+                continue;
+            }
+        }
+
+
+		buf = (char*)malloc(zipsize+1);
+		memset(buf, 0, zipsize+1);
+
+		saferead( fd, buf, zipsize );
+		read(fd, &c, 1); // '|' after the zipped trxn msg
+
+        sstr  zipmsg(buf, zipsize); 
+        free(buf);
+
+        sstr trxnmsg;
+        ZlibCompress::uncompress(zipmsg, trxnmsg); 
+        OmicroTrxn t( trxnmsg );
+
+
+        if ( verifyTrxn ) {
+        //d("a5600948 before validateTrxn() trxnmsg=[%s]  t.signature_=[%s]  t.cipher_=[%s]", s( trxnmsg ), s(t.signature_), s(t.cipher_) );
+            bool validTrxn = t.validateTrxn( serv_->secKey_, false );
+            if ( ! validTrxn ) {
+                d("a202293  trxn of trxnid=%s is invalid", s(trxnid) );
+                ++ errcnt;
+                continue;
+            }
+        }
+
+
+        sstr insideTrxnId;
+        t.getTrxnID( insideTrxnId);
+        if ( insideTrxnId != trxnid ) {
+            ++ errcnt;
+            d("a33307 insideTrxnId != trxnid");
+            continue;
+        }
+
+        OmStrSplit sp( insideTrxnId, ':');
+        sstr from1;
+        if ( sp.size() >= 2 ) {
+            from1 = sp[1];
+        }
+
+        sstr from = t.sender_;
+        if ( from1 != from ) {
+            ++ errcnt;
+            d("a33309 from1 != from");
+            continue;
+        }
+
+        sstr insideTime = t.timestamp_;
+	    std::vector<sstr> vec;
+	    char tstat = '0';
+        sstr err;
+
+	    readTrxns( from, insideTime, trxnid, vec, tstat, err );
+
+        if ( vec.size() < 1 ) {
+            // not found, do it here
+            bool doWallog = false;
+            int src = saveTrxn( t, doWallog, err);
+            if ( src < 0 ) {
+                ++ errcnt;
+                d("a2333309 saveTrxn src=%d  err=[%s]", src, s(err) );
+            } else {
+                ++ okcnt; 
+            }
+        } else {
+            ++ errcnt;
+            d("a322203 trxnid=%s insideTime=%s is found in system, ignore trxn", s(trxnid), s(insideTime) );
+        }
+
+		buf = NULL;
+
+	}
+
+	::close( fd );
+
+    i("Replay [%s]  total counts totcnt=%lu  OKcnt=%lu errcnt=%lu", fpath.c_str(), totcnt, okcnt, errcnt );
+
+}
+
+
+

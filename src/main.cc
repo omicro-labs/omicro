@@ -39,6 +39,7 @@ int main(int argc, char* argv[])
     // Check command line arguments.
     if (argc < 3) {
             i("Usage: server <address> <port>");
+            i("Usage: server <address> <port> debug");
             return 1;
     }
 

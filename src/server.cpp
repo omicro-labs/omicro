@@ -49,6 +49,7 @@ OmServer::OmServer( boost::asio::io_context &io_context, const sstr &srvip, cons
     address_ = srvip;
     port_ = port;
 
+
     readID();
     readPubkey();
     readSeckey();
@@ -59,8 +60,12 @@ OmServer::OmServer( boost::asio::io_context &io_context, const sstr &srvip, cons
 
 	sstr dataDir = getDataDir(); 
 	i("Data dir is [%s]", dataDir.c_str());
+	blockMgr_.setServer( this );
 	blockMgr_.setSrvPort( address_, port_);
 	blockMgr_.setDataDir( dataDir );
+
+    // todo
+	blockMgr_.replayLocalWallog( 0 );
 
 	cleanupTimer_ = new btimer( io_context_ );
 
@@ -83,7 +88,7 @@ void OmServer::do_accept()
     acceptor_.async_accept(
       [this](bstcode ec, tcp::socket acpt) {
         if (!ec) {
-			i("I00038 handle connection conns=%lu ...", connections_);
+			i("I00038 handle async_accept connection conns=%lu new OMSession ...", connections_);
 			++connections_;
             std::shared_ptr<OmSession> s = std::make_shared<OmSession>(io_context_, *this, std::move(acpt));
             s->start();
@@ -99,6 +104,9 @@ void OmServer::do_accept()
 sstr OmServer::getDataDir() const
 {
 	::mkdir( "../data/", 0700 );
+	::mkdir( "../log/", 0700 );
+	::mkdir( "../log/cmd", 0700 );
+
 	sstr dip = sstr("../data/") + address_;
 	::mkdir( dip.c_str(), 0700 );
 
@@ -248,17 +256,30 @@ void OmServer::onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clie
 
 	bool iAmLeader = circ.getOtherLeadersAndThisFollowers( beacon, id_, otherLeaders, followers );
 	if ( ! iAmLeader ) {
-		d("a22034 %s got XIT_k, i am not leader", s(id_) );
+		d("a22034 %s got XIT_k, i am not leader, do nothing, return", s(id_) );
 		return;
 	}
 	d("a30024 onRecvK() i am leader client=[%s] sid=[%s] ...", s(clientIP), s(sid));
 
-	/**
+    sstr initerIP = t.getIniterIP();
+    sstr initerPort = t.getIniterPort();
+    d("a30039 in onRecvK initerIP=%s  initerPort=%s", s(initerIP), s(initerPort) );
+
+    // todo debug
+    /***
+    for ( auto ld : otherLeaders ) {
+        d("a929292 other leader %s", s(ld ) );
+    }
+    for ( auto fl : followers ) {
+        d("a929293 my follower %s", s(fl ) );
+    }
+    ***/
+
+	// todo
 	d("a344251 otherLeaders:");
 	pvectag("tagotherleader:", otherLeaders );
 	d("a344252 followers:");
 	pvectag("tagfollower:", followers );
-	**/
 
 	Byte curState;
 	trxnState_.getState( trxnId, curState );
@@ -267,12 +288,13 @@ void OmServer::onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clie
 		return;
 	}
 
+    // contributed from followers of this leader
 	collectKTrxn_.add(trxnId, 1);
 
 	d("a20733 from=%s got XIT_k am leader increment collectTrxn[trxnId]", s(t.sender_));
 		
 	uint twofp1 = twofplus1( followers.size() + 1);
-	d("a53098 doRecvK from=%s twofp1=%d followers=%d", s(t.sender_), twofp1, followers.size() );
+	d("a53098 doRecvK from=%s twofp1=%d num_followers=%d", s(t.sender_), twofp1, followers.size() );
 	uint recvcnt = collectKTrxn_.get(trxnId);
 	if ( recvcnt >= twofp1 ) { 
 		d("a2234 from=%s %s got enough quorum XIT_k, good, leader,  rcvcnt=%d >= twofp1=%d trnxId=%s", s(t.sender_), s(id_), recvcnt, twofp1, s(trxnId) );
@@ -285,11 +307,17 @@ void OmServer::onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clie
 
 		t.setXit( XIT_l );
 		strvec nullvec;
-		t.srvport_ = srvport_; 
+
+		// t.srvport_ = srvport_; 
+
 		sstr alldat; t.allstr(alldat);
+        d("a203039 send XIT_l to otherLeaders ...");
 		multicast( OM_TXN, otherLeaders, alldat, false, nullvec ); // XIT_l
 		d("a39221 from=%s %s multicast otherLeaders done t.srvport_=[%s]", s(t.sender_), s(id_), s(t.srvport_) );
+
 		collectKTrxn_.erase(trxnId);
+        d("a081002 collectKTrxn_.erase(trxnId=%s)", s(trxnId) );
+
 	} else {
 		d("a21842 from=%s %s got XIT_k but notenough quorum, a leader, rcvcnt=%d < twofp1=%d", s(t.sender_), s(id_), recvcnt, twofp1 );
 	}
@@ -299,12 +327,13 @@ void OmServer::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 {
 	strvec otherLeaders, followers;
 	DynamicCircuit circ( nodeList_);
+
     bool iAmLeader = circ.getOtherLeadersAndThisFollowers( beacon, id_, otherLeaders, followers );
 	if ( ! iAmLeader ) {
-		d("a22034 %s got XIT_l, i am not leader", s(id_) );
+		d("a22034 %s got XIT_l, i am not leader return do nothing", s(id_) );
 		return;
 	}
-	d("a30024 onRecvL() i am leader client=[%s] sid=[%s] tryRecvL ...", s(clientIP), s(sid));
+	d("a30024 onRecvL() XIT_l  i am leader client=[%s] sid=[%s] tryRecvL ...", s(clientIP), s(sid));
 
 	Byte curState;
 	trxnState_.getState( trxnId, curState );
@@ -323,21 +352,23 @@ void OmServer::onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	d("a53098 doRecvL from=%s twofp1=%d otherleaders=%d", s(t.sender_), twofp1, otherLeaders.size() );
 	uint recvcnt = collectLTrxn_.get(trxnId);
 	if ( recvcnt >= twofp1 ) { 
-		d("a2234 from=%s %s enough quorum XIT_l, good, leader, rcvcnt=%d >= twofp1=%d trnxId=%s", s(t.sender_), s(id_), recvcnt, twofp1, s(trxnId) );
+		d("a22993034 from=%s %s enough quorum XIT_l, good, leader, rcvcnt=%d >= twofp1=%d trnxId=%s", s(t.sender_), s(id_), recvcnt, twofp1, s(trxnId) );
 		// state to D
 		trxnState_.setState( trxnId, ST_D );
-		d("a331208 from=%s XIT_l to toDgood true", s(t.sender_));
+		d("a33120802 from=%s XIT_l to toDgood true", s(t.sender_));
 
 		collectMTrxn_.add( trxnId, 1 );
 
 		// todo L2 L3
 		t.setXit( XIT_m );
 		strvec nullvec;
+
 		//pvec(otherLeaders);
-		t.srvport_ = srvport_; 
+		// may 31, 2026  t.srvport_ = srvport_; 
+
 		sstr alldat; t.allstr(alldat);
 		//d("a33221 %s round-2 multicast otherLeaders trnmsg=[%s] ...", s(id_), s(dat) );
-		multicast( OM_TXN, otherLeaders, alldat, false, nullvec );
+		multicast( OM_TXN, otherLeaders, alldat, false, nullvec ); // XIT_m
 		d("a33221 from=%s %s round-2 multicast otherLeaders done t.srvport_=[%s]", s(t.sender_), s(id_), s(t.srvport_) );
 		collectLTrxn_.erase(trxnId);
 
@@ -360,13 +391,14 @@ void OmServer::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 {
     strvec otherLeaders, followers;
     DynamicCircuit circ( nodeList_);
+
     bool iAmLeader = circ.getOtherLeadersAndThisFollowers( beacon, id_, otherLeaders, followers );
     if ( ! iAmLeader ) {
-    	d("a52238 i am %s, NOT a leader, ignore", s(id_) );
+    	d("a52238 got XIT_m i am %s, NOT a leader, ignore", s(id_) );
 		return;
 	}
 
-	d("a399302 onRecvM otherLeaders.size=%d", otherLeaders.size() );
+	d("a399302 got XIT_m onRecvM otherLeaders.size=%d", otherLeaders.size() );
 
 	Byte curState;
 	trxnState_.getState( trxnId, curState );
@@ -376,6 +408,7 @@ void OmServer::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	}
 
 	collectMTrxn_.add(trxnId, 1);
+
 	ulong trxnVotes = collectMTrxn_.get(trxnId);
 	uint twofp1 = twofplus1( otherLeaders.size() + 1);
 	d("a33039 doRecvM  from=%s twofp1=%d trxnVotes=%d", s(t.sender_), twofp1, trxnVotes );
@@ -388,6 +421,59 @@ void OmServer::onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clie
 	} else {
 		d("a72228 XIT_m from=%s notenough quorum, XIT_n not sent ", s(t.sender_));
 	}
+
+}
+
+// L2
+// return 0 for OK; <0 for error
+// return 0 OK; -1 error; -171 and -173 can be ignored
+int OmServer::onRecvN( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t, sstr &errmsg )
+{
+    // follower should have received this
+    strvec followers;
+    DynamicCircuit circ( nodeList_);
+
+    bool iAmLeader = circ.isLeader( beacon, id_, false, followers ); // do not retrieve followers
+    if ( iAmLeader ) {
+    	d("a52238 got XIT_n i am %s, but i am a leader, ignore", s(id_) );
+        errmsg = "E0392838 received XIT_N but I am a leader";
+		return -171;
+	}
+
+
+	Byte curState;
+	trxnState_.getState( trxnId, curState );
+	if ( curState >= ST_F ) {
+		d("a00821 doRecvN from=%s state=%c already at or passed ST_D, ignore", s(t.sender_), curState);
+        errmsg = "E40289 current state is already ST_F";
+		return -173;
+	}
+
+	int rrc = blockMgr_.receiveTrxn( t, errmsg );
+    if ( rrc < 0 ) {
+        return rrc;
+    }
+
+    return 0;
+
+    /***
+	collectNTrxn_.add(trxnId, 1);
+
+	// ulong trxnVotes = collectMTrxn_.get(trxnId);
+	ulong trxnVotes = collectNTrxn_.get(trxnId);
+	//uint twofp1 = twofplus1( otherLeaders.size() + 1);
+	uint twofp1 = twofplus1( otherFollowers.size() + 1);
+	d("a33039 doRecvM  from=%s twofp1=%d trxnVotes=%d", s(t.sender_), twofp1, trxnVotes );
+
+	if ( trxnVotes >= twofp1 ) {
+		// state to F
+		d("a2235 from=%s %s got enough quorum XIT_m, good, leader, trxnid=%s", s(t.sender_), s(id_), s(trxnId) );
+		trxnState_.setState( trxnId, ST_F );
+		// sendFollowersXITn( trxnId, followers, t );
+	} else {
+		d("a72228 XIT_n from=%s notenough quorum, XIT_n not sent ", s(t.sender_));
+	}
+    ***/
 
 }
 
@@ -404,12 +490,14 @@ void OmServer::sendFollowersXITn( const sstr &trxnId, const strvec &followers, O
 
 	t.srvport_ = srvport_;
 	sstr alldat; t.allstr(alldat);
-	OmServer::multicast( OM_TXN, followers, alldat, false, nullvec );
+
+	OmServer::multicast( OM_TXN, followers, alldat, false, nullvec ); // XIT_n
 	d("a33281 from=%s %s multicast XIT_n followers done", s(t.sender_), s(id_));
 
 	trxnState_.setState( trxnId, ST_F );
-	blockMgr_.receiveTrxn( t );
-	i("a99 leader from=[%s] commit TRXN %s peer:[%s]", s(t.sender_), s(trxnId), s(t.srvport_) );
+    sstr errmsg;
+	int rrc = blockMgr_.receiveTrxn( t, errmsg );
+	i("a99 leader from=[%s] commit TRXN %s peer:[%s] rrc=%d  errmsg=[%s]", s(t.sender_), s(trxnId), s(t.srvport_), rrc, s(errmsg) );
 
 	collectMTrxn_.erase(trxnId);
 }
@@ -420,7 +508,7 @@ int OmServer::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 	int len = hostVec.size();
 	if ( len < 1 ) {
 		//i("E50292 multicast hostVec.size < 1");
-		return false;
+		return 0;
 	}
 
 	d("a31303 multicast send msgs to nodes %d expectReply=%d ...", len, expectReply );
@@ -430,23 +518,35 @@ int OmServer::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 	sstr srvport, pubkey, dat;
 	bool useThreads = true;
 
+    std::vector<std::thread> threads;
+    std::vector<int> paramVec;
+
+    bool gdrc;
+
 	for ( int j=0; j < len; ++j ) {
 		if ( hostVec[j].size() < 1 ) {
 			d("a44012 zone=%d host is empty, skip", j );
 			continue;
 		}
 
-		NodeList::getData( hostVec[j], id, ip, port);
+		gdrc = NodeList::getData( hostVec[j], id, ip, port);
+
+        d("a4555508 in multicast() NodeList::getData(%s) id=%s  ip=%s  port=%s gdrc=%d", s(hostVec[j]), s(id), s(ip), s(port), gdrc );
 		thrdParam[j].srv = ip;
 		thrdParam[j].port = atoi(port.c_str());
 		thrdParam[j].msgType = msgType;
 		thrdParam[j].srvobj = this;
+		thrdParam[j].connectOK = false;
 
 		srvport = ip + ":" + port;
 
 		getPubkey( srvport, pubkey );
 		OmicroTrxn t( trxnMsg.c_str() );
 		t.makeNodeSignature(pubkey);
+
+        sstr initerIP = t.getIniterIP();
+        sstr initerPort = t.getIniterPort();
+        d("s020291 initerIP=%s  initerPort=%s", s(initerIP), s(initerPort) );
 
 		/*** debug 
 		d("a10827 from=%s in multicast get target srvport pubkey of target: %s:%s", s(t.sender_), s(ip), s(port) );
@@ -469,25 +569,42 @@ int OmServer::multicast( char msgType, const strvec &hostVec, const sstr &trxnMs
 
 		t.allstr(thrdParam[j].trxn);
 		if ( useThreads ) {
-			std::thread t(threadSendMsg, thrdParam[j] );
-			t.detach();
+			//std::thread t(threadSendMsg, &thrdParam[j] );
+            threads.emplace_back( threadSendMsg, &(thrdParam[j]) );
+			// t.detach();
+            paramVec.push_back(j);
 		} else {
-			//threadSendMsg( (void *)&thrdParam[j] );
+			threadSendMsg( &thrdParam[j] );
 		}
 	}
 
-	d("a31303 multicast msgs to nodes %d done replied=%d", len, replyVec.size() );
-	return 1;
+    int connected = 0;
+    int idx;
+    for ( size_t k=0; k < paramVec.size(); ++k ) {
+        threads[k].join();
+        idx = paramVec[k];
+        if ( thrdParam[idx].connectOK ) {
+            ++ connected;
+        }
+    }
+
+	d("a31303 multicast msgs to nodes %d done replied=%d  connected=%d", len, replyVec.size(), connected );
+	return connected;
 }
 
-void threadSendMsg( ThreadParam p )
+void threadSendMsg( ThreadParam *p )
 {
-    OmicroClient cli( p.srv.c_str(), p.port);
+    OmicroClient cli( p->srv.c_str(), p->port);
     if ( ! cli.connectOK() ) {
+        p->connectOK = false;
         return;
     }
 
-    cli.sendMessage( p.msgType,  p.trxn.c_str(), 0);
+    d("s455590 threadSendMsg to server=%s  port=%d ...", p->srv.c_str(), p->port );
+
+    cli.sendMessage( p->msgType,  p->trxn.c_str(), 0);
+    d("a938844 sendMessage is done");
+    p->connectOK = true;
 
 	/***
 	CliPtr cli = p.srvobj->clientPool_.get( p.srv, p.port );
@@ -499,37 +616,101 @@ void threadSendMsg( ThreadParam p )
 	***/
 }
 
-void OmServer::onRecvQueryK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
+// return 0: got enough quorum
+// return < 0: error, or to be ignored, or not enough votes collected.
+int OmServer::onRecvQueryK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
 {
 	strvec followers;
 	DynamicCircuit circ( nodeList_);
 
-	bool iAmLeader = circ.isLeader( beacon, id_, false, followers );
+	bool iAmLeader = circ.isLeader( beacon, id_, true, followers );
 	if ( ! iAmLeader ) {
 		d("a25034 %s got query XIT_k, i am not leader, ignore", s(id_) );
-		return;
+		return -1;
 	}
 	d("a30024 onRecvQueryK() i am leader client=[%s] sid=[%s] ...", s(clientIP), s(sid));
 
 	Byte curState;
 	trxnState_.getState( trxnId, curState );
 	if ( curState >= ST_C ) {
-		d("a02824 doRecvK from=%s state=%c already at or passed ST_C, ignore",  s(t.sender_), curState );
-		return;
+		d("a0288824 doRecvK from=%s state=%c already at or passed ST_C, ignore",  s(t.sender_), curState );
+		return -100;
 	}
 
 	collectQueryKTrxn_.add(trxnId, 1);
+    d("a55091 collectQueryKTrxn_.add trxnId=%s  1", s(trxnId) );
 		
 	uint twofp1 = twofplus1( followers.size() + 1);
 	d("a53098 doRecvK from=%s twofp1=%d followers=%d", s(t.sender_), twofp1, followers.size() );
-	uint recvcnt = collectKTrxn_.get(trxnId);
+	uint recvcnt = collectQueryKTrxn_.get(trxnId);
+
+    d("a022731 collectKTrxn_.get(trxnId) recvcnt=%u", recvcnt );
+
+
 	if ( recvcnt >= twofp1 ) { 
-		d("a2234 from=%s %s got enough quorum query XIT_k, good, leader, cnt=%d >= twofp1=%d trnxId=%s", s(t.sender_), s(id_), recvcnt, twofp1, s(trxnId) );
+		d("a2234 from=%s %s got enough quorum query XIT_k, good, leader, cnt=%u >= twofp1=%d trnxId=%s", s(t.sender_), s(id_), recvcnt, twofp1, s(trxnId) );
 		// state to C
 		trxnState_.setState( trxnId, ST_C );
 		collectQueryKTrxn_.erase(trxnId);
+        d("a090909 collectQueryKTrxn_.erase(%s)", s(trxnId) );
+        return 0;
 	} else {
-		d("a27842 from=%s %s got query XIT_k but notenough quorum, a leader, rcvcnt=%d < twofp1=%d", s(t.sender_), s(id_), recvcnt, twofp1 );
+		d("a27842 from=%s %s got query XIT_k but notenough quorum, a leader, rcvcnt=%u < twofp1=%d", s(t.sender_), s(id_), recvcnt, twofp1 );
+        return -50;
+	}
+}
+
+
+// return 0: got enough quorum
+// return < 0: error, or to be ignored, or not enough votes collected.
+int OmServer::onRecvQueryL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t )
+{
+	strvec followers;
+	DynamicCircuit circ( nodeList_);
+
+    // i am the initer(proxy),  i can be leader or follower.
+    // i need to get all leaders, and see if >= half leaders have talked to me
+    strvec leaderVec;
+    circ.getZoneLeaders( beacon, leaderVec );
+
+    /***
+	// bool iAmLeader = circ.isLeader( beacon, id_, false, followers );
+	bool iAmLeader = circ.isLeader( beacon, id_, true, followers );
+	if ( ! iAmLeader ) {
+		d("a25034 %s got query XIT_l, i am not leader, ignore", s(id_) );
+		return -1;
+	}
+	d("a30024 onRecvQueryK() i am leader client=[%s] sid=[%s] ...", s(clientIP), s(sid));
+    ***/
+
+	Byte curState;
+	trxnState_.getState( trxnId, curState );
+	if ( curState >= ST_D ) {
+		d("a0288824 doRecvL from=%s state=%c already at or passed ST_C, ignore",  s(t.sender_), curState );
+		return -100;
+	}
+
+	collectQueryLTrxn_.add(trxnId, 1);
+    d("a55091 collectQueryLTrxn_.add trxnId=%s  1", s(trxnId) );
+		
+	// uint twofp1 = twofplus1( leaderVec.size() + 1);
+	uint twofp1 = leaderVec.size()/2 + 1;
+	d("a53098 doRecvL from=%s twofp1=%d num_leaders=%d", s(t.sender_), twofp1, leaderVec.size() );
+	uint recvcnt = collectQueryLTrxn_.get(trxnId);
+
+    d("a022731 collectLTrxn_.get(trxnId) recvcnt=%u", recvcnt );
+
+
+	if ( recvcnt >= twofp1 ) { 
+		d("a2234 from=%s %s got enough quorum query XIT_l, good, leader, cnt=%u >= twofp1=%d trnxId=%s", s(t.sender_), s(id_), recvcnt, twofp1, s(trxnId) );
+		// state to C
+		trxnState_.setState( trxnId, ST_D );
+		collectQueryLTrxn_.erase(trxnId);
+        d("a090909 collectQueryLTrxn_.erase(%s)", s(trxnId) );
+        return 0;
+	} else {
+		d("a27842 from=%s %s got query XIT_l but notenough quorum, a leader, rcvcnt=%u < twofp1=%d", s(t.sender_), s(id_), recvcnt, twofp1 );
+        return -50;
 	}
 }
 
@@ -538,6 +719,7 @@ void OmServer::doCleanup()
 	// cleanup votes and collections of trxnID
 	collectKTrxn_.cleanup( 240 );
 	collectQueryKTrxn_.cleanup( 240 );
+	collectQueryLTrxn_.cleanup( 240 );
     collectLTrxn_.cleanup( 240 );
 	collectMTrxn_.cleanup( 240 );
 	qResult_.cleanup( 240 );

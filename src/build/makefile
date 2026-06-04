@@ -117,7 +117,7 @@ BOOST_DEFINE =
 
 #WORNING_FLAGS = -Wall -Wextra -Wconversion -Wno-unused-parameter -Wno-sign-conversion \
 # -Wold-style-cast -Woverloaded-virtual -Wpointer-arith -Wshadow -Wwrite-strings
-WORNING_FLAGS = -Wall
+WORNING_FLAGS = -Wall -g
 
 
 # The pre-processor options used by the cpp (man cpp for more).

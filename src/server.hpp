@@ -14,6 +14,7 @@
 #include "omwaitstr.h"
 #include "omtimer.h"
 #include "clientpool.h"
+#include "omconfig.h"
 
 using boost::asio::ip::tcp;
 
@@ -29,33 +30,41 @@ class OmServer
 	void onRecvK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
 	void onRecvL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
 	void onRecvM( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
+	int  onRecvN( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t, sstr &errmsg);
 
-	void onRecvQueryK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
+	int onRecvQueryK( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
+	int onRecvQueryL( const sstr &beacon, const sstr &trxnId, const sstr &clientIP, const sstr &sid, OmicroTrxn t);
 
-	int multicast( char msgType, const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
+	int  multicast( char msgType, const strvec &hostVec, const sstr &trxnMsg, bool expectReply, strvec &replyVec );
 	void getPubkey( const sstr &srvport, sstr &pubkey );
 
 	OmWaitCount  collectKTrxn_;
-	OmWaitCount  collectQueryKTrxn_;
 	OmWaitCount  collectLTrxn_;
 	OmWaitCount  collectMTrxn_;
-	OmWaitStr   qResult_;
+
+	OmWaitCount  collectQueryKTrxn_;
+	OmWaitCount  collectQueryLTrxn_;
+	OmWaitStr    qResult_;
 
 	std::unordered_map<sstr, sstr> srvport_pubkey_;
+	// std::unordered_map<sstr, tcp::socket> trxn_initer_socket_;
+	std::unordered_map<sstr, int> trxn_initer_client_socket_;
+	std::unordered_map<sstr, int> query_initer_client_socket_;
 
-	TrxnState trxnState_;
-	NodeList nodeList_;
-	int level_;
-	sstr id_;
+	TrxnState   trxnState_;
+	NodeList    nodeList_;
+	int         level_;
+	sstr        id_;
 
 	// debug only
-	sstr srvport_;
+	sstr        srvport_;
 
-	BlockMgr  blockMgr_;
-	sstr pubKey_;
-	sstr secKey_;
-	sstr address_, port_;
+	BlockMgr    blockMgr_;
+	sstr        pubKey_;
+	sstr        secKey_;
+	sstr        address_, port_;
 	OmClientPool clientPool_;
+    OmConfigurator  config_;
 
   private:
     void do_accept();
@@ -85,8 +94,9 @@ struct ThreadParam
 	char msgType;
     bool expectReply;
 	OmServer *srvobj;
+    bool  connectOK;
 };
 
-void threadSendMsg( ThreadParam p);
+void threadSendMsg( ThreadParam *p);
 
 #endif 

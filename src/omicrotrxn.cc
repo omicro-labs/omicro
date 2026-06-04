@@ -29,15 +29,40 @@
 #include "omlimits.h"
 EXTERN_LOGGING
 
+// The base85 encoding does not include the '|' character, so it is safe to use '|' as
+// delimiter in internal trxn string representations.
+
 OmicroTrxn::OmicroTrxn()
 {
 	thdr_ = "TT"; // plaintext, trxn
+
+	pad1_ = "pd1";
+	pad2_ = "pd2";
+	pad3_ = "pd3";
+	pad4_ = "pd4";
+	pad5_ = "pd5";
+	pad6_ = "pd6";
+	pad7_ = "pd7";
+	pad8_ = "pd8";
+	pad9_ = "pd9";
+	pad10_ = "pd10";
+}
+
+OmicroTrxn::OmicroTrxn( const sstr &str )
+{
+    init( str.c_str() );
+    
 }
 
 OmicroTrxn::OmicroTrxn( const char *str )
 {
+    init( str );
+}
+
+void OmicroTrxn::init( const char *str )
+{
 	//d("a23338 OmicroTrxn ctor from string");
-	//d("a23338 str=[%s]", str);
+	//d("a23338 argument str=[%.257s]", str);
 
 	int i=0;
 	OmStrSplit sp(str, '|');
@@ -77,6 +102,8 @@ OmicroTrxn::OmicroTrxn( const char *str )
 
 	thdr_ = sp[i++]; 
 	srvport_ = sp[i++];
+
+    //d("a700329 in ctor of OmicroTrxn srvport_=[%s] cipher_=[%.100s] signature_=[%.100s]", s(srvport_), s(cipher_), s(signature_) );
 
 	#ifdef OM_DEBUG
 	nodepubkey_ = sp[i++];
@@ -169,9 +196,9 @@ void OmicroTrxn::makeNodeSignature( const sstr &nodePubKey)
 	#ifdef OM_DEBUG
 	nodepubkey_ = nodePubKey;
 	d("a222128 makeNodeSignature trxndata=[%s]", s(trxndata) );
-	d("a222128 makeNodeSignature cipher=[%s]", s(cipher_) );
-	d("a222128 makeNodeSignature signature=[%s]", s(signature_) );
-	d("a222128 makeNodeSignature nodepubkey=[%s]", s(nodePubKey) );
+	d("a222128 makeNodeSignature cipher=[%.100s]", s(cipher_) );
+	d("a222128 makeNodeSignature signature=[%.100s]", s(signature_) );
+	d("a222128 makeNodeSignature nodepubkey=[.100s]", s(nodePubKey) );
 	d("done makeNodeSignature\n");
 	#endif
 }
@@ -179,22 +206,27 @@ void OmicroTrxn::makeNodeSignature( const sstr &nodePubKey)
 void OmicroTrxn::allstr( sstr &alldata )
 {
 	sstr data;
+
 	getTrxnData( data );
+
 	alldata = data + "|" + cipher_ + "|" + signature_ + "|" 
 	          + userPubkey_ + "|" + userSignature_ + "|" + fence_
 			  + "|" + response_ + "|" + thdr_ + "|" + srvport_;
+
+    //d("a555509 OmicroTrxn::allstr  cipher_=[%.100s] signature_=[%.100s] userPubkey_=[%.80s] userSignature_=[%.80s] ", s(cipher_), s(signature_), s(userPubkey_), s(userSignature_) );
 
 	#ifdef OM_DEBUG
 	alldata += sstr("|") + nodepubkey_;
 	#endif
 }
 
+
 void OmicroTrxn::getTrxnID( sstr &id )
 {
 	id = timestamp_ + ":" + sender_;
 }
 
-bool OmicroTrxn::validateTrxn( const sstr &secretKey )
+bool OmicroTrxn::validateTrxn( const sstr &secretKey, bool checkTime )
 {
 	if ( sender_.size() > OM_NAME_MAXSZ ) {
 		i("E203938 sender_ too long", s(sender_) );
@@ -206,12 +238,14 @@ bool OmicroTrxn::validateTrxn( const sstr &secretKey )
 		return false;
 	}
 
-	ulong trxnTime = getTimeStampUS();
-	unsigned long nowt = getNowTimeUS();
-	if ( nowt - trxnTime > 5*60000000 ) {
-		i("E303376 error validateTrxn() more than 300 seconds" );
-		return false;
-	}
+    if ( checkTime ) {
+	    ulong trxnTime = getTimeStampUS();
+	    unsigned long nowt = getNowTimeUS();
+	    if ( nowt - trxnTime > 5*60000000 ) {
+		    i("E303376 error validateTrxn() more than 300 seconds" );
+		    return false;
+	    }
+    }
 
 	// signature verification
 	sstr trxndata;
@@ -396,7 +430,7 @@ void OmicroTrxn::makeUserSignature( const sstr &userSecretKey, const sstr &usrPu
 void OmicroTrxn::makeAcctQuery( const sstr &nodePubkey, const sstr &secretKey, 
 								const sstr &publicKey, const sstr &fromId )
 {
-	thdr_ = "IT";
+	thdr_ = "IT";  // trxn header
 	setID();
 	setBeacon();
 	srvport_ = "127.0.0.1:client";
@@ -474,6 +508,8 @@ void OmicroTrxn::makeOneTokenQuery( const sstr &nodePubkey, const sstr &secretKe
 	q.json( qstr );
 	request_ = qstr;
 
+    d("m304901 makeOneTokenQuery  request_=[%s]", s(request_) );
+
 	makeNodeSignature( nodePubkey );
 	makeUserSignature( secretKey, publicKey );
 }
@@ -504,3 +540,21 @@ void  OmicroTrxn::makeTokenTransfer( const sstr &nodePubkey,
 	makeNodeSignature( nodePubkey );
 	makeUserSignature( userSecretKey, userPublicKey );
 }
+
+std::string OmicroTrxn::getIniterIP()
+{
+    d("mx0001 in getIniterIP srvport_=[%s]", s(srvport_) );
+	OmStrSplit sp(srvport_, ':');
+    d("mx00001 in getIniterIP ip=[%s]", s(sp[0]) );
+    return sp[0];
+}
+
+std::string OmicroTrxn::getIniterPort()
+{
+    d("mx0002 in getIniterIP srvport_=[%s]", s(srvport_) );
+	OmStrSplit sp(srvport_, ':');
+    d("mx00002 in getIniterPort port=[%s]", s(sp[1]) );
+    return sp[1];
+}
+
+

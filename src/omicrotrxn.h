@@ -20,7 +20,10 @@ class OmicroTrxn
   public:
   	OmicroTrxn();
   	OmicroTrxn(const char *str);
+  	OmicroTrxn(const std::string &str );
   	~OmicroTrxn();
+
+    void init( const char *str);
 
 	char *getID();
 	void setID();
@@ -57,11 +60,13 @@ class OmicroTrxn
 	void  setXit( unsigned char xit);
 	unsigned char  getXit();
 	bool  isInitTrxn();
-	bool  validateTrxn( const std::string &skey );
+	bool  validateTrxn( const std::string &skey, bool checkTime=true );
 	void  getTrxnData( std::string &data );
 
 	void makeNodeSignature( const std::string &nodePubKey );
 	void makeUserSignature( const std::string &userSecretKey, const std::string &usrPubkey );
+    std::string getIniterIP();
+    std::string getIniterPort();
 
 	// data members
 	// If order is changed, update BlockMgr::readTrxns() too

@@ -45,6 +45,7 @@ bool TrxnState::goState( Byte level, const sstr &trxnid, Byte transit )
 {
 	Byte curState;
 	OmStateItr itr;
+
 	itr = stateMap_.find( trxnid );
 	if ( itr == stateMap_.end() ) {
 		curState = ST_0;
@@ -63,12 +64,14 @@ bool TrxnState::goState( Byte level, const sstr &trxnid, Byte transit )
 }
 
 // prevXitc == ST_0 meaning trxnid does not exist in stateMap_
+// itr is pointer to trxnid in stateMap_
 bool TrxnState::goStateL2( const sstr &trxnid, Byte transit, Byte curState, OmStateItr itr )
 {
 	OmState st;
 	Byte nextState;
 
 	if ( curState == ST_0 && transit == XIT_i ) {
+	    d("a00230 init curState=%d xit=%c origtrxnid=%s nextState=ST_A", curState, transit, trxnid.c_str() );
 		nextState = ST_A;
 	} else if ( (curState == ST_A || curState == ST_B) && transit == XIT_j ) {
 		nextState = ST_B;
@@ -79,6 +82,7 @@ bool TrxnState::goStateL2( const sstr &trxnid, Byte transit, Byte curState, OmSt
 	} else if ( (curState == ST_D || curState == ST_E) && transit == XIT_m ) {
 		nextState = ST_E;
 	} else if ( (curState == ST_E || curState == ST_F ) && transit == XIT_n ) {
+	    d("a00248 final curState=%d xit=%c origtrxnid=%s  nextState=ST_F", curState, transit, trxnid.c_str() );
 		nextState = ST_F;
 	} else {
 		d("a62330 TrxnState::goStateL2 curState=[%c] transit=[%c] not allowed", char(curState), char(transit) );

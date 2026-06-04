@@ -3,7 +3,7 @@
 arg=$1
 
 cd build
-if [[ "$arg" = "f" ]]; then
+if [[ "$arg" = "clean" ]]; then
 	make clean
 fi
 ./compile.sh

@@ -167,7 +167,7 @@ bool DynamicCircuit::isLeader( const sstr &beacon, const sstr &srvid, bool getFo
 	XXH64_hash_t hash;
 	hash = XXH64( srvid.c_str(), srvid.size(), seed ) % len;
 	int zoneid =  hash / dd;
-	d("a22201 isLeader check srvid=[%s] zoneid=%d seed=%d len=%d numFullZones=%d dd=%d", s(srvid), zoneid, seed, len, numFullZones, dd );
+	d("a22201 isLeader check getFollowers=%d srvid=[%s] zoneid=%d seed=%d len=%d numFullZones=%d dd=%d", getFollowers,  s(srvid), zoneid, seed, len, numFullZones, dd );
 
 	int zone;
 	bool isLeader = false;
