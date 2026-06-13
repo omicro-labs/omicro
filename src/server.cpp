@@ -64,8 +64,18 @@ OmServer::OmServer( boost::asio::io_context &io_context, const sstr &srvip, cons
 	blockMgr_.setSrvPort( address_, port_);
 	blockMgr_.setDataDir( dataDir );
 
-    // todo
-	blockMgr_.replayLocalWallog( 0 );
+    
+    char *pplay = getenv("REPLAY_WALLOG");
+    if ( pplay && strcmp(pplay, "YES") ) {
+	    blockMgr_.replayLocalWallog( 0 );
+        /*** or replay any wallog file
+        bool verifyTrxn = false;
+        time_t start = 0;
+        time_t end = 2000000000; can be ommited for default max time
+        blockMgr_.replayWallog( const sstr &logfpath, bool verifyTrxn, time_t start, time_t  end );
+        ***/
+    }
+
 
 	cleanupTimer_ = new btimer( io_context_ );
 
